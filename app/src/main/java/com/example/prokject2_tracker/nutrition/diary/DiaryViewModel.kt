@@ -4,6 +4,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.prokject2_tracker.core.datastore.UserPreferencesRepository
 import com.example.prokject2_tracker.core.util.DateUtils
+import com.example.prokject2_tracker.fluid.FluidEntry
+import com.example.prokject2_tracker.fluid.FluidRepository
+import com.example.prokject2_tracker.fluid.FluidType
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -21,12 +24,16 @@ data class DiaryDayUiState(
     val entriesByMeal: Map<MealType, List<DiaryEntry>>,
     val totalKcal: Double,
     val calorieGoalKcal: Double,
+    val fluidEntries: List<FluidEntry> = emptyList(),
+    val fluidTotalMl: Double = 0.0,
+    val fluidGoalMl: Double = 2000.0,
 )
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class DiaryViewModel @Inject constructor(
     private val diaryRepository: DiaryRepository,
+    private val fluidRepository: FluidRepository,
     userPreferencesRepository: UserPreferencesRepository,
 ) : ViewModel() {
     private val _selectedEpochDay = MutableStateFlow(DateUtils.todayEpochDay())
@@ -38,12 +45,17 @@ class DiaryViewModel @Inject constructor(
                 diaryRepository.observeForDay(epochDay),
                 diaryRepository.observeDayTotalKcal(epochDay),
                 userPreferencesRepository.userPreferences,
-            ) { entries, total, prefs ->
+                fluidRepository.observeForDay(epochDay),
+                fluidRepository.observeDayTotalMl(epochDay),
+            ) { entries, total, prefs, fluidEntries, fluidTotal ->
                 DiaryDayUiState(
                     epochDay = epochDay,
                     entriesByMeal = entries.groupBy { it.mealType },
                     totalKcal = total,
                     calorieGoalKcal = prefs.dailyCalorieGoalKcal,
+                    fluidEntries = fluidEntries,
+                    fluidTotalMl = fluidTotal,
+                    fluidGoalMl = prefs.dailyWaterGoalMl,
                 )
             }
         }
@@ -67,5 +79,13 @@ class DiaryViewModel @Inject constructor(
 
     fun deleteEntry(entry: DiaryEntry) {
         viewModelScope.launch { diaryRepository.delete(entry) }
+    }
+
+    fun quickAddFluid(type: FluidType, amountMl: Double) {
+        viewModelScope.launch { fluidRepository.logFluid(_selectedEpochDay.value, type, amountMl) }
+    }
+
+    fun deleteFluidEntry(entry: FluidEntry) {
+        viewModelScope.launch { fluidRepository.delete(entry) }
     }
 }

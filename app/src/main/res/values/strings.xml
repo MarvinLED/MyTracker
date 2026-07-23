@@ -2,5 +2,6 @@
     <string name="app_name">Prokject2_Tracker</string>
     <string name="nav_diary">Tagebuch</string>
     <string name="nav_library">Bibliothek</string>
+    <string name="nav_fitness">Fitness</string>
     <string name="nav_analyse">Analyse</string>
 </resources>

@@ -35,6 +35,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.prokject2_tracker.core.util.DateUtils
 import com.example.prokject2_tracker.core.util.formatCompact
+import com.example.prokject2_tracker.fluid.FluidSection
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
@@ -77,12 +78,21 @@ fun DiaryScreen(
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
             DayTotalCard(uiState)
+            FluidSection(
+                totalMl = uiState.fluidTotalMl,
+                goalMl = uiState.fluidGoalMl,
+                entries = uiState.fluidEntries,
+                onQuickAdd = viewModel::quickAddFluid,
+                onDelete = viewModel::deleteFluidEntry,
+                modifier = Modifier.padding(horizontal = 16.dp),
+            )
             if (uiState.entriesByMeal.isEmpty()) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Box(modifier = Modifier.weight(1f).fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text("Noch nichts für diesen Tag geloggt.")
                 }
             } else {
                 LazyColumn(
+                    modifier = Modifier.weight(1f),
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {

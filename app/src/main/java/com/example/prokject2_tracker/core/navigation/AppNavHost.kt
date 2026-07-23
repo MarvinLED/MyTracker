@@ -7,6 +7,10 @@ import androidx.navigation.compose.composable
 import androidx.compose.ui.Modifier
 import com.example.prokject2_tracker.analyse.AnalyseRoute
 import com.example.prokject2_tracker.analyse.AnalyseScreen
+import com.example.prokject2_tracker.fitness.FitnessRoute
+import com.example.prokject2_tracker.fitness.FitnessScreen
+import com.example.prokject2_tracker.fitness.cardio.CardioEditRoute
+import com.example.prokject2_tracker.fitness.cardio.CardioEditScreen
 import com.example.prokject2_tracker.nutrition.diary.DiaryAddEntryRoute
 import com.example.prokject2_tracker.nutrition.diary.DiaryAddEntryScreen
 import com.example.prokject2_tracker.nutrition.diary.DiaryRoute
@@ -58,6 +62,15 @@ fun AppNavHost(
         }
         composable<AnalyseRoute> {
             AnalyseScreen()
+        }
+        composable<FitnessRoute> {
+            FitnessScreen(
+                onAddCardioSession = { navController.navigate(CardioEditRoute()) },
+                onEditCardioSession = { sessionId -> navController.navigate(CardioEditRoute(sessionId = sessionId)) },
+            )
+        }
+        composable<CardioEditRoute> {
+            CardioEditScreen(onDone = { navController.popBackStack() })
         }
     }
 }
