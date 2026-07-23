@@ -1,0 +1,40 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Android: Start Emulator (Pixel_10)",
+            "type": "shell",
+            "command": "/home/user/Android/Sdk/emulator/emulator",
+            "args": ["-avd", "Pixel_10"],
+            "isBackground": true,
+            "problemMatcher": [],
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated",
+                "group": "emulator"
+            },
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        },
+        {
+            "label": "Android: List Emulators",
+            "type": "shell",
+            "command": "/home/user/Android/Sdk/emulator/emulator",
+            "args": ["-list-avds"],
+            "problemMatcher": []
+        },
+        {
+            "label": "Android: Install & Run App",
+            "type": "shell",
+            "command": "${workspaceFolder}/.vscode/run-app.sh",
+            "problemMatcher": [],
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated",
+                "group": "emulator"
+            }
+        }
+    ]
+}
