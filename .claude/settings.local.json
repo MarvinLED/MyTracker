@@ -1,7 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Bash(./gradlew assembleDebug --console=plain)"
+      "Bash(./gradlew assembleDebug --console=plain)",
+      "Bash(git push *)"
     ]
   }
 }

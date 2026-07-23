@@ -33,7 +33,7 @@ class LibraryBackupRepository @Inject constructor(
 
     suspend fun importFromJson(rawJson: String) {
         val root = json.parseToJsonElement(rawJson).jsonObject
-        exportProviders.forEach { provider ->
+        exportProviders.sortedBy { it.importPriority }.forEach { provider ->
             root[provider.key]?.let { provider.import(it) }
         }
     }

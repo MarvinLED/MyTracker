@@ -13,4 +13,6 @@ object DateUtils {
 
     fun epochDayOfMillis(epochMillis: Long, zoneId: ZoneId = ZoneId.systemDefault()): Long =
         epochDayOf(Instant.ofEpochMilli(epochMillis), zoneId)
+
+    fun localDateOfEpochDay(epochDay: Long): LocalDate = LocalDate.ofEpochDay(epochDay)
 }
