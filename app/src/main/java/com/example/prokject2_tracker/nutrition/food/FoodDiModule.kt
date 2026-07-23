@@ -13,4 +13,8 @@ interface FoodDiModule {
     @Binds
     @IntoSet
     fun bindFoodLibraryExportProvider(impl: FoodLibraryExportProvider): LibraryExportProvider
+
+    @Binds
+    @IntoSet
+    fun bindTagLibraryExportProvider(impl: TagLibraryExportProvider): LibraryExportProvider
 }

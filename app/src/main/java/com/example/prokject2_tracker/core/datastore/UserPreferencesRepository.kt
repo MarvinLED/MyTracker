@@ -23,6 +23,13 @@ data class UserPreferences(
     val dailyCalorieGoalKcal: Double,
     val dailyWaterGoalMl: Double,
     val weightUnit: WeightUnit,
+    val dailyProteinGoalG: Double? = null,
+    val dailyCarbsGoalG: Double? = null,
+    val dailyFatGoalG: Double? = null,
+    val dailySaturatedFatGoalG: Double? = null,
+    val dailySugarGoalG: Double? = null,
+    val dailyFiberGoalG: Double? = null,
+    val dailySaltGoalG: Double? = null,
 )
 
 @Singleton
@@ -33,6 +40,13 @@ class UserPreferencesRepository @Inject constructor(
         val CALORIE_GOAL = doublePreferencesKey("daily_calorie_goal_kcal")
         val WATER_GOAL = doublePreferencesKey("daily_water_goal_ml")
         val WEIGHT_UNIT = stringPreferencesKey("weight_unit")
+        val PROTEIN_GOAL = doublePreferencesKey("daily_protein_goal_g")
+        val CARBS_GOAL = doublePreferencesKey("daily_carbs_goal_g")
+        val FAT_GOAL = doublePreferencesKey("daily_fat_goal_g")
+        val SATURATED_FAT_GOAL = doublePreferencesKey("daily_saturated_fat_goal_g")
+        val SUGAR_GOAL = doublePreferencesKey("daily_sugar_goal_g")
+        val FIBER_GOAL = doublePreferencesKey("daily_fiber_goal_g")
+        val SALT_GOAL = doublePreferencesKey("daily_salt_goal_g")
     }
 
     val userPreferences: Flow<UserPreferences> = context.userPreferencesDataStore.data.map { prefs ->
@@ -40,6 +54,13 @@ class UserPreferencesRepository @Inject constructor(
             dailyCalorieGoalKcal = prefs[Keys.CALORIE_GOAL] ?: 2000.0,
             dailyWaterGoalMl = prefs[Keys.WATER_GOAL] ?: 2000.0,
             weightUnit = prefs[Keys.WEIGHT_UNIT]?.let { WeightUnit.valueOf(it) } ?: WeightUnit.KG,
+            dailyProteinGoalG = prefs[Keys.PROTEIN_GOAL],
+            dailyCarbsGoalG = prefs[Keys.CARBS_GOAL],
+            dailyFatGoalG = prefs[Keys.FAT_GOAL],
+            dailySaturatedFatGoalG = prefs[Keys.SATURATED_FAT_GOAL],
+            dailySugarGoalG = prefs[Keys.SUGAR_GOAL],
+            dailyFiberGoalG = prefs[Keys.FIBER_GOAL],
+            dailySaltGoalG = prefs[Keys.SALT_GOAL],
         )
     }
 
@@ -53,5 +74,19 @@ class UserPreferencesRepository @Inject constructor(
 
     suspend fun setWeightUnit(unit: WeightUnit) {
         context.userPreferencesDataStore.edit { it[Keys.WEIGHT_UNIT] = unit.name }
+    }
+
+    suspend fun setDailyProteinGoal(g: Double?) = setOrRemove(Keys.PROTEIN_GOAL, g)
+    suspend fun setDailyCarbsGoal(g: Double?) = setOrRemove(Keys.CARBS_GOAL, g)
+    suspend fun setDailyFatGoal(g: Double?) = setOrRemove(Keys.FAT_GOAL, g)
+    suspend fun setDailySaturatedFatGoal(g: Double?) = setOrRemove(Keys.SATURATED_FAT_GOAL, g)
+    suspend fun setDailySugarGoal(g: Double?) = setOrRemove(Keys.SUGAR_GOAL, g)
+    suspend fun setDailyFiberGoal(g: Double?) = setOrRemove(Keys.FIBER_GOAL, g)
+    suspend fun setDailySaltGoal(g: Double?) = setOrRemove(Keys.SALT_GOAL, g)
+
+    private suspend fun setOrRemove(key: Preferences.Key<Double>, value: Double?) {
+        context.userPreferencesDataStore.edit { prefs ->
+            if (value == null) prefs.remove(key) else prefs[key] = value
+        }
     }
 }

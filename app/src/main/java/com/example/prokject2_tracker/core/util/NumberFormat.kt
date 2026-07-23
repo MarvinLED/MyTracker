@@ -12,3 +12,9 @@ fun Double.formatCompact(): String =
 
 /** Parses a decimal number typed with either ',' or '.' as the decimal separator. */
 fun String.toLocaleDoubleOrNull(): Double? = replace(',', '.').toDoubleOrNull()
+
+/** Up to [maxDecimals] decimal places, trimming trailing zeros — e.g. formatDecimal(3): 1.5 -> "1,5", 0.03 -> "0,03". */
+fun Double.formatDecimal(maxDecimals: Int): String {
+    val text = String.format(Locale.GERMAN, "%.${maxDecimals}f", this)
+    return if (text.contains(',')) text.trimEnd('0').trimEnd(',') else text
+}

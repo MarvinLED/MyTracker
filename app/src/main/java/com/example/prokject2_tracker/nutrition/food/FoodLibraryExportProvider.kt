@@ -26,9 +26,10 @@ data class FoodItemDto(
     val servingAmount: Double? = null,
     val createdAtEpochMillis: Long,
     val updatedAtEpochMillis: Long,
+    val tagIds: List<String> = emptyList(),
 )
 
-private fun FoodItem.toDto() = FoodItemDto(
+private fun FoodItem.toDto(tagIds: List<String>) = FoodItemDto(
     id = id,
     name = name,
     baseUnit = baseUnit,
@@ -44,6 +45,7 @@ private fun FoodItem.toDto() = FoodItemDto(
     servingAmount = servingAmount,
     createdAtEpochMillis = createdAt.toEpochMilli(),
     updatedAtEpochMillis = updatedAt.toEpochMilli(),
+    tagIds = tagIds,
 )
 
 private fun FoodItemDto.toEntity() = FoodItem(
@@ -64,15 +66,23 @@ private fun FoodItemDto.toEntity() = FoodItem(
     updatedAt = Instant.ofEpochMilli(updatedAtEpochMillis),
 )
 
+/** Imported after `"tags"` (see [importPriority]) since [FoodItemDto.tagIds] are foreign keys into that data. */
 class FoodLibraryExportProvider @Inject constructor(
     private val foodDao: FoodDao,
+    private val tagDao: TagDao,
 ) : LibraryExportProvider {
     override val key = "foods"
+    override val importPriority = 5
 
     private val json = Json { ignoreUnknownKeys = true }
 
-    override suspend fun export(): JsonElement =
-        json.encodeToJsonElement(foodDao.getAllOnce().map { it.toDto() })
+    override suspend fun export(): JsonElement {
+        val dtos = foodDao.getAllOnce().map { food ->
+            val tagIds = tagDao.getCrossRefsForFood(food.id).map { it.tagId }
+            food.toDto(tagIds)
+        }
+        return json.encodeToJsonElement(dtos)
+    }
 
     override suspend fun import(json: JsonElement) {
         val dtos = this.json.decodeFromJsonElement<List<FoodItemDto>>(json)
@@ -80,6 +90,7 @@ class FoodLibraryExportProvider @Inject constructor(
             val existing = foodDao.getById(dto.id)
             if (existing == null || dto.updatedAtEpochMillis > existing.updatedAt.toEpochMilli()) {
                 foodDao.upsert(dto.toEntity())
+                tagDao.replaceFoodTags(dto.id, dto.tagIds)
             }
         }
     }

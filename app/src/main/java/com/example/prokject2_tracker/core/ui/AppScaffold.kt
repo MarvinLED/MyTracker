@@ -1,7 +1,11 @@
 package com.example.prokject2_tracker.core.ui
 
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -73,6 +77,10 @@ fun AppScaffold() {
     ) {
         Scaffold(
             modifier = Modifier.fillMaxSize(),
+            // Each screen's own TopAppBar already handles the status bar inset; without this,
+            // Scaffold's default insets reserve that space a second time, leaving an empty strip
+            // above every screen's top bar.
+            contentWindowInsets = WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal),
             bottomBar = {
                 NavigationBar {
                     destinations.forEach { destination ->

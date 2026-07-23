@@ -13,6 +13,8 @@ import com.example.prokject2_tracker.fluid.FluidDao
 import com.example.prokject2_tracker.fluid.FluidEntry
 import com.example.prokject2_tracker.fluid.FluidType
 import com.example.prokject2_tracker.fluid.FluidTypeDao
+import com.example.prokject2_tracker.fluid.FluidUnit
+import com.example.prokject2_tracker.fluid.FluidUnitDao
 import com.example.prokject2_tracker.habit.Habit
 import com.example.prokject2_tracker.habit.HabitCheckIn
 import com.example.prokject2_tracker.habit.HabitCheckInDao
@@ -21,6 +23,9 @@ import com.example.prokject2_tracker.nutrition.diary.DiaryDao
 import com.example.prokject2_tracker.nutrition.diary.DiaryEntry
 import com.example.prokject2_tracker.nutrition.food.FoodDao
 import com.example.prokject2_tracker.nutrition.food.FoodItem
+import com.example.prokject2_tracker.nutrition.food.FoodItemTag
+import com.example.prokject2_tracker.nutrition.food.Tag
+import com.example.prokject2_tracker.nutrition.food.TagDao
 import com.example.prokject2_tracker.nutrition.recipe.Recipe
 import com.example.prokject2_tracker.nutrition.recipe.RecipeDao
 import com.example.prokject2_tracker.nutrition.recipe.RecipeIngredient
@@ -33,13 +38,16 @@ import com.example.prokject2_tracker.nutrition.recipe.RecipeIngredient
         DiaryEntry::class,
         FluidEntry::class,
         FluidType::class,
+        FluidUnit::class,
         CardioSession::class,
         StrengthExercise::class,
         StrengthLogEntry::class,
         Habit::class,
         HabitCheckIn::class,
+        Tag::class,
+        FoodItemTag::class,
     ],
-    version = 5,
+    version = 6,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -49,9 +57,11 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun diaryDao(): DiaryDao
     abstract fun fluidDao(): FluidDao
     abstract fun fluidTypeDao(): FluidTypeDao
+    abstract fun fluidUnitDao(): FluidUnitDao
     abstract fun cardioDao(): CardioDao
     abstract fun strengthExerciseDao(): StrengthExerciseDao
     abstract fun strengthLogDao(): StrengthLogDao
     abstract fun habitDao(): HabitDao
     abstract fun habitCheckInDao(): HabitCheckInDao
+    abstract fun tagDao(): TagDao
 }

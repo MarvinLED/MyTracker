@@ -3,6 +3,7 @@
     <string name="nav_diary">Tagebuch</string>
     <string name="nav_fluid">Flüssigkeiten</string>
     <string name="nav_library">Bibliothek</string>
+    <string name="nav_goals">Ziele</string>
     <string name="nav_fitness">Fitness</string>
     <string name="nav_habit">Habits</string>
     <string name="nav_analyse">Analyse</string>

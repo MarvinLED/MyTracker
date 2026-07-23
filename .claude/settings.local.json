@@ -3,7 +3,9 @@
     "allow": [
       "Bash(./gradlew assembleDebug --console=plain)",
       "Bash(git push *)",
-      "Bash(./gradlew compileDebugKotlin --console=plain -q)"
+      "Bash(./gradlew compileDebugKotlin --console=plain -q)",
+      "Bash(/home/user/Android/Sdk/platform-tools/adb shell *)",
+      "Bash(/home/user/Android/Sdk/platform-tools/adb pull *)"
     ]
   }
 }

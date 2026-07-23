@@ -19,6 +19,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -43,6 +44,7 @@ fun FoodListContent(
 ) {
     val foods by viewModel.foods.collectAsState()
     val query by viewModel.query.collectAsState()
+    val tagsByFoodId by viewModel.tagsByFoodId.collectAsState()
     var blockedDeleteFood by remember { mutableStateOf<FoodItem?>(null) }
 
     Box(modifier = modifier.fillMaxSize()) {
@@ -76,6 +78,14 @@ fun FoodListContent(
                                     Text(food.name)
                                     val unit = if (food.baseUnit == BaseUnit.G) "100 g" else "100 ml"
                                     Text("${food.kcalPer100.formatCompact()} kcal / $unit")
+                                    val tags = tagsByFoodId[food.id].orEmpty()
+                                    if (tags.isNotEmpty()) {
+                                        Text(
+                                            tags.joinToString(" · ") { it.name },
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    }
                                 }
                                 IconButton(onClick = {
                                     viewModel.deleteIfUnused(food) { blockedDeleteFood = food }

@@ -3,10 +3,13 @@ package com.example.prokject2_tracker.nutrition.diary
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -14,6 +17,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -38,6 +42,8 @@ import com.example.prokject2_tracker.nutrition.food.BaseUnit
 @Composable
 fun DiaryAddEntryScreen(
     onDone: () -> Unit,
+    onCreateFood: () -> Unit,
+    onCreateRecipe: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: DiaryAddEntryViewModel = hiltViewModel(),
 ) {
@@ -120,6 +126,15 @@ fun DiaryAddEntryScreen(
                     }
                 }
             }
+            TextButton(
+                onClick = { if (sourceType == DiarySourceType.FOOD) onCreateFood() else onCreateRecipe() },
+            ) {
+                Icon(Icons.Filled.Add, contentDescription = null)
+                Spacer(Modifier.width(4.dp))
+                Text(
+                    if (sourceType == DiarySourceType.FOOD) "Neues Lebensmittel anlegen" else "Neues Rezept anlegen",
+                )
+            }
 
             val amountLabel = when {
                 selectedFood != null -> if (selectedFood?.baseUnit == BaseUnit.G) "Menge (g)" else "Menge (ml)"
@@ -150,7 +165,10 @@ fun DiaryAddEntryScreen(
             }
 
             Text("Mahlzeit")
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
                 MealType.entries.forEach { type ->
                     FilterChip(
                         selected = mealType == type,

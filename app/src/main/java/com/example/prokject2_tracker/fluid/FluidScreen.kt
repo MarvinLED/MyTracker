@@ -46,25 +46,26 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.prokject2_tracker.core.util.DateUtils
-import com.example.prokject2_tracker.core.util.formatCompact
+import com.example.prokject2_tracker.core.util.formatDecimal
 import java.time.format.DateTimeFormatter
 import java.util.Locale
-
-private val PRESET_AMOUNTS_ML = listOf(100.0, 150.0, 200.0, 250.0, 300.0, 330.0, 400.0, 500.0, 750.0, 1000.0)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FluidScreen(
     onOpenDrawer: () -> Unit,
     onOpenTypeManagement: () -> Unit,
+    onOpenUnitManagement: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: FluidViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val types by viewModel.types.collectAsState()
+    val units by viewModel.units.collectAsState()
     var expandedType by remember { mutableStateOf<String?>(null) }
     var showMenu by remember { mutableStateOf(false) }
     val dateFormatter = remember { DateTimeFormatter.ofPattern("EEEE, d. MMMM", Locale.GERMAN) }
@@ -105,6 +106,13 @@ fun FluidScreen(
                                 onOpenTypeManagement()
                             },
                         )
+                        DropdownMenuItem(
+                            text = { Text("Maßeinheiten verwalten") },
+                            onClick = {
+                                showMenu = false
+                                onOpenUnitManagement()
+                            },
+                        )
                     }
                 },
             )
@@ -120,7 +128,7 @@ fun FluidScreen(
             Card(modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(
-                        "${uiState.totalMl.formatCompact()} / ${uiState.goalMl.formatCompact()} ml",
+                        "${uiState.totalMl.formatDecimal(3)} / ${uiState.goalMl.formatDecimal(3)} ml",
                         style = MaterialTheme.typography.titleMedium,
                     )
                     val progress = if (uiState.goalMl > 0) {
@@ -140,13 +148,13 @@ fun FluidScreen(
                     types.forEach { type ->
                         AssistChip(
                             onClick = { viewModel.quickAdd(type, type.defaultQuickAddMl) },
-                            label = { Text("${type.name} +${type.defaultQuickAddMl.formatCompact()}") },
+                            label = { Text("${type.name} +${type.defaultQuickAddMl.formatDecimal(3)}") },
                         )
                     }
                 }
             }
 
-            AddFluidRow(types = types, onAdd = viewModel::quickAdd)
+            AddFluidRow(types = types, units = units, onAdd = viewModel::addWithUnit)
 
             if (uiState.entries.isEmpty()) {
                 Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
@@ -183,7 +191,7 @@ fun FluidScreen(
                             modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Text("${entry.amountMl.formatCompact()} ml", modifier = Modifier.weight(1f))
+                            Text("${entry.amountMl.formatDecimal(3)} ml", modifier = Modifier.weight(1f))
                             IconButton(onClick = { viewModel.delete(entry) }) {
                                 Icon(Icons.Filled.Close, contentDescription = "Löschen")
                             }
@@ -200,11 +208,11 @@ fun FluidScreen(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun AddFluidRow(types: List<FluidType>, onAdd: (FluidType, Double) -> Unit) {
+private fun AddFluidRow(types: List<FluidType>, units: List<FluidUnit>, onAdd: (FluidType, FluidUnit) -> Unit) {
     var selectedType by remember { mutableStateOf<FluidType?>(null) }
-    var selectedAmount by remember { mutableStateOf<Double?>(null) }
+    var selectedUnit by remember { mutableStateOf<FluidUnit?>(null) }
     var typeMenuExpanded by remember { mutableStateOf(false) }
-    var amountMenuExpanded by remember { mutableStateOf(false) }
+    var unitMenuExpanded by remember { mutableStateOf(false) }
 
     Row(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -214,14 +222,14 @@ private fun AddFluidRow(types: List<FluidType>, onAdd: (FluidType, Double) -> Un
         ExposedDropdownMenuBox(
             expanded = typeMenuExpanded,
             onExpandedChange = { typeMenuExpanded = it },
-            modifier = Modifier.weight(1f),
+            modifier = Modifier.weight(1.2f),
         ) {
             OutlinedTextField(
                 modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable, true).fillMaxWidth(),
                 readOnly = true,
                 value = selectedType?.name.orEmpty(),
                 onValueChange = {},
-                label = { Text("Flüssigkeit") },
+                label = { Text("Flüssigkeit", maxLines = 1, overflow = TextOverflow.Ellipsis) },
                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = typeMenuExpanded) },
             )
             ExposedDropdownMenu(
@@ -241,28 +249,28 @@ private fun AddFluidRow(types: List<FluidType>, onAdd: (FluidType, Double) -> Un
         }
 
         ExposedDropdownMenuBox(
-            expanded = amountMenuExpanded,
-            onExpandedChange = { amountMenuExpanded = it },
-            modifier = Modifier.width(120.dp),
+            expanded = unitMenuExpanded,
+            onExpandedChange = { unitMenuExpanded = it },
+            modifier = Modifier.weight(1f),
         ) {
             OutlinedTextField(
                 modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable, true).fillMaxWidth(),
                 readOnly = true,
-                value = selectedAmount?.let { "${it.formatCompact()} ml" }.orEmpty(),
+                value = selectedUnit?.name.orEmpty(),
                 onValueChange = {},
-                label = { Text("Menge") },
-                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = amountMenuExpanded) },
+                label = { Text("Menge", maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = unitMenuExpanded) },
             )
             ExposedDropdownMenu(
-                expanded = amountMenuExpanded,
-                onDismissRequest = { amountMenuExpanded = false },
+                expanded = unitMenuExpanded,
+                onDismissRequest = { unitMenuExpanded = false },
             ) {
-                PRESET_AMOUNTS_ML.forEach { amount ->
+                units.forEach { unit ->
                     DropdownMenuItem(
-                        text = { Text("${amount.formatCompact()} ml") },
+                        text = { Text(unit.name) },
                         onClick = {
-                            selectedAmount = amount
-                            amountMenuExpanded = false
+                            selectedUnit = unit
+                            unitMenuExpanded = false
                         },
                     )
                 }
@@ -272,14 +280,14 @@ private fun AddFluidRow(types: List<FluidType>, onAdd: (FluidType, Double) -> Un
         IconButton(
             onClick = {
                 val type = selectedType
-                val amount = selectedAmount
-                if (type != null && amount != null) {
-                    onAdd(type, amount)
+                val unit = selectedUnit
+                if (type != null && unit != null) {
+                    onAdd(type, unit)
                     selectedType = null
-                    selectedAmount = null
+                    selectedUnit = null
                 }
             },
-            enabled = selectedType != null && selectedAmount != null,
+            enabled = selectedType != null && selectedUnit != null,
         ) {
             Icon(Icons.Filled.Add, contentDescription = "Getränk hinzufügen")
         }
@@ -293,9 +301,9 @@ private fun List<FluidEntry>.groupedSummaryLines(): List<Pair<String, String>> =
         .sortedBy { (_, entries) -> entries.minOf { it.createdAt } }
         .map { (typeId, entries) ->
             val totalLiters = entries.sumOf { it.amountMl } / 1000.0
-            val liters = String.format(Locale.GERMAN, "%.1f", totalLiters)
+            val liters = totalLiters.formatDecimal(3)
             val breakdown = entries
                 .sortedBy { it.createdAt }
-                .joinToString("+") { "${it.amountMl.formatCompact()}ml" }
+                .joinToString("+") { "${it.amountMl.formatDecimal(3)}ml" }
             typeId to "-${liters}l ${entries.first().fluidTypeName} ($breakdown)"
         }

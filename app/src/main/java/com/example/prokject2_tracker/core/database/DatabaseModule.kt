@@ -7,10 +7,12 @@ import com.example.prokject2_tracker.fitness.strength.StrengthExerciseDao
 import com.example.prokject2_tracker.fitness.strength.StrengthLogDao
 import com.example.prokject2_tracker.fluid.FluidDao
 import com.example.prokject2_tracker.fluid.FluidTypeDao
+import com.example.prokject2_tracker.fluid.FluidUnitDao
 import com.example.prokject2_tracker.habit.HabitCheckInDao
 import com.example.prokject2_tracker.habit.HabitDao
 import com.example.prokject2_tracker.nutrition.diary.DiaryDao
 import com.example.prokject2_tracker.nutrition.food.FoodDao
+import com.example.prokject2_tracker.nutrition.food.TagDao
 import com.example.prokject2_tracker.nutrition.recipe.RecipeDao
 import dagger.Module
 import dagger.Provides
@@ -45,6 +47,12 @@ object DatabaseModule {
 
     @Provides
     fun provideFluidTypeDao(database: AppDatabase): FluidTypeDao = database.fluidTypeDao()
+
+    @Provides
+    fun provideFluidUnitDao(database: AppDatabase): FluidUnitDao = database.fluidUnitDao()
+
+    @Provides
+    fun provideTagDao(database: AppDatabase): TagDao = database.tagDao()
 
     @Provides
     fun provideCardioDao(database: AppDatabase): CardioDao = database.cardioDao()

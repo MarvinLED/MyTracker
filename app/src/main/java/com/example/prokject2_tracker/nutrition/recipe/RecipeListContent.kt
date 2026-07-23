@@ -18,6 +18,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -63,6 +64,13 @@ fun RecipeListContent(
                                     "${item.perServing.kcal.formatCompact()} kcal / Portion " +
                                         "(${item.recipe.servings.formatCompact()} Portionen)",
                                 )
+                                if (item.tags.isNotEmpty()) {
+                                    Text(
+                                        item.tags.joinToString(" · ") { it.name },
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
                             }
                             IconButton(onClick = { viewModel.delete(item.recipe) }) {
                                 Icon(Icons.Filled.Delete, contentDescription = "Löschen")

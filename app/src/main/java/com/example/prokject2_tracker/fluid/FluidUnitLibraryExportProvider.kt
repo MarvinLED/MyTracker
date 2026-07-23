@@ -10,53 +10,47 @@ import kotlinx.serialization.json.decodeFromJsonElement
 import kotlinx.serialization.json.encodeToJsonElement
 
 @Serializable
-data class FluidTypeDto(
+data class FluidUnitDto(
     val id: String,
     val name: String,
-    val defaultQuickAddMl: Double,
+    val amountMl: Double,
     val sortOrder: Int,
     val createdAtEpochMillis: Long,
-    val dailyGoalMinMl: Double? = null,
-    val dailyGoalMaxMl: Double? = null,
 )
 
-private fun FluidType.toDto() = FluidTypeDto(
+private fun FluidUnit.toDto() = FluidUnitDto(
     id = id,
     name = name,
-    defaultQuickAddMl = defaultQuickAddMl,
+    amountMl = amountMl,
     sortOrder = sortOrder,
     createdAtEpochMillis = createdAt.toEpochMilli(),
-    dailyGoalMinMl = dailyGoalMinMl,
-    dailyGoalMaxMl = dailyGoalMaxMl,
 )
 
-private fun FluidTypeDto.toEntity() = FluidType(
+private fun FluidUnitDto.toEntity() = FluidUnit(
     id = id,
     name = name,
-    defaultQuickAddMl = defaultQuickAddMl,
+    amountMl = amountMl,
     sortOrder = sortOrder,
     createdAt = Instant.ofEpochMilli(createdAtEpochMillis),
-    dailyGoalMinMl = dailyGoalMinMl,
-    dailyGoalMaxMl = dailyGoalMaxMl,
 )
 
-/** Exports/imports drink-type definitions only — logged fluid entries are tracked data and never included. */
-class FluidTypeLibraryExportProvider @Inject constructor(
-    private val fluidTypeDao: FluidTypeDao,
+/** Exports/imports Maßeinheiten definitions only — logged fluid entries are tracked data and never included. */
+class FluidUnitLibraryExportProvider @Inject constructor(
+    private val fluidUnitDao: FluidUnitDao,
 ) : LibraryExportProvider {
-    override val key = "fluidTypes"
+    override val key = "fluidUnits"
 
     private val json = Json { ignoreUnknownKeys = true }
 
     override suspend fun export(): JsonElement =
-        json.encodeToJsonElement(fluidTypeDao.getAllOnce().map { it.toDto() })
+        json.encodeToJsonElement(fluidUnitDao.getAllOnce().map { it.toDto() })
 
     override suspend fun import(json: JsonElement) {
-        val dtos = this.json.decodeFromJsonElement<List<FluidTypeDto>>(json)
+        val dtos = this.json.decodeFromJsonElement<List<FluidUnitDto>>(json)
         dtos.forEach { dto ->
-            val existing = fluidTypeDao.getById(dto.id)
+            val existing = fluidUnitDao.getById(dto.id)
             if (existing == null) {
-                fluidTypeDao.upsert(dto.toEntity())
+                fluidUnitDao.upsert(dto.toEntity())
             }
         }
     }

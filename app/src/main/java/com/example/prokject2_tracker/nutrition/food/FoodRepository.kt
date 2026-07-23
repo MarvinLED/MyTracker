@@ -29,27 +29,27 @@ class FoodRepository @Inject constructor(
         saltPer100: Double,
         servingName: String?,
         servingAmount: Double?,
-    ) {
+    ): FoodItem {
         val now = Instant.now()
-        foodDao.upsert(
-            FoodItem(
-                id = IdGenerator.newId(),
-                name = name,
-                baseUnit = baseUnit,
-                kcalPer100 = kcalPer100,
-                proteinPer100 = proteinPer100,
-                carbsPer100 = carbsPer100,
-                fatPer100 = fatPer100,
-                saturatedFatPer100 = saturatedFatPer100,
-                sugarPer100 = sugarPer100,
-                fiberPer100 = fiberPer100,
-                saltPer100 = saltPer100,
-                servingName = servingName,
-                servingAmount = servingAmount,
-                createdAt = now,
-                updatedAt = now,
-            ),
+        val food = FoodItem(
+            id = IdGenerator.newId(),
+            name = name,
+            baseUnit = baseUnit,
+            kcalPer100 = kcalPer100,
+            proteinPer100 = proteinPer100,
+            carbsPer100 = carbsPer100,
+            fatPer100 = fatPer100,
+            saturatedFatPer100 = saturatedFatPer100,
+            sugarPer100 = sugarPer100,
+            fiberPer100 = fiberPer100,
+            saltPer100 = saltPer100,
+            servingName = servingName,
+            servingAmount = servingAmount,
+            createdAt = now,
+            updatedAt = now,
         )
+        foodDao.upsert(food)
+        return food
     }
 
     suspend fun update(existing: FoodItem, updated: FoodItem) {

@@ -1,6 +1,7 @@
 package com.example.prokject2_tracker.fluid
 
 import com.example.prokject2_tracker.core.util.IdGenerator
+import com.example.prokject2_tracker.core.util.formatCompact
 import java.time.Instant
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -17,10 +18,14 @@ private val DEFAULT_FLUID_TYPES = listOf(
     "Sonstiges" to 200.0,
 )
 
+/** Seeded once on first run; the user can rename/add/remove freely afterwards (e.g. add "Glas" = 400 ml). */
+private val DEFAULT_FLUID_UNITS = listOf(100.0, 150.0, 200.0, 250.0, 300.0, 330.0, 400.0, 500.0, 750.0, 1000.0)
+
 @Singleton
 class FluidRepository @Inject constructor(
     private val fluidDao: FluidDao,
     private val fluidTypeDao: FluidTypeDao,
+    private val fluidUnitDao: FluidUnitDao,
 ) {
     fun observeForDay(epochDay: Long): Flow<List<FluidEntry>> = fluidDao.observeForDay(epochDay)
 
@@ -70,7 +75,52 @@ class FluidRepository @Inject constructor(
         fluidTypeDao.delete(type)
     }
 
-    suspend fun logFluid(epochDay: Long, type: FluidType, amountMl: Double) {
+    suspend fun updateTypeGoals(type: FluidType, dailyGoalMinMl: Double?, dailyGoalMaxMl: Double?) {
+        fluidTypeDao.upsert(type.copy(dailyGoalMinMl = dailyGoalMinMl, dailyGoalMaxMl = dailyGoalMaxMl))
+    }
+
+    fun observeUnits(): Flow<List<FluidUnit>> = fluidUnitDao.observeAll()
+
+    suspend fun ensureDefaultUnitsSeeded() {
+        if (fluidUnitDao.getAllOnce().isNotEmpty()) return
+        val now = Instant.now()
+        fluidUnitDao.upsertAll(
+            DEFAULT_FLUID_UNITS.mapIndexed { index, amountMl ->
+                FluidUnit(
+                    id = IdGenerator.newId(),
+                    name = "${amountMl.formatCompact()} ml",
+                    amountMl = amountMl,
+                    sortOrder = index,
+                    createdAt = now,
+                )
+            },
+        )
+    }
+
+    suspend fun createUnit(name: String, amountMl: Double) {
+        val maxSortOrder = fluidUnitDao.getAllOnce().maxOfOrNull { it.sortOrder } ?: -1
+        fluidUnitDao.upsert(
+            FluidUnit(
+                id = IdGenerator.newId(),
+                name = name,
+                amountMl = amountMl,
+                sortOrder = maxSortOrder + 1,
+                createdAt = Instant.now(),
+            ),
+        )
+    }
+
+    suspend fun updateUnit(existing: FluidUnit, name: String, amountMl: Double) {
+        fluidUnitDao.upsert(existing.copy(name = name, amountMl = amountMl))
+    }
+
+    suspend fun canDeleteUnit(unitId: String): Boolean = !fluidUnitDao.isUsedInAnyEntry(unitId)
+
+    suspend fun deleteUnit(unit: FluidUnit) {
+        fluidUnitDao.delete(unit)
+    }
+
+    suspend fun logFluid(epochDay: Long, type: FluidType, amountMl: Double, unit: FluidUnit? = null) {
         fluidDao.upsert(
             FluidEntry(
                 id = IdGenerator.newId(),
@@ -79,6 +129,8 @@ class FluidRepository @Inject constructor(
                 fluidTypeId = type.id,
                 fluidTypeName = type.name,
                 amountMl = amountMl,
+                fluidUnitId = unit?.id,
+                fluidUnitName = unit?.name,
             ),
         )
     }

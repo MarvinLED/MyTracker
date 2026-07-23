@@ -4,12 +4,16 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.navigation.toRoute
+import com.example.prokject2_tracker.core.util.IdGenerator
 import com.example.prokject2_tracker.core.util.toLocaleDoubleOrNull
 import dagger.hilt.android.lifecycle.HiltViewModel
+import java.time.Instant
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 /** Blank is allowed (defaults to 0 on save); a non-blank value must parse as a number. */
@@ -31,6 +35,8 @@ data class FoodEditState(
     val saltPer100: String = "",
     val servingName: String = "",
     val servingAmount: String = "",
+    val tags: List<Tag> = emptyList(),
+    val tagInput: String = "",
     val isSaved: Boolean = false,
 ) {
     val isValid: Boolean
@@ -49,12 +55,16 @@ data class FoodEditState(
 class FoodEditViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val foodRepository: FoodRepository,
+    private val tagRepository: TagRepository,
 ) : ViewModel() {
     private val route: FoodEditRoute = savedStateHandle.toRoute()
     private var existing: FoodItem? = null
 
     private val _state = MutableStateFlow(FoodEditState(id = route.foodId))
     val state: StateFlow<FoodEditState> = _state.asStateFlow()
+
+    val allTags: StateFlow<List<Tag>> = tagRepository.observeAllTags()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     init {
         val foodId = route.foodId
@@ -75,10 +85,42 @@ class FoodEditViewModel @Inject constructor(
                         saltPer100 = food.saltPer100.toString(),
                         servingName = food.servingName.orEmpty(),
                         servingAmount = food.servingAmount?.toString().orEmpty(),
+                        tags = tagRepository.getTagsForFoodOnce(food.id),
                     )
                 }
             }
         }
+    }
+
+    fun onTagInputChange(value: String) { _state.value = _state.value.copy(tagInput = value) }
+
+    fun addTag(tag: Tag) {
+        val current = _state.value
+        if (current.tags.none { it.id == tag.id }) {
+            _state.value = current.copy(tags = current.tags + tag)
+        }
+    }
+
+    /**
+     * Attaches the typed name as a tag, reusing an existing tag (case-insensitive match) if one
+     * exists. A brand-new name gets a throwaway local id — [save] persists tags by name, so this
+     * id is never written; it only needs to be stable enough for the chip list in this session.
+     */
+    fun addTagFromInput() {
+        val name = _state.value.tagInput.trim()
+        if (name.isBlank()) return
+        val current = _state.value
+        if (current.tags.any { it.name.equals(name, ignoreCase = true) }) {
+            _state.value = current.copy(tagInput = "")
+            return
+        }
+        val tag = allTags.value.firstOrNull { it.name.equals(name, ignoreCase = true) }
+            ?: Tag(id = IdGenerator.newId(), name = name, createdAt = Instant.now())
+        _state.value = current.copy(tags = current.tags + tag, tagInput = "")
+    }
+
+    fun removeTag(tag: Tag) {
+        _state.value = _state.value.copy(tags = _state.value.tags.filterNot { it.id == tag.id })
     }
 
     fun onNameChange(value: String) { _state.value = _state.value.copy(name = value) }
@@ -100,8 +142,9 @@ class FoodEditViewModel @Inject constructor(
             val servingName = s.servingName.ifBlank { null }
             val servingAmount = s.servingAmount.toLocaleDoubleOrNull()
             val current = existing
+            val savedFoodId: String
             if (current == null) {
-                foodRepository.create(
+                val created = foodRepository.create(
                     name = s.name,
                     baseUnit = BaseUnit.G,
                     kcalPer100 = s.kcalPer100.toNutrientValue(),
@@ -115,7 +158,9 @@ class FoodEditViewModel @Inject constructor(
                     servingName = servingName,
                     servingAmount = servingAmount,
                 )
+                savedFoodId = created.id
             } else {
+                savedFoodId = current.id
                 foodRepository.update(
                     current,
                     current.copy(
@@ -134,6 +179,7 @@ class FoodEditViewModel @Inject constructor(
                     ),
                 )
             }
+            tagRepository.setFoodTagsByName(savedFoodId, s.tags.map { it.name })
             _state.value = _state.value.copy(isSaved = true)
         }
     }

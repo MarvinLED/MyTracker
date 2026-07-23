@@ -33,8 +33,12 @@ class FluidViewModel @Inject constructor(
     val types: StateFlow<List<FluidType>> = fluidRepository.observeTypes()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    val units: StateFlow<List<FluidUnit>> = fluidRepository.observeUnits()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
     init {
         viewModelScope.launch { fluidRepository.ensureDefaultTypesSeeded() }
+        viewModelScope.launch { fluidRepository.ensureDefaultUnitsSeeded() }
     }
 
     val uiState: StateFlow<FluidDayUiState> = _selectedEpochDay
@@ -64,6 +68,10 @@ class FluidViewModel @Inject constructor(
 
     fun quickAdd(type: FluidType, amountMl: Double) {
         viewModelScope.launch { fluidRepository.logFluid(_selectedEpochDay.value, type, amountMl) }
+    }
+
+    fun addWithUnit(type: FluidType, unit: FluidUnit) {
+        viewModelScope.launch { fluidRepository.logFluid(_selectedEpochDay.value, type, unit.amountMl, unit) }
     }
 
     fun delete(entry: FluidEntry) {

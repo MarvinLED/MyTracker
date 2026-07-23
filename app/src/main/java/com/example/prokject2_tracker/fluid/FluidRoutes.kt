@@ -7,3 +7,6 @@ data object FluidRoute
 
 @Serializable
 data object FluidTypeManageRoute
+
+@Serializable
+data object FluidUnitManageRoute

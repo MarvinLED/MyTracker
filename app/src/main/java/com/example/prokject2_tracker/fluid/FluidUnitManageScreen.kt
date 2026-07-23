@@ -42,21 +42,21 @@ import com.example.prokject2_tracker.core.util.formatDecimal
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun FluidTypeManageScreen(
+fun FluidUnitManageScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
-    viewModel: FluidTypeManageViewModel = hiltViewModel(),
+    viewModel: FluidUnitManageViewModel = hiltViewModel(),
 ) {
-    val types by viewModel.types.collectAsState()
+    val units by viewModel.units.collectAsState()
     var showAddDialog by remember { mutableStateOf(false) }
-    var editTarget by remember { mutableStateOf<FluidType?>(null) }
-    var blockedDelete by remember { mutableStateOf<FluidType?>(null) }
+    var editTarget by remember { mutableStateOf<FluidUnit?>(null) }
+    var blockedDelete by remember { mutableStateOf<FluidUnit?>(null) }
 
     Scaffold(
         modifier = modifier,
         topBar = {
             TopAppBar(
-                title = { Text("Getränkearten") },
+                title = { Text("Maßeinheiten") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Zurück")
@@ -66,32 +66,32 @@ fun FluidTypeManageScreen(
         },
         floatingActionButton = {
             FloatingActionButton(onClick = { showAddDialog = true }) {
-                Icon(Icons.Filled.Add, contentDescription = "Getränkeart hinzufügen")
+                Icon(Icons.Filled.Add, contentDescription = "Maßeinheit hinzufügen")
             }
         },
     ) { padding ->
         Box(modifier = Modifier.fillMaxSize().padding(padding)) {
-            if (types.isEmpty()) {
+            if (units.isEmpty()) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("Noch keine Getränkearten angelegt.")
+                    Text("Noch keine Maßeinheiten angelegt.")
                 }
             } else {
                 LazyColumn(
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    items(types, key = { it.id }) { type ->
+                    items(units, key = { it.id }) { unit ->
                         Card(modifier = Modifier.fillMaxWidth()) {
                             Row(
                                 modifier = Modifier.fillMaxWidth().padding(12.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
                                 Text(
-                                    "${type.name} (+${type.defaultQuickAddMl.formatDecimal(3)} ml)",
-                                    modifier = Modifier.weight(1f).clickable { editTarget = type },
+                                    "${unit.name} (${unit.amountMl.formatDecimal(3)} ml)",
+                                    modifier = Modifier.weight(1f).clickable { editTarget = unit },
                                 )
                                 IconButton(onClick = {
-                                    viewModel.deleteIfUnused(type) { blockedDelete = type }
+                                    viewModel.deleteIfUnused(unit) { blockedDelete = unit }
                                 }) {
                                     Icon(Icons.Filled.Delete, contentDescription = "Löschen")
                                 }
@@ -104,8 +104,8 @@ fun FluidTypeManageScreen(
     }
 
     if (showAddDialog) {
-        FluidTypeDialog(
-            title = "Getränkeart hinzufügen",
+        FluidUnitDialog(
+            title = "Maßeinheit hinzufügen",
             initialName = "",
             initialAmountMl = "",
             onConfirm = { name, amountMl ->
@@ -116,31 +116,31 @@ fun FluidTypeManageScreen(
         )
     }
 
-    editTarget?.let { type ->
-        FluidTypeDialog(
-            title = "Getränkeart bearbeiten",
-            initialName = type.name,
-            initialAmountMl = type.defaultQuickAddMl.formatDecimal(3),
+    editTarget?.let { unit ->
+        FluidUnitDialog(
+            title = "Maßeinheit bearbeiten",
+            initialName = unit.name,
+            initialAmountMl = unit.amountMl.formatDecimal(3),
             onConfirm = { name, amountMl ->
-                viewModel.update(type, name, amountMl)
+                viewModel.update(unit, name, amountMl)
                 editTarget = null
             },
             onDismiss = { editTarget = null },
         )
     }
 
-    blockedDelete?.let { type ->
+    blockedDelete?.let { unit ->
         AlertDialog(
             onDismissRequest = { blockedDelete = null },
             confirmButton = { TextButton(onClick = { blockedDelete = null }) { Text("OK") } },
             title = { Text("Kann nicht gelöscht werden") },
-            text = { Text("\"${type.name}\" wird noch bei geloggten Getränken verwendet.") },
+            text = { Text("\"${unit.name}\" wird noch bei geloggten Getränken verwendet.") },
         )
     }
 }
 
 @Composable
-private fun FluidTypeDialog(
+private fun FluidUnitDialog(
     title: String,
     initialName: String,
     initialAmountMl: String,
@@ -159,13 +159,13 @@ private fun FluidTypeDialog(
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
-                    label = { Text("Name") },
+                    label = { Text("Name (z.B. Glas)") },
                     modifier = Modifier.fillMaxWidth(),
                 )
                 OutlinedTextField(
                     value = amountText,
                     onValueChange = { amountText = it },
-                    label = { Text("Standardmenge (ml)") },
+                    label = { Text("Menge (ml)") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     modifier = Modifier.fillMaxWidth(),
                 )

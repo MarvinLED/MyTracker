@@ -21,6 +21,10 @@ import com.example.prokject2_tracker.fluid.FluidRoute
 import com.example.prokject2_tracker.fluid.FluidScreen
 import com.example.prokject2_tracker.fluid.FluidTypeManageRoute
 import com.example.prokject2_tracker.fluid.FluidTypeManageScreen
+import com.example.prokject2_tracker.fluid.FluidUnitManageRoute
+import com.example.prokject2_tracker.fluid.FluidUnitManageScreen
+import com.example.prokject2_tracker.goals.GoalsRoute
+import com.example.prokject2_tracker.goals.GoalsScreen
 import com.example.prokject2_tracker.habit.HabitRoute
 import com.example.prokject2_tracker.habit.HabitScreen
 import com.example.prokject2_tracker.nutrition.diary.DiaryAddEntryRoute
@@ -57,16 +61,24 @@ fun AppNavHost(
             FluidScreen(
                 onOpenDrawer = onOpenDrawer,
                 onOpenTypeManagement = { navController.navigate(FluidTypeManageRoute) },
+                onOpenUnitManagement = { navController.navigate(FluidUnitManageRoute) },
             )
         }
         composable<FluidTypeManageRoute> {
             FluidTypeManageScreen(onBack = { navController.popBackStack() })
         }
+        composable<FluidUnitManageRoute> {
+            FluidUnitManageScreen(onBack = { navController.popBackStack() })
+        }
         composable<HabitRoute> {
             HabitScreen(onOpenDrawer = onOpenDrawer)
         }
         composable<DiaryAddEntryRoute> {
-            DiaryAddEntryScreen(onDone = { navController.popBackStack() })
+            DiaryAddEntryScreen(
+                onDone = { navController.popBackStack() },
+                onCreateFood = { navController.navigate(FoodEditRoute()) },
+                onCreateRecipe = { navController.navigate(RecipeEditRoute()) },
+            )
         }
         composable<LibraryRoute> {
             LibraryScreen(
@@ -89,6 +101,9 @@ fun AppNavHost(
         }
         composable<AnalyseRoute> {
             AnalyseScreen(onOpenDrawer = onOpenDrawer)
+        }
+        composable<GoalsRoute> {
+            GoalsScreen(onOpenDrawer = onOpenDrawer)
         }
         composable<FitnessRoute> {
             FitnessScreen(

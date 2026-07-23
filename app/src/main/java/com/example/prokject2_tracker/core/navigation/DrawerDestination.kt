@@ -2,11 +2,13 @@ package com.example.prokject2_tracker.core.navigation
 
 import androidx.annotation.StringRes
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.Insights
 import androidx.compose.material.icons.filled.Kitchen
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.example.prokject2_tracker.R
 import com.example.prokject2_tracker.analyse.AnalyseRoute
+import com.example.prokject2_tracker.goals.GoalsRoute
 import com.example.prokject2_tracker.nutrition.library.LibraryRoute
 
 /**
@@ -30,5 +32,11 @@ enum class DrawerDestination(
         routeQualifiedName = AnalyseRoute::class.qualifiedName!!,
         labelRes = R.string.nav_analyse,
         icon = Icons.Filled.Insights,
+    ),
+    GOALS(
+        route = GoalsRoute,
+        routeQualifiedName = GoalsRoute::class.qualifiedName!!,
+        labelRes = R.string.nav_goals,
+        icon = Icons.Filled.Flag,
     ),
 }

@@ -2,15 +2,21 @@ package com.example.prokject2_tracker.nutrition.food
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material3.AssistChip
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -23,9 +29,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 
@@ -37,6 +46,7 @@ fun FoodEditScreen(
     viewModel: FoodEditViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsState()
+    val allTags by viewModel.allTags.collectAsState()
 
     LaunchedEffect(state.isSaved) {
         if (state.isSaved) onDone()
@@ -141,6 +151,51 @@ fun FoodEditScreen(
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 modifier = Modifier.fillMaxWidth(),
             )
+            Text("Tags", style = MaterialTheme.typography.titleSmall)
+            if (state.tags.isNotEmpty()) {
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    state.tags.forEach { tag ->
+                        FilterChip(
+                            selected = true,
+                            onClick = { viewModel.removeTag(tag) },
+                            label = { Text(tag.name) },
+                            trailingIcon = {
+                                Icon(Icons.Filled.Close, contentDescription = "Entfernen", modifier = Modifier.size(16.dp))
+                            },
+                        )
+                    }
+                }
+            }
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                OutlinedTextField(
+                    value = state.tagInput,
+                    onValueChange = viewModel::onTagInputChange,
+                    label = { Text("Tag hinzufügen (z.B. vegan)") },
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                    keyboardActions = KeyboardActions(onDone = { viewModel.addTagFromInput() }),
+                    modifier = Modifier.weight(1f),
+                )
+                IconButton(onClick = viewModel::addTagFromInput) {
+                    Icon(Icons.Filled.Add, contentDescription = "Tag hinzufügen")
+                }
+            }
+            val suggestions = allTags.filter { candidate -> state.tags.none { it.name.equals(candidate.name, ignoreCase = true) } }
+            if (suggestions.isNotEmpty()) {
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    suggestions.forEach { tag ->
+                        AssistChip(onClick = { viewModel.addTag(tag) }, label = { Text(tag.name) })
+                    }
+                }
+            }
         }
     }
 }

@@ -16,6 +16,7 @@ import kotlinx.coroutines.launch
 @HiltViewModel
 class FoodListViewModel @Inject constructor(
     private val foodRepository: FoodRepository,
+    private val tagRepository: TagRepository,
 ) : ViewModel() {
     private val _query = MutableStateFlow("")
     val query: StateFlow<String> = _query
@@ -23,6 +24,9 @@ class FoodListViewModel @Inject constructor(
     val foods: StateFlow<List<FoodItem>> = _query
         .flatMapLatest { q -> if (q.isBlank()) foodRepository.observeAll() else foodRepository.search(q) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val tagsByFoodId: StateFlow<Map<String, List<Tag>>> = tagRepository.observeTagsByFoodId()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
 
     fun onQueryChange(value: String) {
         _query.value = value

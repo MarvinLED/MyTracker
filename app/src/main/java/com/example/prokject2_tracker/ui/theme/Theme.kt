@@ -2,7 +2,6 @@ package com.example.prokject2_tracker.ui.theme
 
 import android.app.Activity
 import android.os.Build
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.dynamicDarkColorScheme
@@ -12,32 +11,45 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalContext
 
 private val DarkColorScheme = darkColorScheme(
-    primary = Purple80,
-    secondary = PurpleGrey80,
-    tertiary = Pink80
+    primary = BlueDark80,
+    secondary = BlueGreyDark80,
+    tertiary = CyanDark80,
+    background = DarkNavyBackground,
+    surface = DarkNavySurface,
+    surfaceVariant = DarkNavySurfaceVariant,
+    onBackground = DarkNavyOnBackground,
+    onSurface = DarkNavyOnBackground,
+    outline = DarkNavyOutline,
+    primaryContainer = DarkNavyPrimaryContainer,
+    onPrimaryContainer = DarkNavyOnPrimaryContainer,
+    secondaryContainer = DarkNavySecondaryContainer,
+    onSecondaryContainer = DarkNavyOnSecondaryContainer,
+    tertiaryContainer = DarkNavyTertiaryContainer,
+    onTertiaryContainer = DarkNavyOnTertiaryContainer,
 )
 
 private val LightColorScheme = lightColorScheme(
-    primary = Purple40,
-    secondary = PurpleGrey40,
-    tertiary = Pink40
-
-    /* Other default colors to override
-    background = Color(0xFFFFFBFE),
-    surface = Color(0xFFFFFBFE),
-    onPrimary = Color.White,
-    onSecondary = Color.White,
-    onTertiary = Color.White,
-    onBackground = Color(0xFF1C1B1F),
-    onSurface = Color(0xFF1C1B1F),
-    */
+    primary = Blue40,
+    secondary = BlueGrey40,
+    tertiary = Cyan40,
+    background = LightBlueBackground,
+    surface = LightBlueBackground,
+    surfaceVariant = LightBlueSurfaceVariant,
+    primaryContainer = LightBluePrimaryContainer,
+    onPrimaryContainer = LightBlueOnPrimaryContainer,
+    secondaryContainer = LightBlueSecondaryContainer,
+    onSecondaryContainer = LightBlueOnSecondaryContainer,
+    tertiaryContainer = LightBlueTertiaryContainer,
+    onTertiaryContainer = LightBlueOnTertiaryContainer,
 )
 
 @Composable
 fun Prokject2_TrackerTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
-    // Dynamic color is available on Android 12+
-    dynamicColor: Boolean = true,
+    // Always dark by design, regardless of the device's system light/dark setting.
+    darkTheme: Boolean = true,
+    // Dynamic (Material You) color would override our blue palette with the device wallpaper's
+    // colors on Android 12+ — off by default so the app consistently looks dark/blue as designed.
+    dynamicColor: Boolean = false,
     content: @Composable () -> Unit
 ) {
     val colorScheme = when {
