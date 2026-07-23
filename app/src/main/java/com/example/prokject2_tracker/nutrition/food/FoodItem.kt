@@ -19,6 +19,10 @@ data class FoodItem(
     val proteinPer100: Double,
     val carbsPer100: Double,
     val fatPer100: Double,
+    val saturatedFatPer100: Double = 0.0,
+    val sugarPer100: Double = 0.0,
+    val fiberPer100: Double = 0.0,
+    val saltPer100: Double = 0.0,
     /** Optional named serving (e.g. "Scheibe") purely as a logging-UI convenience. */
     val servingName: String? = null,
     /** Amount of [baseUnit] that one [servingName] corresponds to. */

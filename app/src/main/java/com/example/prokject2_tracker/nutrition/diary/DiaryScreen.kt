@@ -15,6 +15,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
@@ -35,7 +36,6 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.prokject2_tracker.core.util.DateUtils
 import com.example.prokject2_tracker.core.util.formatCompact
-import com.example.prokject2_tracker.fluid.FluidSection
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
@@ -43,6 +43,7 @@ import java.util.Locale
 @Composable
 fun DiaryScreen(
     onAddEntry: (Long) -> Unit,
+    onOpenDrawer: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: DiaryViewModel = hiltViewModel(),
 ) {
@@ -53,6 +54,11 @@ fun DiaryScreen(
         modifier = modifier,
         topBar = {
             TopAppBar(
+                navigationIcon = {
+                    IconButton(onClick = onOpenDrawer) {
+                        Icon(Icons.Filled.Menu, contentDescription = "Menü")
+                    }
+                },
                 title = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         IconButton(onClick = viewModel::goToPreviousDay) {
@@ -78,14 +84,6 @@ fun DiaryScreen(
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
             DayTotalCard(uiState)
-            FluidSection(
-                totalMl = uiState.fluidTotalMl,
-                goalMl = uiState.fluidGoalMl,
-                entries = uiState.fluidEntries,
-                onQuickAdd = viewModel::quickAddFluid,
-                onDelete = viewModel::deleteFluidEntry,
-                modifier = Modifier.padding(horizontal = 16.dp),
-            )
             if (uiState.entriesByMeal.isEmpty()) {
                 Box(modifier = Modifier.weight(1f).fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text("Noch nichts für diesen Tag geloggt.")

@@ -1,4 +1,4 @@
-package com.example.prokject2_tracker.fluid
+package com.example.prokject2_tracker.habit
 
 import com.example.prokject2_tracker.core.backup.LibraryExportProvider
 import com.example.prokject2_tracker.core.metrics.MetricSeriesProvider
@@ -10,12 +10,12 @@ import dagger.multibindings.IntoSet
 
 @Module
 @InstallIn(SingletonComponent::class)
-interface FluidDiModule {
+interface HabitDiModule {
     @Binds
     @IntoSet
-    fun bindMlFluidMetricSeriesProvider(impl: MlFluidMetricSeriesProvider): MetricSeriesProvider
+    fun bindHabitLibraryExportProvider(impl: HabitLibraryExportProvider): LibraryExportProvider
 
     @Binds
     @IntoSet
-    fun bindFluidTypeLibraryExportProvider(impl: FluidTypeLibraryExportProvider): LibraryExportProvider
+    fun bindHabitCompletionMetricSeriesProvider(impl: HabitCompletionMetricSeriesProvider): MetricSeriesProvider
 }

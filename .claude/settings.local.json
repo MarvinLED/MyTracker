@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Bash(./gradlew assembleDebug --console=plain)",
-      "Bash(git push *)"
+      "Bash(git push *)",
+      "Bash(./gradlew compileDebugKotlin --console=plain -q)"
     ]
   }
 }

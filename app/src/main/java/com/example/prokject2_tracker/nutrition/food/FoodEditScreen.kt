@@ -11,7 +11,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -25,6 +24,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -71,44 +71,59 @@ fun FoodEditScreen(
                 label = { Text("Name") },
                 modifier = Modifier.fillMaxWidth(),
             )
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilterChip(
-                    selected = state.baseUnit == BaseUnit.G,
-                    onClick = { viewModel.onBaseUnitChange(BaseUnit.G) },
-                    label = { Text("Gramm") },
-                )
-                FilterChip(
-                    selected = state.baseUnit == BaseUnit.ML,
-                    onClick = { viewModel.onBaseUnitChange(BaseUnit.ML) },
-                    label = { Text("Milliliter") },
-                )
-            }
-            val unitLabel = if (state.baseUnit == BaseUnit.G) "100 g" else "100 ml"
             OutlinedTextField(
                 value = state.kcalPer100,
                 onValueChange = viewModel::onKcalChange,
-                label = { Text("kcal pro $unitLabel") },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                modifier = Modifier.fillMaxWidth(),
-            )
-            OutlinedTextField(
-                value = state.proteinPer100,
-                onValueChange = viewModel::onProteinChange,
-                label = { Text("Protein (g) pro $unitLabel") },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                modifier = Modifier.fillMaxWidth(),
-            )
-            OutlinedTextField(
-                value = state.carbsPer100,
-                onValueChange = viewModel::onCarbsChange,
-                label = { Text("Kohlenhydrate (g) pro $unitLabel") },
+                label = { Text("kcal pro 100 g", fontWeight = FontWeight.Bold) },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 modifier = Modifier.fillMaxWidth(),
             )
             OutlinedTextField(
                 value = state.fatPer100,
                 onValueChange = viewModel::onFatChange,
-                label = { Text("Fett (g) pro $unitLabel") },
+                label = { Text("Fett (g) pro 100 g", fontWeight = FontWeight.Bold) },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                modifier = Modifier.fillMaxWidth(),
+            )
+            OutlinedTextField(
+                value = state.saturatedFatPer100,
+                onValueChange = viewModel::onSaturatedFatChange,
+                label = { Text("davon gesättigte Fettsäuren (g) pro 100 g") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                modifier = Modifier.fillMaxWidth(),
+            )
+            OutlinedTextField(
+                value = state.carbsPer100,
+                onValueChange = viewModel::onCarbsChange,
+                label = { Text("Kohlenhydrate (g) pro 100 g", fontWeight = FontWeight.Bold) },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                modifier = Modifier.fillMaxWidth(),
+            )
+            OutlinedTextField(
+                value = state.sugarPer100,
+                onValueChange = viewModel::onSugarChange,
+                label = { Text("davon Zucker (g) pro 100 g") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                modifier = Modifier.fillMaxWidth(),
+            )
+            OutlinedTextField(
+                value = state.fiberPer100,
+                onValueChange = viewModel::onFiberChange,
+                label = { Text("Ballaststoffe (g) pro 100 g") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                modifier = Modifier.fillMaxWidth(),
+            )
+            OutlinedTextField(
+                value = state.proteinPer100,
+                onValueChange = viewModel::onProteinChange,
+                label = { Text("Protein (g) pro 100 g", fontWeight = FontWeight.Bold) },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                modifier = Modifier.fillMaxWidth(),
+            )
+            OutlinedTextField(
+                value = state.saltPer100,
+                onValueChange = viewModel::onSaltChange,
+                label = { Text("Salz (g) pro 100 g") },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 modifier = Modifier.fillMaxWidth(),
             )
@@ -122,7 +137,7 @@ fun FoodEditScreen(
             OutlinedTextField(
                 value = state.servingAmount,
                 onValueChange = viewModel::onServingAmountChange,
-                label = { Text("Menge in ${if (state.baseUnit == BaseUnit.G) "g" else "ml"}") },
+                label = { Text("Menge in g") },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 modifier = Modifier.fillMaxWidth(),
             )

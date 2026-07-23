@@ -3,7 +3,12 @@ package com.example.prokject2_tracker.core.database
 import android.content.Context
 import androidx.room.Room
 import com.example.prokject2_tracker.fitness.cardio.CardioDao
+import com.example.prokject2_tracker.fitness.strength.StrengthExerciseDao
+import com.example.prokject2_tracker.fitness.strength.StrengthLogDao
 import com.example.prokject2_tracker.fluid.FluidDao
+import com.example.prokject2_tracker.fluid.FluidTypeDao
+import com.example.prokject2_tracker.habit.HabitCheckInDao
+import com.example.prokject2_tracker.habit.HabitDao
 import com.example.prokject2_tracker.nutrition.diary.DiaryDao
 import com.example.prokject2_tracker.nutrition.food.FoodDao
 import com.example.prokject2_tracker.nutrition.recipe.RecipeDao
@@ -39,5 +44,20 @@ object DatabaseModule {
     fun provideFluidDao(database: AppDatabase): FluidDao = database.fluidDao()
 
     @Provides
+    fun provideFluidTypeDao(database: AppDatabase): FluidTypeDao = database.fluidTypeDao()
+
+    @Provides
     fun provideCardioDao(database: AppDatabase): CardioDao = database.cardioDao()
+
+    @Provides
+    fun provideStrengthExerciseDao(database: AppDatabase): StrengthExerciseDao = database.strengthExerciseDao()
+
+    @Provides
+    fun provideStrengthLogDao(database: AppDatabase): StrengthLogDao = database.strengthLogDao()
+
+    @Provides
+    fun provideHabitDao(database: AppDatabase): HabitDao = database.habitDao()
+
+    @Provides
+    fun provideHabitCheckInDao(database: AppDatabase): HabitCheckInDao = database.habitCheckInDao()
 }

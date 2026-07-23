@@ -9,8 +9,12 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -27,6 +31,7 @@ import com.example.prokject2_tracker.core.util.formatCompact
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AnalyseScreen(
+    onOpenDrawer: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: AnalyseViewModel = hiltViewModel(),
 ) {
@@ -34,7 +39,16 @@ fun AnalyseScreen(
 
     Scaffold(
         modifier = modifier,
-        topBar = { TopAppBar(title = { Text("Analyse") }) },
+        topBar = {
+            TopAppBar(
+                navigationIcon = {
+                    IconButton(onClick = onOpenDrawer) {
+                        Icon(Icons.Filled.Menu, contentDescription = "Menü")
+                    }
+                },
+                title = { Text("Analyse") },
+            )
+        },
     ) { padding ->
         if (series.isEmpty()) {
             Box(

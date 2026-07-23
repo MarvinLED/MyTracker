@@ -1,4 +1,4 @@
-package com.example.prokject2_tracker.nutrition.diary
+package com.example.prokject2_tracker.fluid
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -6,7 +6,6 @@ import com.example.prokject2_tracker.core.datastore.UserPreferencesRepository
 import com.example.prokject2_tracker.core.util.DateUtils
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
-import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -16,42 +15,44 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
-data class DiaryDayUiState(
+data class FluidDayUiState(
     val epochDay: Long,
-    val entriesByMeal: Map<MealType, List<DiaryEntry>>,
-    val totalKcal: Double,
-    val calorieGoalKcal: Double,
+    val entries: List<FluidEntry> = emptyList(),
+    val totalMl: Double = 0.0,
+    val goalMl: Double = 2000.0,
 )
 
-@OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
-class DiaryViewModel @Inject constructor(
-    private val diaryRepository: DiaryRepository,
+class FluidViewModel @Inject constructor(
+    private val fluidRepository: FluidRepository,
     userPreferencesRepository: UserPreferencesRepository,
 ) : ViewModel() {
     private val _selectedEpochDay = MutableStateFlow(DateUtils.todayEpochDay())
     val selectedEpochDay: StateFlow<Long> = _selectedEpochDay.asStateFlow()
 
-    val uiState: StateFlow<DiaryDayUiState> = _selectedEpochDay
+    val types: StateFlow<List<FluidType>> = fluidRepository.observeTypes()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    init {
+        viewModelScope.launch { fluidRepository.ensureDefaultTypesSeeded() }
+    }
+
+    val uiState: StateFlow<FluidDayUiState> = _selectedEpochDay
         .flatMapLatest { epochDay ->
             combine(
-                diaryRepository.observeForDay(epochDay),
-                diaryRepository.observeDayTotalKcal(epochDay),
+                fluidRepository.observeForDay(epochDay),
+                fluidRepository.observeDayTotalMl(epochDay),
                 userPreferencesRepository.userPreferences,
             ) { entries, total, prefs ->
-                DiaryDayUiState(
+                FluidDayUiState(
                     epochDay = epochDay,
-                    entriesByMeal = entries.groupBy { it.mealType },
-                    totalKcal = total,
-                    calorieGoalKcal = prefs.dailyCalorieGoalKcal,
+                    entries = entries,
+                    totalMl = total,
+                    goalMl = prefs.dailyWaterGoalMl,
                 )
             }
         }
-        .stateIn(
-            viewModelScope,
-            SharingStarted.WhileSubscribed(5000),
-            DiaryDayUiState(_selectedEpochDay.value, emptyMap(), 0.0, 2000.0),
-        )
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), FluidDayUiState(_selectedEpochDay.value))
 
     fun goToPreviousDay() {
         _selectedEpochDay.value -= 1
@@ -61,11 +62,11 @@ class DiaryViewModel @Inject constructor(
         _selectedEpochDay.value += 1
     }
 
-    fun goToToday() {
-        _selectedEpochDay.value = DateUtils.todayEpochDay()
+    fun quickAdd(type: FluidType, amountMl: Double) {
+        viewModelScope.launch { fluidRepository.logFluid(_selectedEpochDay.value, type, amountMl) }
     }
 
-    fun deleteEntry(entry: DiaryEntry) {
-        viewModelScope.launch { diaryRepository.delete(entry) }
+    fun delete(entry: FluidEntry) {
+        viewModelScope.launch { fluidRepository.delete(entry) }
     }
 }

@@ -9,3 +9,6 @@ fun Double.formatCompact(): String =
     } else {
         String.format(Locale.getDefault(), "%.1f", this)
     }
+
+/** Parses a decimal number typed with either ',' or '.' as the decimal separator. */
+fun String.toLocaleDoubleOrNull(): Double? = replace(',', '.').toDoubleOrNull()
