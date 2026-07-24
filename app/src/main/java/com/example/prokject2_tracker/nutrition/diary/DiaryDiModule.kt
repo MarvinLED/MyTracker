@@ -13,4 +13,16 @@ interface DiaryDiModule {
     @Binds
     @IntoSet
     fun bindKcalDiaryMetricSeriesProvider(impl: KcalDiaryMetricSeriesProvider): MetricSeriesProvider
+
+    @Binds
+    @IntoSet
+    fun bindProteinDiaryMetricSeriesProvider(impl: ProteinDiaryMetricSeriesProvider): MetricSeriesProvider
+
+    @Binds
+    @IntoSet
+    fun bindCarbsDiaryMetricSeriesProvider(impl: CarbsDiaryMetricSeriesProvider): MetricSeriesProvider
+
+    @Binds
+    @IntoSet
+    fun bindFatDiaryMetricSeriesProvider(impl: FatDiaryMetricSeriesProvider): MetricSeriesProvider
 }

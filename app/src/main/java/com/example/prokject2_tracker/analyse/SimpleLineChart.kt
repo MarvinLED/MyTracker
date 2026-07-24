@@ -13,10 +13,10 @@ import com.example.prokject2_tracker.core.metrics.MetricPoint
 /**
  * Minimal hand-rolled line chart; swap for a real charting library if the Analyse domain grows.
  *
- * [zeroBased] controls the Y-axis floor: `true` (default) always starts at 0.0, which every
- * existing Analyse call site relies on. Pass `false` for series like body weight where day-to-day
- * variation is narrow relative to the absolute value — a zero-based axis would flatten the line to
- * near-invisibility; the floor instead becomes `min(values)` minus 10% padding of the value range.
+ * [zeroBased] controls the Y-axis floor: `true` (default) always starts at 0.0. Pass `false` for
+ * series like body weight where day-to-day variation is narrow relative to the absolute value — a
+ * zero-based axis would flatten the line to near-invisibility; the floor instead becomes
+ * `min(values)` minus 10% padding of the value range.
  */
 @Composable
 fun SimpleLineChart(points: List<MetricPoint>, modifier: Modifier = Modifier, zeroBased: Boolean = true) {

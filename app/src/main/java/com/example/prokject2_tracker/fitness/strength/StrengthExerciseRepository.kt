@@ -5,6 +5,12 @@ import java.time.Instant
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
+
+data class StrengthExerciseWithMuscleGroups(
+    val exercise: StrengthExercise,
+    val muscleGroups: List<MuscleGroup>,
+)
 
 /** Seeded once on first run; the user can rename/add/remove freely afterwards. */
 private val DEFAULT_MUSCLE_GROUPS = listOf(
@@ -27,22 +33,37 @@ class StrengthExerciseRepository @Inject constructor(
 
     suspend fun getById(id: String): StrengthExercise? = strengthExerciseDao.getById(id)
 
-    suspend fun create(name: String, muscleGroupId: String, muscleGroupName: String) {
-        val now = Instant.now()
-        strengthExerciseDao.upsert(
-            StrengthExercise(
-                id = IdGenerator.newId(),
-                name = name,
-                muscleGroupId = muscleGroupId,
-                muscleGroupName = muscleGroupName,
-                createdAt = now,
-                updatedAt = now,
-            ),
-        )
+    /** Every exercise's currently attached muscle groups, keyed by exerciseId — for the Bibliothek list. */
+    fun observeMuscleGroupsByExerciseId(): Flow<Map<String, List<MuscleGroup>>> =
+        combine(muscleGroupDao.observeAll(), strengthExerciseDao.observeAllExerciseMuscleGroups()) { groups, crossRefs ->
+            val groupById = groups.associateBy { it.id }
+            crossRefs
+                .groupBy({ it.exerciseId }) { groupById[it.muscleGroupId] }
+                .mapValues { (_, groupList) -> groupList.filterNotNull() }
+        }
+
+    fun observeAllWithMuscleGroups(): Flow<List<StrengthExerciseWithMuscleGroups>> =
+        combine(observeAll(), observeMuscleGroupsByExerciseId()) { exercises, groupsByExerciseId ->
+            exercises.map { exercise ->
+                StrengthExerciseWithMuscleGroups(exercise, groupsByExerciseId[exercise.id].orEmpty())
+            }
+        }
+
+    suspend fun getMuscleGroupsForExerciseOnce(exerciseId: String): List<MuscleGroup> {
+        val ids = strengthExerciseDao.getMuscleGroupCrossRefsForExercise(exerciseId).map { it.muscleGroupId }.toSet()
+        return muscleGroupDao.getAllOnce().filter { it.id in ids }
     }
 
-    suspend fun update(existing: StrengthExercise, updated: StrengthExercise) {
-        strengthExerciseDao.upsert(updated.copy(createdAt = existing.createdAt, updatedAt = Instant.now()))
+    suspend fun create(name: String, muscleGroupIds: List<String>) {
+        val now = Instant.now()
+        val id = IdGenerator.newId()
+        strengthExerciseDao.upsert(StrengthExercise(id = id, name = name, createdAt = now, updatedAt = now))
+        strengthExerciseDao.replaceMuscleGroupsForExercise(id, muscleGroupIds)
+    }
+
+    suspend fun update(existing: StrengthExercise, name: String, muscleGroupIds: List<String>) {
+        strengthExerciseDao.upsert(existing.copy(name = name, updatedAt = Instant.now()))
+        strengthExerciseDao.replaceMuscleGroupsForExercise(existing.id, muscleGroupIds)
     }
 
     suspend fun canDelete(exerciseId: String): Boolean = !strengthExerciseDao.isUsedInAnyLogEntry(exerciseId)

@@ -1,6 +1,7 @@
 package com.example.prokject2_tracker.fluid
 
 import com.example.prokject2_tracker.core.metrics.EpochDayRange
+import com.example.prokject2_tracker.core.metrics.MetricAggregation
 import com.example.prokject2_tracker.core.metrics.MetricPoint
 import com.example.prokject2_tracker.core.metrics.MetricSeriesDescriptor
 import com.example.prokject2_tracker.core.metrics.MetricSeriesProvider
@@ -16,6 +17,7 @@ class MlFluidMetricSeriesProvider @Inject constructor(
         displayName = "Flüssigkeit",
         unit = "ml",
         category = "fluid",
+        aggregation = MetricAggregation.SUM,
     )
 
     override fun getSeries(range: EpochDayRange): Flow<List<MetricPoint>> =

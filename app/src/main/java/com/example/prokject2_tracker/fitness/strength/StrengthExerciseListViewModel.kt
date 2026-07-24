@@ -13,7 +13,7 @@ import kotlinx.coroutines.launch
 class StrengthExerciseListViewModel @Inject constructor(
     private val strengthExerciseRepository: StrengthExerciseRepository,
 ) : ViewModel() {
-    val exercises: StateFlow<List<StrengthExercise>> = strengthExerciseRepository.observeAll()
+    val exercises: StateFlow<List<StrengthExerciseWithMuscleGroups>> = strengthExerciseRepository.observeAllWithMuscleGroups()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     init {

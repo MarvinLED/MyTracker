@@ -431,3 +431,63 @@ object MIGRATION_7_8 : Migration(7, 8) {
         )
     }
 }
+
+object MIGRATION_8_9 : Migration(8, 9) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        // strength_exercise_muscle_groups: new join table (an exercise can now target several
+        // muscle groups instead of exactly one). Created before the backfill below so it can be
+        // populated from the still-old-shaped strength_exercises (muscleGroupId not yet dropped).
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `strength_exercise_muscle_groups` (`exerciseId` TEXT NOT NULL, " +
+                "`muscleGroupId` TEXT NOT NULL, PRIMARY KEY(`exerciseId`, `muscleGroupId`), " +
+                "FOREIGN KEY(`exerciseId`) REFERENCES `strength_exercises`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE , " +
+                "FOREIGN KEY(`muscleGroupId`) REFERENCES `muscle_groups`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        )
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS `index_strength_exercise_muscle_groups_exerciseId` " +
+                "ON `strength_exercise_muscle_groups` (`exerciseId`)",
+        )
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS `index_strength_exercise_muscle_groups_muscleGroupId` " +
+                "ON `strength_exercise_muscle_groups` (`muscleGroupId`)",
+        )
+        db.execSQL(
+            "INSERT INTO `strength_exercise_muscle_groups` (`exerciseId`, `muscleGroupId`) " +
+                "SELECT `id`, `muscleGroupId` FROM `strength_exercises`",
+        )
+
+        // strength_exercises: drop muscleGroupId/muscleGroupName, now represented by the join table.
+        db.execSQL(
+            "CREATE TABLE `strength_exercises_new` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, " +
+                "`createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, PRIMARY KEY(`id`))",
+        )
+        db.execSQL(
+            "INSERT INTO `strength_exercises_new` (`id`, `name`, `createdAt`, `updatedAt`) " +
+                "SELECT `id`, `name`, `createdAt`, `updatedAt` FROM `strength_exercises`",
+        )
+        db.execSQL("DROP TABLE `strength_exercises`")
+        db.execSQL("ALTER TABLE `strength_exercises_new` RENAME TO `strength_exercises`")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_strength_exercises_name` ON `strength_exercises` (`name`)")
+
+        // strength_sets: drop muscleGroupId — "sets per muscle group" is now computed by joining
+        // exerciseId against strength_exercise_muscle_groups (an exercise's current assignment),
+        // since a set's exercise can target more than one group.
+        db.execSQL(
+            "CREATE TABLE `strength_sets_new` (`id` TEXT NOT NULL, `logEntryId` TEXT NOT NULL, " +
+                "`epochDay` INTEGER NOT NULL, `exerciseId` TEXT NOT NULL, `setIndex` INTEGER NOT NULL, " +
+                "`reps` INTEGER NOT NULL, `weightKg` REAL, PRIMARY KEY(`id`), " +
+                "FOREIGN KEY(`logEntryId`) REFERENCES `strength_log_entries`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        )
+        db.execSQL(
+            "INSERT INTO `strength_sets_new` (`id`, `logEntryId`, `epochDay`, `exerciseId`, `setIndex`, " +
+                "`reps`, `weightKg`) " +
+                "SELECT `id`, `logEntryId`, `epochDay`, `exerciseId`, `setIndex`, `reps`, `weightKg` " +
+                "FROM `strength_sets`",
+        )
+        db.execSQL("DROP TABLE `strength_sets`")
+        db.execSQL("ALTER TABLE `strength_sets_new` RENAME TO `strength_sets`")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_strength_sets_logEntryId` ON `strength_sets` (`logEntryId`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_strength_sets_epochDay` ON `strength_sets` (`epochDay`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_strength_sets_exerciseId` ON `strength_sets` (`exerciseId`)")
+    }
+}

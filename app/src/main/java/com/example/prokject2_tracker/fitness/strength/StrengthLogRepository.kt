@@ -28,12 +28,23 @@ class StrengthLogRepository @Inject constructor(
     fun observeDailyVolumeTotals(startInclusive: Long, endInclusive: Long): Flow<List<DailyVolumeTotal>> =
         strengthSetDao.observeDailyVolumeTotals(startInclusive, endInclusive)
 
+    fun observeDailyVolumeTotalsForExercise(exerciseId: String, startInclusive: Long, endInclusive: Long): Flow<List<DailyVolumeTotal>> =
+        strengthSetDao.observeDailyVolumeTotalsForExercise(exerciseId, startInclusive, endInclusive)
+
+    fun observeDailySetsTotalsForExercise(exerciseId: String, startInclusive: Long, endInclusive: Long): Flow<List<DailySetsTotal>> =
+        strengthSetDao.observeDailySetsTotalsForExercise(exerciseId, startInclusive, endInclusive)
+
+    fun observeDailyVolumeTotalsForMuscleGroup(muscleGroupId: String, startInclusive: Long, endInclusive: Long): Flow<List<DailyVolumeTotal>> =
+        strengthSetDao.observeDailyVolumeTotalsForMuscleGroup(muscleGroupId, startInclusive, endInclusive)
+
+    fun observeDailySetsTotalsForMuscleGroup(muscleGroupId: String, startInclusive: Long, endInclusive: Long): Flow<List<DailySetsTotal>> =
+        strengthSetDao.observeDailySetsTotalsForMuscleGroup(muscleGroupId, startInclusive, endInclusive)
+
     suspend fun save(
         existingId: String?,
         epochDay: Long,
         exerciseId: String,
         exerciseName: String,
-        muscleGroupId: String,
         note: String?,
         sets: List<Pair<Int, Double?>>,
     ): String {
@@ -57,7 +68,6 @@ class StrengthLogRepository @Inject constructor(
                     logEntryId = id,
                     epochDay = epochDay,
                     exerciseId = exerciseId,
-                    muscleGroupId = muscleGroupId,
                     setIndex = index,
                     reps = reps,
                     weightKg = weightKg,

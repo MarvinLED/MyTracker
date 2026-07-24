@@ -26,6 +26,6 @@ interface MuscleGroupDao {
     @Delete
     suspend fun delete(group: MuscleGroup)
 
-    @Query("SELECT EXISTS(SELECT 1 FROM strength_exercises WHERE muscleGroupId = :id)")
+    @Query("SELECT EXISTS(SELECT 1 FROM strength_exercise_muscle_groups WHERE muscleGroupId = :id)")
     suspend fun isUsedInAnyEntry(id: String): Boolean
 }

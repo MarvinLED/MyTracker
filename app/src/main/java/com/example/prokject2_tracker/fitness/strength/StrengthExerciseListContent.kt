@@ -52,7 +52,8 @@ fun StrengthExerciseListContent(
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                items(exercises, key = { it.id }) { exercise ->
+                items(exercises, key = { it.exercise.id }) { item ->
+                    val exercise = item.exercise
                     Card(modifier = Modifier.fillMaxWidth()) {
                         Row(
                             modifier = Modifier.fillMaxWidth().padding(12.dp),
@@ -64,7 +65,7 @@ fun StrengthExerciseListContent(
                                     .clickable { onEditExercise(exercise.id) },
                             ) {
                                 Text(exercise.name)
-                                Text(exercise.muscleGroupName)
+                                Text(item.muscleGroups.joinToString(", ") { it.name })
                             }
                             IconButton(onClick = {
                                 viewModel.deleteIfUnused(exercise) { blockedDeleteExercise = exercise }

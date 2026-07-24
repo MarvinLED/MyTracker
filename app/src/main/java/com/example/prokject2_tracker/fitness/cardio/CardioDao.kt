@@ -10,6 +10,9 @@ import kotlinx.coroutines.flow.Flow
 data class DailyMinutesTotal(val epochDay: Long, val value: Double)
 data class DailyCaloriesBurnedTotal(val epochDay: Long, val value: Double)
 data class DailyAvgHeartRateTotal(val epochDay: Long, val value: Double)
+data class DailySessionCount(val epochDay: Long, val value: Double)
+data class DailyDistanceKmTotal(val epochDay: Long, val value: Double)
+data class DailyAvgPace(val epochDay: Long, val value: Double)
 
 @Dao
 interface CardioDao {
@@ -39,6 +42,27 @@ interface CardioDao {
             "GROUP BY epochDay ORDER BY epochDay",
     )
     fun observeDailyAvgHeartRateTotals(startInclusive: Long, endInclusive: Long): Flow<List<DailyAvgHeartRateTotal>>
+
+    @Query(
+        "SELECT epochDay, CAST(COUNT(*) AS REAL) AS value FROM cardio_sessions " +
+            "WHERE epochDay BETWEEN :startInclusive AND :endInclusive " +
+            "GROUP BY epochDay ORDER BY epochDay",
+    )
+    fun observeDailySessionCountTotals(startInclusive: Long, endInclusive: Long): Flow<List<DailySessionCount>>
+
+    @Query(
+        "SELECT epochDay, SUM(distanceKm) AS value FROM cardio_sessions " +
+            "WHERE distanceKm IS NOT NULL AND epochDay BETWEEN :startInclusive AND :endInclusive " +
+            "GROUP BY epochDay ORDER BY epochDay",
+    )
+    fun observeDailyDistanceKmTotals(startInclusive: Long, endInclusive: Long): Flow<List<DailyDistanceKmTotal>>
+
+    @Query(
+        "SELECT epochDay, SUM(durationMinutes) / SUM(distanceKm) AS value FROM cardio_sessions " +
+            "WHERE distanceKm IS NOT NULL AND distanceKm > 0 AND epochDay BETWEEN :startInclusive AND :endInclusive " +
+            "GROUP BY epochDay ORDER BY epochDay",
+    )
+    fun observeDailyAvgPace(startInclusive: Long, endInclusive: Long): Flow<List<DailyAvgPace>>
 
     @Upsert
     suspend fun upsert(session: CardioSession)

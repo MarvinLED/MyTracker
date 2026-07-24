@@ -13,6 +13,7 @@ import com.example.prokject2_tracker.fitness.strength.MuscleGroup
 import com.example.prokject2_tracker.fitness.strength.MuscleGroupDao
 import com.example.prokject2_tracker.fitness.strength.StrengthExercise
 import com.example.prokject2_tracker.fitness.strength.StrengthExerciseDao
+import com.example.prokject2_tracker.fitness.strength.StrengthExerciseMuscleGroup
 import com.example.prokject2_tracker.fitness.strength.StrengthLogDao
 import com.example.prokject2_tracker.fitness.strength.StrengthLogEntry
 import com.example.prokject2_tracker.fitness.strength.StrengthSet
@@ -57,6 +58,7 @@ import com.example.prokject2_tracker.weight.BodyWeightEntry
         StrengthLogEntry::class,
         StrengthSet::class,
         MuscleGroup::class,
+        StrengthExerciseMuscleGroup::class,
         Habit::class,
         HabitCheckIn::class,
         HabitGoal::class,
@@ -65,7 +67,7 @@ import com.example.prokject2_tracker.weight.BodyWeightEntry
         BodyWeightEntry::class,
         FitnessGoal::class,
     ],
-    version = 8,
+    version = 9,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)

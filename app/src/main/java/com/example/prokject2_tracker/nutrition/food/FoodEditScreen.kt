@@ -85,7 +85,7 @@ fun FoodEditScreen(
             OutlinedTextField(
                 value = state.brand,
                 onValueChange = viewModel::onBrandChange,
-                label = { Text("Marke (optional)") },
+                label = { Text("Marke") },
                 modifier = Modifier.fillMaxWidth(),
             )
             val brandSuggestions = if (state.brand.isBlank()) {

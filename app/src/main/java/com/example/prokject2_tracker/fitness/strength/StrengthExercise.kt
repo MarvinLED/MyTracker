@@ -10,8 +10,6 @@ import java.time.Instant
 data class StrengthExercise(
     @PrimaryKey val id: String,
     val name: String,
-    val muscleGroupId: String,
-    val muscleGroupName: String,
     val createdAt: Instant,
     val updatedAt: Instant,
 )

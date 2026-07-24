@@ -5,4 +5,5 @@ data class MetricSeriesDescriptor(
     val displayName: String,
     val unit: String,
     val category: String,
+    val aggregation: MetricAggregation,
 )

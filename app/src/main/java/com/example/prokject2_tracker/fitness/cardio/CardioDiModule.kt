@@ -25,5 +25,17 @@ interface CardioDiModule {
 
     @Binds
     @IntoSet
+    fun bindCardioSessionCountMetricSeriesProvider(impl: CardioSessionCountMetricSeriesProvider): MetricSeriesProvider
+
+    @Binds
+    @IntoSet
+    fun bindCardioDistanceMetricSeriesProvider(impl: CardioDistanceMetricSeriesProvider): MetricSeriesProvider
+
+    @Binds
+    @IntoSet
+    fun bindCardioPaceMetricSeriesProvider(impl: CardioPaceMetricSeriesProvider): MetricSeriesProvider
+
+    @Binds
+    @IntoSet
     fun bindCardioActivityTypeLibraryExportProvider(impl: CardioActivityTypeLibraryExportProvider): LibraryExportProvider
 }

@@ -1,4 +1,4 @@
-package com.example.prokject2_tracker.fitness.strength
+package com.example.prokject2_tracker.nutrition.diary
 
 import com.example.prokject2_tracker.core.metrics.EpochDayRange
 import com.example.prokject2_tracker.core.metrics.MetricAggregation
@@ -9,50 +9,50 @@ import javax.inject.Inject
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
-class StrengthSetsMetricSeriesProvider @Inject constructor(
-    private val strengthSetDao: StrengthSetDao,
+class ProteinDiaryMetricSeriesProvider @Inject constructor(
+    private val diaryDao: DiaryDao,
 ) : MetricSeriesProvider {
     override fun descriptor() = MetricSeriesDescriptor(
-        id = "strength.sets_total",
-        displayName = "Kraft-Sätze",
-        unit = "Sätze",
-        category = "strength",
+        id = "diary.protein_total",
+        displayName = "Protein",
+        unit = "g",
+        category = "nutrition",
         aggregation = MetricAggregation.SUM,
     )
 
     override fun getSeries(range: EpochDayRange): Flow<List<MetricPoint>> =
-        strengthSetDao.observeDailySetsTotals(range.startInclusive, range.endInclusive)
+        diaryDao.observeDailyProteinTotals(range.startInclusive, range.endInclusive)
             .map { rows -> rows.map { MetricPoint(it.epochDay, it.value) } }
 }
 
-class StrengthVolumeMetricSeriesProvider @Inject constructor(
-    private val strengthSetDao: StrengthSetDao,
+class CarbsDiaryMetricSeriesProvider @Inject constructor(
+    private val diaryDao: DiaryDao,
 ) : MetricSeriesProvider {
     override fun descriptor() = MetricSeriesDescriptor(
-        id = "strength.volume_kg",
-        displayName = "Trainingsvolumen",
-        unit = "kg",
-        category = "strength",
+        id = "diary.carbs_total",
+        displayName = "Kohlenhydrate",
+        unit = "g",
+        category = "nutrition",
         aggregation = MetricAggregation.SUM,
     )
 
     override fun getSeries(range: EpochDayRange): Flow<List<MetricPoint>> =
-        strengthSetDao.observeDailyVolumeTotals(range.startInclusive, range.endInclusive)
+        diaryDao.observeDailyCarbsTotals(range.startInclusive, range.endInclusive)
             .map { rows -> rows.map { MetricPoint(it.epochDay, it.value) } }
 }
 
-class StrengthSessionCountMetricSeriesProvider @Inject constructor(
-    private val strengthLogDao: StrengthLogDao,
+class FatDiaryMetricSeriesProvider @Inject constructor(
+    private val diaryDao: DiaryDao,
 ) : MetricSeriesProvider {
     override fun descriptor() = MetricSeriesDescriptor(
-        id = "strength.sessions_count",
-        displayName = "Anzahl Krafttrainings-Einheiten",
-        unit = "Trainingstage",
-        category = "strength",
+        id = "diary.fat_total",
+        displayName = "Fett",
+        unit = "g",
+        category = "nutrition",
         aggregation = MetricAggregation.SUM,
     )
 
     override fun getSeries(range: EpochDayRange): Flow<List<MetricPoint>> =
-        strengthLogDao.observeDailyActiveFlag(range.startInclusive, range.endInclusive)
+        diaryDao.observeDailyFatTotals(range.startInclusive, range.endInclusive)
             .map { rows -> rows.map { MetricPoint(it.epochDay, it.value) } }
 }

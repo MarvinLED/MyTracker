@@ -76,28 +76,28 @@ fun CardioEntryForm(
         OutlinedTextField(
             value = state.distanceKm,
             onValueChange = onDistanceChange,
-            label = { Text("Distanz (km, optional)") },
+            label = { Text("Distanz (km)") },
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
             modifier = Modifier.fillMaxWidth(),
         )
         OutlinedTextField(
             value = state.caloriesBurned,
             onValueChange = onCaloriesChange,
-            label = { Text("Verbrannte kcal (optional)") },
+            label = { Text("Verbrannte kcal") },
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
             modifier = Modifier.fillMaxWidth(),
         )
         OutlinedTextField(
             value = state.avgHeartRateBpm,
             onValueChange = onHeartRateChange,
-            label = { Text("Ø Herzfrequenz (bpm, optional)") },
+            label = { Text("Ø Herzfrequenz (bpm)") },
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
             modifier = Modifier.fillMaxWidth(),
         )
         OutlinedTextField(
             value = state.note,
             onValueChange = onNoteChange,
-            label = { Text("Notiz (optional)") },
+            label = { Text("Notiz") },
             modifier = Modifier.fillMaxWidth(),
         )
     }

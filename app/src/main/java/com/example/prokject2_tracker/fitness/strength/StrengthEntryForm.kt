@@ -107,7 +107,7 @@ fun StrengthEntryForm(
                 OutlinedTextField(
                     value = set.weightText,
                     onValueChange = { onSetWeightChange(index, it) },
-                    label = { Text("Gewicht (kg, optional)") },
+                    label = { Text("Gewicht (kg)") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     modifier = Modifier.weight(1f),
                 )
@@ -123,7 +123,7 @@ fun StrengthEntryForm(
         OutlinedTextField(
             value = state.note,
             onValueChange = onNoteChange,
-            label = { Text("Notiz (optional)") },
+            label = { Text("Notiz") },
             modifier = Modifier.fillMaxWidth(),
         )
     }

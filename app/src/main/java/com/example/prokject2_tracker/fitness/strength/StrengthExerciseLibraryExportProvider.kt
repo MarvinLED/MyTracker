@@ -13,39 +13,42 @@ import kotlinx.serialization.json.encodeToJsonElement
 data class StrengthExerciseDto(
     val id: String,
     val name: String,
-    val muscleGroupId: String,
-    val muscleGroupName: String,
     val createdAtEpochMillis: Long,
     val updatedAtEpochMillis: Long,
+    val muscleGroupIds: List<String> = emptyList(),
 )
 
-private fun StrengthExercise.toDto() = StrengthExerciseDto(
+private fun StrengthExercise.toDto(muscleGroupIds: List<String>) = StrengthExerciseDto(
     id = id,
     name = name,
-    muscleGroupId = muscleGroupId,
-    muscleGroupName = muscleGroupName,
     createdAtEpochMillis = createdAt.toEpochMilli(),
     updatedAtEpochMillis = updatedAt.toEpochMilli(),
+    muscleGroupIds = muscleGroupIds,
 )
 
 private fun StrengthExerciseDto.toEntity() = StrengthExercise(
     id = id,
     name = name,
-    muscleGroupId = muscleGroupId,
-    muscleGroupName = muscleGroupName,
     createdAt = Instant.ofEpochMilli(createdAtEpochMillis),
     updatedAt = Instant.ofEpochMilli(updatedAtEpochMillis),
 )
 
+/** Imported after `"muscleGroups"` (see [importPriority]) since [StrengthExerciseDto.muscleGroupIds] are foreign keys into that data. */
 class StrengthExerciseLibraryExportProvider @Inject constructor(
     private val strengthExerciseDao: StrengthExerciseDao,
 ) : LibraryExportProvider {
     override val key = "strengthExercises"
+    override val importPriority = 5
 
     private val json = Json { ignoreUnknownKeys = true }
 
-    override suspend fun export(): JsonElement =
-        json.encodeToJsonElement(strengthExerciseDao.getAllOnce().map { it.toDto() })
+    override suspend fun export(): JsonElement {
+        val dtos = strengthExerciseDao.getAllOnce().map { exercise ->
+            val muscleGroupIds = strengthExerciseDao.getMuscleGroupCrossRefsForExercise(exercise.id).map { it.muscleGroupId }
+            exercise.toDto(muscleGroupIds)
+        }
+        return json.encodeToJsonElement(dtos)
+    }
 
     override suspend fun import(json: JsonElement) {
         val dtos = this.json.decodeFromJsonElement<List<StrengthExerciseDto>>(json)
@@ -53,6 +56,7 @@ class StrengthExerciseLibraryExportProvider @Inject constructor(
             val existing = strengthExerciseDao.getById(dto.id)
             if (existing == null || dto.updatedAtEpochMillis > existing.updatedAt.toEpochMilli()) {
                 strengthExerciseDao.upsert(dto.toEntity())
+                strengthExerciseDao.replaceMuscleGroupsForExercise(dto.id, dto.muscleGroupIds)
             }
         }
     }

@@ -1,32 +1,55 @@
 package com.example.prokject2_tracker.analyse
 
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.Card
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MenuAnchorType
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.Alignment
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.example.prokject2_tracker.core.util.formatCompact
+import com.example.prokject2_tracker.core.metrics.AnalyseDateRange
+import com.example.prokject2_tracker.core.metrics.Granularity
+import com.example.prokject2_tracker.core.metrics.label
+import com.example.prokject2_tracker.fitness.strength.MuscleGroup
+import com.example.prokject2_tracker.fitness.strength.StrengthExercise
+
+private val METRIC_CATEGORY_ORDER = listOf("cardio", "strength", "nutrition", "fluid", "habit", "weight", "overall")
+
+private val METRIC_CATEGORY_LABELS = mapOf(
+    "cardio" to "Cardio",
+    "strength" to "Kraft",
+    "nutrition" to "Ernährung",
+    "fluid" to "Flüssigkeit",
+    "habit" to "Habits",
+    "weight" to "Gewicht",
+    "overall" to "Gesamt",
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -35,7 +58,9 @@ fun AnalyseScreen(
     modifier: Modifier = Modifier,
     viewModel: AnalyseViewModel = hiltViewModel(),
 ) {
-    val series by viewModel.series.collectAsState()
+    val state by viewModel.uiState.collectAsState()
+    val exercises by viewModel.exercises.collectAsState()
+    val muscleGroups by viewModel.muscleGroups.collectAsState()
 
     Scaffold(
         modifier = modifier,
@@ -50,32 +75,206 @@ fun AnalyseScreen(
             )
         },
     ) { padding ->
-        if (series.isEmpty()) {
-            Box(
-                modifier = Modifier.fillMaxSize().padding(padding),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text("Noch keine Daten für die Analyse.")
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(padding)
+                .padding(16.dp)
+                .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                AnalyseDateRange.entries.forEach { range ->
+                    FilterChip(
+                        selected = range == state.dateRange,
+                        onClick = { viewModel.onDateRangeChange(range) },
+                        label = { Text(range.label()) },
+                    )
+                }
             }
-        } else {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize().padding(padding),
-                contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                items(series, key = { it.descriptor.id }) { seriesState ->
-                    Card(modifier = Modifier.fillMaxWidth()) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            Text(seriesState.descriptor.displayName, style = MaterialTheme.typography.titleMedium)
-                            val latest = seriesState.points.maxByOrNull { it.epochDay }
-                            if (latest != null) {
-                                Text("Letzter Wert: ${latest.value.formatCompact()} ${seriesState.descriptor.unit}")
+
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Granularity.entries.forEach { granularity ->
+                    FilterChip(
+                        selected = granularity == state.granularity,
+                        onClick = { viewModel.onGranularityChange(granularity) },
+                        label = { Text(granularity.label()) },
+                    )
+                }
+            }
+
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                METRIC_CATEGORY_ORDER.forEach { category ->
+                    val metrics = viewModel.availableMetrics.filter { it.category == category }
+                    if (metrics.isNotEmpty()) {
+                        Text(METRIC_CATEGORY_LABELS[category] ?: category, style = MaterialTheme.typography.titleSmall)
+                        Row(
+                            modifier = Modifier.horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            metrics.forEach { metric ->
+                                FilterChip(
+                                    selected = metric.id in state.selectedMetricIds,
+                                    onClick = { viewModel.onMetricToggle(metric.id) },
+                                    label = { Text(metric.displayName) },
+                                )
                             }
-                            SimpleLineChart(points = seriesState.points, modifier = Modifier.padding(top = 8.dp))
+                        }
+                    }
+                }
+            }
+
+            val primary = state.primarySeries?.copy(color = MaterialTheme.colorScheme.primary)
+            val secondary = state.secondarySeries?.copy(color = MaterialTheme.colorScheme.secondary)
+            if (primary != null) {
+                ComparisonLineChart(primary = primary, secondary = secondary)
+            } else {
+                Text("Wähle mindestens eine Metrik aus.")
+            }
+
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("Volumen/Sätze pro Übung", style = MaterialTheme.typography.titleMedium)
+                    if (exercises.isEmpty()) {
+                        Text("Noch keine Übungen angelegt.")
+                    } else {
+                        ExerciseDetailPicker(
+                            exercises = exercises,
+                            selectedExerciseId = state.exerciseDetailExerciseId,
+                            onExerciseChange = viewModel::onExerciseDetailChange,
+                        )
+                        DetailModeChips(
+                            mode = state.exerciseDetailMode,
+                            onModeChange = viewModel::onExerciseDetailModeChange,
+                        )
+                        val exerciseSeries = state.exerciseDetailSeries?.copy(color = MaterialTheme.colorScheme.primary)
+                        if (exerciseSeries != null) {
+                            ComparisonLineChart(primary = exerciseSeries)
+                        } else {
+                            Text("Wähle eine Übung aus.")
+                        }
+                    }
+                }
+            }
+
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("Sätze/Volumen pro Muskelgruppe", style = MaterialTheme.typography.titleMedium)
+                    if (muscleGroups.isEmpty()) {
+                        Text("Noch keine Muskelgruppen angelegt.")
+                    } else {
+                        MuscleGroupDetailPicker(
+                            muscleGroups = muscleGroups,
+                            selectedMuscleGroupId = state.muscleGroupDetailMuscleGroupId,
+                            onMuscleGroupChange = viewModel::onMuscleGroupDetailChange,
+                        )
+                        DetailModeChips(
+                            mode = state.muscleGroupDetailMode,
+                            onModeChange = viewModel::onMuscleGroupDetailModeChange,
+                        )
+                        val muscleGroupSeries = state.muscleGroupDetailSeries?.copy(color = MaterialTheme.colorScheme.primary)
+                        if (muscleGroupSeries != null) {
+                            ComparisonLineChart(primary = muscleGroupSeries)
+                        } else {
+                            Text("Wähle eine Muskelgruppe aus.")
                         }
                     }
                 }
             }
         }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ExerciseDetailPicker(
+    exercises: List<StrengthExercise>,
+    selectedExerciseId: String?,
+    onExerciseChange: (StrengthExercise) -> Unit,
+) {
+    var menuExpanded by remember { mutableStateOf(false) }
+    val selectedName = exercises.find { it.id == selectedExerciseId }?.name.orEmpty()
+
+    ExposedDropdownMenuBox(
+        expanded = menuExpanded,
+        onExpandedChange = { menuExpanded = it },
+    ) {
+        OutlinedTextField(
+            modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable, true).fillMaxWidth(),
+            readOnly = true,
+            value = selectedName,
+            onValueChange = {},
+            label = { Text("Übung") },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = menuExpanded) },
+        )
+        ExposedDropdownMenu(
+            expanded = menuExpanded,
+            onDismissRequest = { menuExpanded = false },
+        ) {
+            exercises.forEach { exercise ->
+                DropdownMenuItem(
+                    text = { Text(exercise.name) },
+                    onClick = {
+                        onExerciseChange(exercise)
+                        menuExpanded = false
+                    },
+                )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun MuscleGroupDetailPicker(
+    muscleGroups: List<MuscleGroup>,
+    selectedMuscleGroupId: String?,
+    onMuscleGroupChange: (MuscleGroup) -> Unit,
+) {
+    var menuExpanded by remember { mutableStateOf(false) }
+    val selectedName = muscleGroups.find { it.id == selectedMuscleGroupId }?.name.orEmpty()
+
+    ExposedDropdownMenuBox(
+        expanded = menuExpanded,
+        onExpandedChange = { menuExpanded = it },
+    ) {
+        OutlinedTextField(
+            modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable, true).fillMaxWidth(),
+            readOnly = true,
+            value = selectedName,
+            onValueChange = {},
+            label = { Text("Muskelgruppe") },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = menuExpanded) },
+        )
+        ExposedDropdownMenu(
+            expanded = menuExpanded,
+            onDismissRequest = { menuExpanded = false },
+        ) {
+            muscleGroups.forEach { group ->
+                DropdownMenuItem(
+                    text = { Text(group.name) },
+                    onClick = {
+                        onMuscleGroupChange(group)
+                        menuExpanded = false
+                    },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun DetailModeChips(mode: DetailMode, onModeChange: (DetailMode) -> Unit) {
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        FilterChip(
+            selected = mode == DetailMode.SETS,
+            onClick = { onModeChange(DetailMode.SETS) },
+            label = { Text("Sätze") },
+        )
+        FilterChip(
+            selected = mode == DetailMode.VOLUME,
+            onClick = { onModeChange(DetailMode.VOLUME) },
+            label = { Text("Volumen") },
+        )
     }
 }

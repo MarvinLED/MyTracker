@@ -87,7 +87,6 @@ class TrainingEntryViewModel @Inject constructor(
                             epochDay = entry.epochDay,
                             exerciseId = entry.exerciseId,
                             exerciseName = entry.exerciseName,
-                            muscleGroupId = sets.firstOrNull()?.muscleGroupId,
                             sets = sets.map { set ->
                                 StrengthSetInput(
                                     reps = set.reps.toString(),
@@ -158,7 +157,6 @@ class TrainingEntryViewModel @Inject constructor(
             strengthState = _state.value.strengthState.copy(
                 exerciseId = exercise.id,
                 exerciseName = exercise.name,
-                muscleGroupId = exercise.muscleGroupId,
                 sets = listOf(StrengthSetInput()),
             ),
         )
@@ -246,15 +244,13 @@ class TrainingEntryViewModel @Inject constructor(
             TrainingType.STRENGTH -> {
                 val strength = s.strengthState
                 val exerciseId = strength.exerciseId
-                val muscleGroupId = strength.muscleGroupId
-                if (!strength.isValid || exerciseId == null || muscleGroupId == null) return
+                if (!strength.isValid || exerciseId == null) return
                 viewModelScope.launch {
                     strengthLogRepository.save(
                         existingId = route.strengthLogEntryId,
                         epochDay = strength.epochDay,
                         exerciseId = exerciseId,
                         exerciseName = strength.exerciseName,
-                        muscleGroupId = muscleGroupId,
                         note = strength.note.ifBlank { null },
                         sets = strength.sets.map { it.reps.toInt() to it.weightText.toDoubleOrNull() },
                     )

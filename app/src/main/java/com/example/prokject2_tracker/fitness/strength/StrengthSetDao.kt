@@ -51,8 +51,55 @@ interface StrengthSetDao {
     suspend fun countBetween(startInclusive: Long, endInclusive: Long): Int
 
     @Query(
-        "SELECT COUNT(*) FROM strength_sets WHERE muscleGroupId = :muscleGroupId " +
-            "AND epochDay BETWEEN :startInclusive AND :endInclusive",
+        "SELECT COUNT(*) FROM strength_sets ss " +
+            "JOIN strength_exercise_muscle_groups segm ON segm.exerciseId = ss.exerciseId " +
+            "WHERE segm.muscleGroupId = :muscleGroupId AND ss.epochDay BETWEEN :startInclusive AND :endInclusive",
     )
     suspend fun countBetweenForMuscleGroup(muscleGroupId: String, startInclusive: Long, endInclusive: Long): Int
+
+    @Query(
+        "SELECT epochDay, SUM(reps * COALESCE(weightKg,0)) AS value FROM strength_sets " +
+            "WHERE exerciseId = :exerciseId AND epochDay BETWEEN :startInclusive AND :endInclusive " +
+            "GROUP BY epochDay ORDER BY epochDay",
+    )
+    fun observeDailyVolumeTotalsForExercise(
+        exerciseId: String,
+        startInclusive: Long,
+        endInclusive: Long,
+    ): Flow<List<DailyVolumeTotal>>
+
+    @Query(
+        "SELECT epochDay, COUNT(*) AS value FROM strength_sets " +
+            "WHERE exerciseId = :exerciseId AND epochDay BETWEEN :startInclusive AND :endInclusive " +
+            "GROUP BY epochDay ORDER BY epochDay",
+    )
+    fun observeDailySetsTotalsForExercise(
+        exerciseId: String,
+        startInclusive: Long,
+        endInclusive: Long,
+    ): Flow<List<DailySetsTotal>>
+
+    @Query(
+        "SELECT ss.epochDay, SUM(ss.reps * COALESCE(ss.weightKg,0)) AS value FROM strength_sets ss " +
+            "JOIN strength_exercise_muscle_groups segm ON segm.exerciseId = ss.exerciseId " +
+            "WHERE segm.muscleGroupId = :muscleGroupId AND ss.epochDay BETWEEN :startInclusive AND :endInclusive " +
+            "GROUP BY ss.epochDay ORDER BY ss.epochDay",
+    )
+    fun observeDailyVolumeTotalsForMuscleGroup(
+        muscleGroupId: String,
+        startInclusive: Long,
+        endInclusive: Long,
+    ): Flow<List<DailyVolumeTotal>>
+
+    @Query(
+        "SELECT ss.epochDay, COUNT(*) AS value FROM strength_sets ss " +
+            "JOIN strength_exercise_muscle_groups segm ON segm.exerciseId = ss.exerciseId " +
+            "WHERE segm.muscleGroupId = :muscleGroupId AND ss.epochDay BETWEEN :startInclusive AND :endInclusive " +
+            "GROUP BY ss.epochDay ORDER BY ss.epochDay",
+    )
+    fun observeDailySetsTotalsForMuscleGroup(
+        muscleGroupId: String,
+        startInclusive: Long,
+        endInclusive: Long,
+    ): Flow<List<DailySetsTotal>>
 }

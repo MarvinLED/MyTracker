@@ -16,11 +16,10 @@ import kotlinx.coroutines.launch
 data class StrengthExerciseEditState(
     val id: String? = null,
     val name: String = "",
-    val muscleGroupId: String? = null,
-    val muscleGroupName: String = "",
+    val muscleGroupIds: Set<String> = emptySet(),
     val isSaved: Boolean = false,
 ) {
-    val isValid: Boolean get() = name.isNotBlank() && muscleGroupId != null
+    val isValid: Boolean get() = name.isNotBlank() && muscleGroupIds.isNotEmpty()
 }
 
 @HiltViewModel
@@ -43,11 +42,12 @@ class StrengthExerciseEditViewModel @Inject constructor(
             viewModelScope.launch {
                 strengthExerciseRepository.getById(exerciseId)?.let { exercise ->
                     existing = exercise
+                    val muscleGroupIds = strengthExerciseRepository.getMuscleGroupsForExerciseOnce(exercise.id)
+                        .map { it.id }.toSet()
                     _state.value = StrengthExerciseEditState(
                         id = exercise.id,
                         name = exercise.name,
-                        muscleGroupId = exercise.muscleGroupId,
-                        muscleGroupName = exercise.muscleGroupName,
+                        muscleGroupIds = muscleGroupIds,
                     )
                 }
             }
@@ -55,27 +55,21 @@ class StrengthExerciseEditViewModel @Inject constructor(
     }
 
     fun onNameChange(value: String) { _state.value = _state.value.copy(name = value) }
-    fun onMuscleGroupChange(group: MuscleGroup) {
-        _state.value = _state.value.copy(muscleGroupId = group.id, muscleGroupName = group.name)
+    fun onMuscleGroupToggle(group: MuscleGroup) {
+        val current = _state.value.muscleGroupIds
+        val updated = if (group.id in current) current - group.id else current + group.id
+        _state.value = _state.value.copy(muscleGroupIds = updated)
     }
 
     fun save() {
         val s = _state.value
-        val muscleGroupId = s.muscleGroupId
-        if (!s.isValid || muscleGroupId == null) return
+        if (!s.isValid) return
         viewModelScope.launch {
             val current = existing
             if (current == null) {
-                strengthExerciseRepository.create(
-                    name = s.name,
-                    muscleGroupId = muscleGroupId,
-                    muscleGroupName = s.muscleGroupName,
-                )
+                strengthExerciseRepository.create(name = s.name, muscleGroupIds = s.muscleGroupIds.toList())
             } else {
-                strengthExerciseRepository.update(
-                    current,
-                    current.copy(name = s.name, muscleGroupId = muscleGroupId, muscleGroupName = s.muscleGroupName),
-                )
+                strengthExerciseRepository.update(current, name = s.name, muscleGroupIds = s.muscleGroupIds.toList())
             }
             _state.value = _state.value.copy(isSaved = true)
         }

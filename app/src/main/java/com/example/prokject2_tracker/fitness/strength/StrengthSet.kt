@@ -6,10 +6,11 @@ import androidx.room.Index
 import androidx.room.PrimaryKey
 
 /**
- * One logged set within a [StrengthLogEntry]. [epochDay]/[exerciseId]/[muscleGroupId] are
- * denormalized from the parent entry/exercise (like [com.example.prokject2_tracker.fitness.cardio.CardioSession]
- * snapshots its activity type) so "latest weight for this exercise" and "sets per muscle group"
- * queries need no join.
+ * One logged set within a [StrengthLogEntry]. [epochDay]/[exerciseId] are denormalized from the
+ * parent entry (like [com.example.prokject2_tracker.fitness.cardio.CardioSession] snapshots its
+ * activity type) so "latest weight for this exercise" needs no join. "Sets per muscle group" is
+ * computed by joining [exerciseId] against the exercise's *current* [StrengthExerciseMuscleGroup]
+ * assignments rather than snapshotting a muscle group here, since one exercise can target several.
  */
 @Entity(
     tableName = "strength_sets",
@@ -21,14 +22,13 @@ import androidx.room.PrimaryKey
             onDelete = ForeignKey.CASCADE,
         ),
     ],
-    indices = [Index("logEntryId"), Index("epochDay"), Index("exerciseId"), Index("muscleGroupId")],
+    indices = [Index("logEntryId"), Index("epochDay"), Index("exerciseId")],
 )
 data class StrengthSet(
     @PrimaryKey val id: String,
     val logEntryId: String,
     val epochDay: Long,
     val exerciseId: String,
-    val muscleGroupId: String,
     val setIndex: Int,
     val reps: Int,
     val weightKg: Double?,

@@ -76,8 +76,8 @@ fun StrengthExerciseEditScreen(
             ) {
                 muscleGroups.forEach { group ->
                     FilterChip(
-                        selected = state.muscleGroupId == group.id,
-                        onClick = { viewModel.onMuscleGroupChange(group) },
+                        selected = group.id in state.muscleGroupIds,
+                        onClick = { viewModel.onMuscleGroupToggle(group) },
                         label = { Text(group.name) },
                     )
                 }

@@ -98,7 +98,7 @@ fun RecipeEditScreen(
             OutlinedTextField(
                 value = state.instructions,
                 onValueChange = viewModel::onInstructionsChange,
-                label = { Text("Zubereitung (optional)") },
+                label = { Text("Zubereitung") },
                 modifier = Modifier.fillMaxWidth(),
             )
             Text("Zutaten", style = MaterialTheme.typography.titleSmall)

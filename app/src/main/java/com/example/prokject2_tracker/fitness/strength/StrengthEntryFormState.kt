@@ -12,7 +12,6 @@ data class StrengthEntryFormState(
     val epochDay: Long = DateUtils.todayEpochDay(),
     val exerciseId: String? = null,
     val exerciseName: String = "",
-    val muscleGroupId: String? = null,
     val sets: List<StrengthSetInput> = listOf(StrengthSetInput()),
     val note: String = "",
 ) {

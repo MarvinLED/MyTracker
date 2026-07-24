@@ -26,4 +26,8 @@ interface StrengthDiModule {
     @Binds
     @IntoSet
     fun bindStrengthVolumeMetricSeriesProvider(impl: StrengthVolumeMetricSeriesProvider): MetricSeriesProvider
+
+    @Binds
+    @IntoSet
+    fun bindStrengthSessionCountMetricSeriesProvider(impl: StrengthSessionCountMetricSeriesProvider): MetricSeriesProvider
 }

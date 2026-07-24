@@ -8,6 +8,9 @@ import kotlinx.coroutines.flow.Flow
 
 /** Projection matching [com.example.prokject2_tracker.core.metrics.MetricPoint]'s field names. */
 data class DailyKcalTotal(val epochDay: Long, val value: Double)
+data class DailyProteinTotal(val epochDay: Long, val value: Double)
+data class DailyCarbsTotal(val epochDay: Long, val value: Double)
+data class DailyFatTotal(val epochDay: Long, val value: Double)
 
 @Dao
 interface DiaryDao {
@@ -23,6 +26,27 @@ interface DiaryDao {
             "GROUP BY epochDay ORDER BY epochDay",
     )
     fun observeDailyKcalTotals(startInclusive: Long, endInclusive: Long): Flow<List<DailyKcalTotal>>
+
+    @Query(
+        "SELECT epochDay, SUM(protein) AS value FROM diary_entries " +
+            "WHERE epochDay BETWEEN :startInclusive AND :endInclusive " +
+            "GROUP BY epochDay ORDER BY epochDay",
+    )
+    fun observeDailyProteinTotals(startInclusive: Long, endInclusive: Long): Flow<List<DailyProteinTotal>>
+
+    @Query(
+        "SELECT epochDay, SUM(carbs) AS value FROM diary_entries " +
+            "WHERE epochDay BETWEEN :startInclusive AND :endInclusive " +
+            "GROUP BY epochDay ORDER BY epochDay",
+    )
+    fun observeDailyCarbsTotals(startInclusive: Long, endInclusive: Long): Flow<List<DailyCarbsTotal>>
+
+    @Query(
+        "SELECT epochDay, SUM(fat) AS value FROM diary_entries " +
+            "WHERE epochDay BETWEEN :startInclusive AND :endInclusive " +
+            "GROUP BY epochDay ORDER BY epochDay",
+    )
+    fun observeDailyFatTotals(startInclusive: Long, endInclusive: Long): Flow<List<DailyFatTotal>>
 
     @Upsert
     suspend fun upsert(entry: DiaryEntry)

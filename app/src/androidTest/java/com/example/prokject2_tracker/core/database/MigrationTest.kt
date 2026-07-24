@@ -123,4 +123,67 @@ class MigrationTest {
         }
         db.close()
     }
+
+    @Test
+    fun migrate1To9_seedsEightDefaultMuscleGroups() {
+        helper.createDatabase(dbName, 1).close()
+
+        val db = helper.runMigrationsAndValidate(
+            dbName,
+            9,
+            true,
+            MIGRATION_1_2,
+            MIGRATION_2_3,
+            MIGRATION_3_4,
+            MIGRATION_4_5,
+            MIGRATION_5_6,
+            MIGRATION_6_7,
+            MIGRATION_7_8,
+            MIGRATION_8_9,
+        )
+
+        db.query("SELECT COUNT(*) FROM muscle_groups").use { cursor ->
+            cursor.moveToFirst()
+            assertEquals(8, cursor.getInt(0))
+        }
+        db.close()
+    }
+
+    @Test
+    fun migrate8To9_convertsSingleMuscleGroupToCrossRefRowAndPreservesSets() {
+        val v8 = helper.createDatabase(dbName, 8)
+        v8.execSQL(
+            "INSERT INTO muscle_groups (id, name, sortOrder, createdAt) " +
+                "VALUES ('musclegroup-brust', 'Brust', 0, 1700000000000)",
+        )
+        v8.execSQL(
+            "INSERT INTO strength_exercises (id, name, muscleGroupId, muscleGroupName, createdAt, updatedAt) " +
+                "VALUES ('exercise-1', 'Bankdrücken', 'musclegroup-brust', 'Brust', 1700000000000, 1700000000000)",
+        )
+        v8.execSQL(
+            "INSERT INTO strength_log_entries (id, epochDay, createdAt, exerciseId, exerciseName, note) " +
+                "VALUES ('entry-1', 20000, 1700000000000, 'exercise-1', 'Bankdrücken', NULL)",
+        )
+        v8.execSQL(
+            "INSERT INTO strength_sets (id, logEntryId, epochDay, exerciseId, muscleGroupId, setIndex, reps, weightKg) " +
+                "VALUES ('set-1', 'entry-1', 20000, 'exercise-1', 'musclegroup-brust', 0, 10, 40.0)",
+        )
+        v8.close()
+
+        val db = helper.runMigrationsAndValidate(dbName, 9, true, MIGRATION_8_9)
+
+        db.query(
+            "SELECT COUNT(*) FROM strength_exercise_muscle_groups " +
+                "WHERE exerciseId = 'exercise-1' AND muscleGroupId = 'musclegroup-brust'",
+        ).use { cursor ->
+            cursor.moveToFirst()
+            assertEquals(1, cursor.getInt(0))
+        }
+        db.query("SELECT reps, weightKg FROM strength_sets WHERE id = 'set-1'").use { cursor ->
+            cursor.moveToFirst()
+            assertEquals(10, cursor.getInt(0))
+            assertEquals(40.0, cursor.getDouble(1), 0.0001)
+        }
+        db.close()
+    }
 }
