@@ -35,6 +35,7 @@ fun FitnessScreen(
     onAddStrengthLogEntry: () -> Unit,
     onEditStrengthLogEntry: (String) -> Unit,
     onOpenExerciseLibrary: () -> Unit,
+    onOpenCardioActivityTypeLibrary: () -> Unit,
     onOpenDrawer: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -62,6 +63,13 @@ fun FitnessScreen(
                             onClick = {
                                 showMenu = false
                                 onOpenExerciseLibrary()
+                            },
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Cardio-Aktivitäten verwalten") },
+                            onClick = {
+                                showMenu = false
+                                onOpenCardioActivityTypeLibrary()
                             },
                         )
                     }

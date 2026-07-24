@@ -47,6 +47,7 @@ fun FoodEditScreen(
 ) {
     val state by viewModel.state.collectAsState()
     val allTags by viewModel.allTags.collectAsState()
+    val allBrands by viewModel.allBrands.collectAsState()
 
     LaunchedEffect(state.isSaved) {
         if (state.isSaved) onDone()
@@ -81,6 +82,27 @@ fun FoodEditScreen(
                 label = { Text("Name") },
                 modifier = Modifier.fillMaxWidth(),
             )
+            OutlinedTextField(
+                value = state.brand,
+                onValueChange = viewModel::onBrandChange,
+                label = { Text("Marke (optional)") },
+                modifier = Modifier.fillMaxWidth(),
+            )
+            val brandSuggestions = if (state.brand.isBlank()) {
+                emptyList()
+            } else {
+                allBrands.filter { it.contains(state.brand, ignoreCase = true) && !it.equals(state.brand, ignoreCase = true) }
+            }
+            if (brandSuggestions.isNotEmpty()) {
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    brandSuggestions.forEach { brand ->
+                        AssistChip(onClick = { viewModel.onBrandChange(brand) }, label = { Text(brand) })
+                    }
+                }
+            }
             OutlinedTextField(
                 value = state.kcalPer100,
                 onValueChange = viewModel::onKcalChange,

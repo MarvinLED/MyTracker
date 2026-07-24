@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 6,
-    "identityHash": "eb8c5c860ae07f83e7ac9127d46222ba",
+    "identityHash": "8719b507c767d7f0f772e7baa8e75ef1",
     "entities": [
       {
         "tableName": "food_items",
@@ -992,7 +992,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'eb8c5c860ae07f83e7ac9127d46222ba')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '8719b507c767d7f0f772e7baa8e75ef1')"
     ]
   }
 }

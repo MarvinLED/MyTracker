@@ -13,6 +13,9 @@ interface HabitCheckInDao {
     @Query("SELECT * FROM habit_check_ins WHERE epochDay = :epochDay")
     fun observeForDay(epochDay: Long): Flow<List<HabitCheckIn>>
 
+    @Query("SELECT * FROM habit_check_ins WHERE habitId = :habitId")
+    suspend fun getAllForHabit(habitId: String): List<HabitCheckIn>
+
     @Upsert
     suspend fun upsert(checkIn: HabitCheckIn)
 

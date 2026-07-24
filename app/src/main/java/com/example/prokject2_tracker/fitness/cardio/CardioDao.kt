@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.Flow
 /** Projections matching [com.example.prokject2_tracker.core.metrics.MetricPoint]'s field names. */
 data class DailyMinutesTotal(val epochDay: Long, val value: Double)
 data class DailyCaloriesBurnedTotal(val epochDay: Long, val value: Double)
+data class DailyAvgHeartRateTotal(val epochDay: Long, val value: Double)
 
 @Dao
 interface CardioDao {
@@ -31,6 +32,13 @@ interface CardioDao {
             "GROUP BY epochDay ORDER BY epochDay",
     )
     fun observeDailyCaloriesBurnedTotals(startInclusive: Long, endInclusive: Long): Flow<List<DailyCaloriesBurnedTotal>>
+
+    @Query(
+        "SELECT epochDay, AVG(avgHeartRateBpm) AS value FROM cardio_sessions " +
+            "WHERE epochDay BETWEEN :startInclusive AND :endInclusive " +
+            "GROUP BY epochDay ORDER BY epochDay",
+    )
+    fun observeDailyAvgHeartRateTotals(startInclusive: Long, endInclusive: Long): Flow<List<DailyAvgHeartRateTotal>>
 
     @Upsert
     suspend fun upsert(session: CardioSession)

@@ -1,5 +1,6 @@
 package com.example.prokject2_tracker.fitness.cardio
 
+import com.example.prokject2_tracker.core.backup.LibraryExportProvider
 import com.example.prokject2_tracker.core.metrics.MetricSeriesProvider
 import dagger.Binds
 import dagger.Module
@@ -17,4 +18,12 @@ interface CardioDiModule {
     @Binds
     @IntoSet
     fun bindCardioCaloriesMetricSeriesProvider(impl: CardioCaloriesMetricSeriesProvider): MetricSeriesProvider
+
+    @Binds
+    @IntoSet
+    fun bindCardioHeartRateMetricSeriesProvider(impl: CardioHeartRateMetricSeriesProvider): MetricSeriesProvider
+
+    @Binds
+    @IntoSet
+    fun bindCardioActivityTypeLibraryExportProvider(impl: CardioActivityTypeLibraryExportProvider): LibraryExportProvider
 }

@@ -48,6 +48,7 @@ fun CardioEditScreen(
     viewModel: CardioEditViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsState()
+    val activityTypes by viewModel.activityTypes.collectAsState()
     var showDatePicker by remember { mutableStateOf(false) }
     val dateFormatter = remember { DateTimeFormatter.ofPattern("EEEE, d. MMMM", Locale.GERMAN) }
 
@@ -86,11 +87,11 @@ fun CardioEditScreen(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier.fillMaxWidth(),
             ) {
-                CardioActivityType.entries.forEach { type ->
+                activityTypes.forEach { type ->
                     FilterChip(
-                        selected = state.activityType == type,
+                        selected = state.activityTypeId == type.id,
                         onClick = { viewModel.onActivityTypeChange(type) },
-                        label = { Text(type.label()) },
+                        label = { Text(type.name) },
                     )
                 }
             }
@@ -112,8 +113,15 @@ fun CardioEditScreen(
             OutlinedTextField(
                 value = state.caloriesBurned,
                 onValueChange = viewModel::onCaloriesChange,
-                label = { Text("Verbrannte kcal") },
+                label = { Text("Verbrannte kcal (optional)") },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                modifier = Modifier.fillMaxWidth(),
+            )
+            OutlinedTextField(
+                value = state.avgHeartRateBpm,
+                onValueChange = viewModel::onHeartRateChange,
+                label = { Text("Ø Herzfrequenz (bpm, optional)") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 modifier = Modifier.fillMaxWidth(),
             )
             OutlinedTextField(

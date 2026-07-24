@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.DirectionsRun
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.Card
@@ -86,13 +87,15 @@ private fun CardioSessionRow(session: CardioSession, onClick: () -> Unit, onDele
             modifier = Modifier.fillMaxWidth().padding(12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Icon(session.activityType.icon(), contentDescription = null, modifier = Modifier.padding(end = 12.dp))
+            Icon(Icons.AutoMirrored.Filled.DirectionsRun, contentDescription = null, modifier = Modifier.padding(end = 12.dp))
             Column(
                 modifier = Modifier.weight(1f).clickable(onClick = onClick),
             ) {
-                Text(session.activityType.label())
+                Text(session.activityTypeName)
                 val distancePart = session.distanceKm?.let { " · ${it.formatCompact()} km" }.orEmpty()
-                Text("${session.durationMinutes.formatCompact()} min$distancePart · ${session.caloriesBurned.formatCompact()} kcal")
+                val caloriesPart = session.caloriesBurned?.let { " · ${it.formatCompact()} kcal" }.orEmpty()
+                val heartRatePart = session.avgHeartRateBpm?.let { " · ⌀ $it bpm" }.orEmpty()
+                Text("${session.durationMinutes.formatCompact()} min$distancePart$caloriesPart$heartRatePart")
             }
             IconButton(onClick = onDelete) {
                 Icon(Icons.Filled.Delete, contentDescription = "Löschen")

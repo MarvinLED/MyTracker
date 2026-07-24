@@ -5,6 +5,8 @@ import androidx.room.Index
 import androidx.room.PrimaryKey
 import java.time.Instant
 
+enum class HabitType { YES_NO, COUNT, DURATION }
+
 /** A user-defined habit to check in on daily. Definitions are library data; check-ins are not. */
 @Entity(tableName = "habits", indices = [Index("name")])
 data class Habit(
@@ -13,4 +15,5 @@ data class Habit(
     val archived: Boolean = false,
     val createdAt: Instant,
     val updatedAt: Instant,
+    val type: HabitType = HabitType.YES_NO,
 )

@@ -15,4 +15,6 @@ data class HabitCheckIn(
     val habitId: String,
     val epochDay: Long,
     val createdAt: Instant,
+    /** Count, or minutes for DURATION habits. Null/unused for YES_NO habits. */
+    val value: Double? = null,
 )

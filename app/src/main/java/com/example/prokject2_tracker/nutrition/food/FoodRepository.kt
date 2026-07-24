@@ -14,10 +14,13 @@ class FoodRepository @Inject constructor(
 
     fun search(query: String): Flow<List<FoodItem>> = foodDao.search(query)
 
+    fun observeAllBrands(): Flow<List<String>> = foodDao.observeAllBrands()
+
     suspend fun getById(id: String): FoodItem? = foodDao.getById(id)
 
     suspend fun create(
         name: String,
+        brand: String?,
         baseUnit: BaseUnit,
         kcalPer100: Double,
         proteinPer100: Double,
@@ -34,6 +37,7 @@ class FoodRepository @Inject constructor(
         val food = FoodItem(
             id = IdGenerator.newId(),
             name = name,
+            brand = brand,
             baseUnit = baseUnit,
             kcalPer100 = kcalPer100,
             proteinPer100 = proteinPer100,

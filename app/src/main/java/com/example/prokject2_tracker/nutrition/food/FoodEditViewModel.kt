@@ -25,6 +25,7 @@ private fun String.toNutrientValue(): Double = toLocaleDoubleOrNull() ?: 0.0
 data class FoodEditState(
     val id: String? = null,
     val name: String = "",
+    val brand: String = "",
     val kcalPer100: String = "",
     val proteinPer100: String = "",
     val carbsPer100: String = "",
@@ -66,6 +67,9 @@ class FoodEditViewModel @Inject constructor(
     val allTags: StateFlow<List<Tag>> = tagRepository.observeAllTags()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    val allBrands: StateFlow<List<String>> = foodRepository.observeAllBrands()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
     init {
         val foodId = route.foodId
         if (foodId != null) {
@@ -75,6 +79,7 @@ class FoodEditViewModel @Inject constructor(
                     _state.value = FoodEditState(
                         id = food.id,
                         name = food.name,
+                        brand = food.brand.orEmpty(),
                         kcalPer100 = food.kcalPer100.toString(),
                         proteinPer100 = food.proteinPer100.toString(),
                         carbsPer100 = food.carbsPer100.toString(),
@@ -124,6 +129,7 @@ class FoodEditViewModel @Inject constructor(
     }
 
     fun onNameChange(value: String) { _state.value = _state.value.copy(name = value) }
+    fun onBrandChange(value: String) { _state.value = _state.value.copy(brand = value) }
     fun onKcalChange(value: String) { _state.value = _state.value.copy(kcalPer100 = value) }
     fun onProteinChange(value: String) { _state.value = _state.value.copy(proteinPer100 = value) }
     fun onCarbsChange(value: String) { _state.value = _state.value.copy(carbsPer100 = value) }
@@ -139,6 +145,7 @@ class FoodEditViewModel @Inject constructor(
         val s = _state.value
         if (!s.isValid) return
         viewModelScope.launch {
+            val brand = s.brand.ifBlank { null }
             val servingName = s.servingName.ifBlank { null }
             val servingAmount = s.servingAmount.toLocaleDoubleOrNull()
             val current = existing
@@ -146,6 +153,7 @@ class FoodEditViewModel @Inject constructor(
             if (current == null) {
                 val created = foodRepository.create(
                     name = s.name,
+                    brand = brand,
                     baseUnit = BaseUnit.G,
                     kcalPer100 = s.kcalPer100.toNutrientValue(),
                     proteinPer100 = s.proteinPer100.toNutrientValue(),
@@ -165,6 +173,7 @@ class FoodEditViewModel @Inject constructor(
                     current,
                     current.copy(
                         name = s.name,
+                        brand = brand,
                         baseUnit = BaseUnit.G,
                         kcalPer100 = s.kcalPer100.toNutrientValue(),
                         proteinPer100 = s.proteinPer100.toNutrientValue(),

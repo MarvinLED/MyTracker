@@ -4,3 +4,6 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 data class CardioEditRoute(val sessionId: String? = null)
+
+@Serializable
+data object CardioActivityTypeManageRoute

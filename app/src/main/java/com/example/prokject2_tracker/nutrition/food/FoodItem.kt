@@ -14,6 +14,8 @@ enum class BaseUnit { G, ML }
 data class FoodItem(
     @PrimaryKey val id: String,
     val name: String,
+    /** Optional brand/manufacturer (e.g. "Alnatura") purely as a logging-UI convenience. */
+    val brand: String? = null,
     val baseUnit: BaseUnit,
     val kcalPer100: Double,
     val proteinPer100: Double,

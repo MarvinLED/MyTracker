@@ -2,20 +2,21 @@ package com.example.prokject2_tracker.core.navigation
 
 import androidx.annotation.StringRes
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Checklist
 import androidx.compose.material.icons.filled.FitnessCenter
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.LocalDrink
 import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.example.prokject2_tracker.R
 import com.example.prokject2_tracker.fitness.FitnessRoute
 import com.example.prokject2_tracker.fluid.FluidRoute
-import com.example.prokject2_tracker.habit.HabitRoute
 import com.example.prokject2_tracker.nutrition.diary.DiaryRoute
+import com.example.prokject2_tracker.overview.OverviewRoute
 
 /**
- * Bottom-nav destinations. Kept to a max of 4 (Material3 guidance). Bibliothek/Analyse moved to
- * the [DrawerDestination] navigation drawer instead, freeing slots for Flüssigkeiten and Habits.
+ * Bottom-nav destinations. Kept to a max of 4 (Material3 guidance). Bibliothek/Analyse/Habits
+ * moved to the [DrawerDestination] navigation drawer instead, freeing slots for Flüssigkeiten.
+ * Übersicht is the app's home/start destination, so it goes first.
  */
 enum class TopLevelDestination(
     val route: Any,
@@ -23,6 +24,12 @@ enum class TopLevelDestination(
     @param:StringRes val labelRes: Int,
     val icon: ImageVector,
 ) {
+    OVERVIEW(
+        route = OverviewRoute,
+        routeQualifiedName = OverviewRoute::class.qualifiedName!!,
+        labelRes = R.string.nav_overview,
+        icon = Icons.Filled.Home,
+    ),
     DIARY(
         route = DiaryRoute,
         routeQualifiedName = DiaryRoute::class.qualifiedName!!,
@@ -40,11 +47,5 @@ enum class TopLevelDestination(
         routeQualifiedName = FitnessRoute::class.qualifiedName!!,
         labelRes = R.string.nav_fitness,
         icon = Icons.Filled.FitnessCenter,
-    ),
-    HABIT(
-        route = HabitRoute,
-        routeQualifiedName = HabitRoute::class.qualifiedName!!,
-        labelRes = R.string.nav_habit,
-        icon = Icons.Filled.Checklist,
     ),
 }

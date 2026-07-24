@@ -1,5 +1,6 @@
 <resources>
     <string name="app_name">Prokject2_Tracker</string>
+    <string name="nav_overview">Übersicht</string>
     <string name="nav_diary">Tagebuch</string>
     <string name="nav_fluid">Flüssigkeiten</string>
     <string name="nav_library">Bibliothek</string>
@@ -7,4 +8,5 @@
     <string name="nav_fitness">Fitness</string>
     <string name="nav_habit">Habits</string>
     <string name="nav_analyse">Analyse</string>
+    <string name="nav_weight">Gewicht</string>
 </resources>

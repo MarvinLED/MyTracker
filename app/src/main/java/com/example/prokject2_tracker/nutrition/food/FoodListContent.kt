@@ -77,7 +77,8 @@ fun FoodListContent(
                                 ) {
                                     Text(food.name)
                                     val unit = if (food.baseUnit == BaseUnit.G) "100 g" else "100 ml"
-                                    Text("${food.kcalPer100.formatCompact()} kcal / $unit")
+                                    val brandSuffix = food.brand?.let { " · $it" }.orEmpty()
+                                    Text("${food.kcalPer100.formatCompact()} kcal / $unit$brandSuffix")
                                     val tags = tagsByFoodId[food.id].orEmpty()
                                     if (tags.isNotEmpty()) {
                                         Text(

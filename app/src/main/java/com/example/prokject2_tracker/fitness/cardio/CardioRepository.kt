@@ -6,9 +6,21 @@ import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.flow.Flow
 
+/** Seeded once on first run; the user can rename/add/remove freely afterwards. */
+private val DEFAULT_CARDIO_ACTIVITY_TYPES = listOf(
+    "Laufen",
+    "Radfahren",
+    "Schwimmen",
+    "Gehen",
+    "Wandern",
+    "Rudern",
+    "Sonstiges",
+)
+
 @Singleton
 class CardioRepository @Inject constructor(
     private val cardioDao: CardioDao,
+    private val cardioActivityTypeDao: CardioActivityTypeDao,
 ) {
     fun observeAll(): Flow<List<CardioSession>> = cardioDao.observeAll()
 
@@ -20,13 +32,57 @@ class CardioRepository @Inject constructor(
     fun observeDailyCaloriesBurnedTotals(startInclusive: Long, endInclusive: Long): Flow<List<DailyCaloriesBurnedTotal>> =
         cardioDao.observeDailyCaloriesBurnedTotals(startInclusive, endInclusive)
 
+    fun observeDailyAvgHeartRateTotals(startInclusive: Long, endInclusive: Long): Flow<List<DailyAvgHeartRateTotal>> =
+        cardioDao.observeDailyAvgHeartRateTotals(startInclusive, endInclusive)
+
+    fun observeActivityTypes(): Flow<List<CardioActivityType>> = cardioActivityTypeDao.observeAll()
+
+    suspend fun ensureDefaultActivityTypesSeeded() {
+        if (cardioActivityTypeDao.getAllOnce().isNotEmpty()) return
+        val now = Instant.now()
+        cardioActivityTypeDao.upsertAll(
+            DEFAULT_CARDIO_ACTIVITY_TYPES.mapIndexed { index, name ->
+                CardioActivityType(
+                    id = IdGenerator.newId(),
+                    name = name,
+                    sortOrder = index,
+                    createdAt = now,
+                )
+            },
+        )
+    }
+
+    suspend fun createActivityType(name: String) {
+        val maxSortOrder = cardioActivityTypeDao.getAllOnce().maxOfOrNull { it.sortOrder } ?: -1
+        cardioActivityTypeDao.upsert(
+            CardioActivityType(
+                id = IdGenerator.newId(),
+                name = name,
+                sortOrder = maxSortOrder + 1,
+                createdAt = Instant.now(),
+            ),
+        )
+    }
+
+    suspend fun updateActivityType(existing: CardioActivityType, name: String) {
+        cardioActivityTypeDao.upsert(existing.copy(name = name))
+    }
+
+    suspend fun canDeleteActivityType(id: String): Boolean = !cardioActivityTypeDao.isUsedInAnyEntry(id)
+
+    suspend fun deleteActivityType(type: CardioActivityType) {
+        cardioActivityTypeDao.delete(type)
+    }
+
     suspend fun save(
         existing: CardioSession?,
         epochDay: Long,
-        activityType: CardioActivityType,
+        activityTypeId: String,
+        activityTypeName: String,
         durationMinutes: Double,
         distanceKm: Double?,
-        caloriesBurned: Double,
+        caloriesBurned: Double?,
+        avgHeartRateBpm: Int?,
         note: String?,
     ) {
         cardioDao.upsert(
@@ -34,10 +90,12 @@ class CardioRepository @Inject constructor(
                 id = existing?.id ?: IdGenerator.newId(),
                 epochDay = epochDay,
                 createdAt = existing?.createdAt ?: Instant.now(),
-                activityType = activityType,
+                activityTypeId = activityTypeId,
+                activityTypeName = activityTypeName,
                 durationMinutes = durationMinutes,
                 distanceKm = distanceKm,
                 caloriesBurned = caloriesBurned,
+                avgHeartRateBpm = avgHeartRateBpm,
                 note = note,
             ),
         )

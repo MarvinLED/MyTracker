@@ -3,6 +3,8 @@ package com.example.prokject2_tracker.core.database
 import androidx.room.Database
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
+import com.example.prokject2_tracker.fitness.cardio.CardioActivityType
+import com.example.prokject2_tracker.fitness.cardio.CardioActivityTypeDao
 import com.example.prokject2_tracker.fitness.cardio.CardioDao
 import com.example.prokject2_tracker.fitness.cardio.CardioSession
 import com.example.prokject2_tracker.fitness.strength.StrengthExercise
@@ -19,6 +21,8 @@ import com.example.prokject2_tracker.habit.Habit
 import com.example.prokject2_tracker.habit.HabitCheckIn
 import com.example.prokject2_tracker.habit.HabitCheckInDao
 import com.example.prokject2_tracker.habit.HabitDao
+import com.example.prokject2_tracker.habit.HabitGoal
+import com.example.prokject2_tracker.habit.HabitGoalDao
 import com.example.prokject2_tracker.nutrition.diary.DiaryDao
 import com.example.prokject2_tracker.nutrition.diary.DiaryEntry
 import com.example.prokject2_tracker.nutrition.food.FoodDao
@@ -29,6 +33,8 @@ import com.example.prokject2_tracker.nutrition.food.TagDao
 import com.example.prokject2_tracker.nutrition.recipe.Recipe
 import com.example.prokject2_tracker.nutrition.recipe.RecipeDao
 import com.example.prokject2_tracker.nutrition.recipe.RecipeIngredient
+import com.example.prokject2_tracker.weight.BodyWeightDao
+import com.example.prokject2_tracker.weight.BodyWeightEntry
 
 @Database(
     entities = [
@@ -40,14 +46,17 @@ import com.example.prokject2_tracker.nutrition.recipe.RecipeIngredient
         FluidType::class,
         FluidUnit::class,
         CardioSession::class,
+        CardioActivityType::class,
         StrengthExercise::class,
         StrengthLogEntry::class,
         Habit::class,
         HabitCheckIn::class,
+        HabitGoal::class,
         Tag::class,
         FoodItemTag::class,
+        BodyWeightEntry::class,
     ],
-    version = 6,
+    version = 7,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -59,9 +68,12 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun fluidTypeDao(): FluidTypeDao
     abstract fun fluidUnitDao(): FluidUnitDao
     abstract fun cardioDao(): CardioDao
+    abstract fun cardioActivityTypeDao(): CardioActivityTypeDao
     abstract fun strengthExerciseDao(): StrengthExerciseDao
     abstract fun strengthLogDao(): StrengthLogDao
     abstract fun habitDao(): HabitDao
     abstract fun habitCheckInDao(): HabitCheckInDao
+    abstract fun habitGoalDao(): HabitGoalDao
     abstract fun tagDao(): TagDao
+    abstract fun bodyWeightDao(): BodyWeightDao
 }

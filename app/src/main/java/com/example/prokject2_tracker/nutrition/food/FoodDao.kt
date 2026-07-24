@@ -14,6 +14,9 @@ interface FoodDao {
     @Query("SELECT * FROM food_items WHERE name LIKE '%' || :query || '%' ORDER BY name COLLATE NOCASE")
     fun search(query: String): Flow<List<FoodItem>>
 
+    @Query("SELECT DISTINCT brand FROM food_items WHERE brand IS NOT NULL AND brand != '' ORDER BY brand COLLATE NOCASE")
+    fun observeAllBrands(): Flow<List<String>>
+
     @Query("SELECT * FROM food_items WHERE id = :id")
     suspend fun getById(id: String): FoodItem?
 

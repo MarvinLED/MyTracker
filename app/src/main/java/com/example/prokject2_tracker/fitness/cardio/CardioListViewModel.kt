@@ -16,6 +16,10 @@ class CardioListViewModel @Inject constructor(
     val sessions: StateFlow<List<CardioSession>> = cardioRepository.observeAll()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    init {
+        viewModelScope.launch { cardioRepository.ensureDefaultActivityTypesSeeded() }
+    }
+
     fun delete(session: CardioSession) {
         viewModelScope.launch { cardioRepository.delete(session) }
     }

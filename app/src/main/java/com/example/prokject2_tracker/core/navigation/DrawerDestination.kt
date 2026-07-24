@@ -2,14 +2,18 @@ package com.example.prokject2_tracker.core.navigation
 
 import androidx.annotation.StringRes
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Checklist
 import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.Insights
 import androidx.compose.material.icons.filled.Kitchen
+import androidx.compose.material.icons.filled.MonitorWeight
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.example.prokject2_tracker.R
 import com.example.prokject2_tracker.analyse.AnalyseRoute
 import com.example.prokject2_tracker.goals.GoalsRoute
+import com.example.prokject2_tracker.habit.HabitRoute
 import com.example.prokject2_tracker.nutrition.library.LibraryRoute
+import com.example.prokject2_tracker.weight.WeightRoute
 
 /**
  * Destinations reachable from the [com.example.prokject2_tracker.core.ui.AppScaffold] navigation
@@ -38,5 +42,17 @@ enum class DrawerDestination(
         routeQualifiedName = GoalsRoute::class.qualifiedName!!,
         labelRes = R.string.nav_goals,
         icon = Icons.Filled.Flag,
+    ),
+    HABIT(
+        route = HabitRoute,
+        routeQualifiedName = HabitRoute::class.qualifiedName!!,
+        labelRes = R.string.nav_habit,
+        icon = Icons.Filled.Checklist,
+    ),
+    WEIGHT(
+        route = WeightRoute,
+        routeQualifiedName = WeightRoute::class.qualifiedName!!,
+        labelRes = R.string.nav_weight,
+        icon = Icons.Filled.MonitorWeight,
     ),
 }

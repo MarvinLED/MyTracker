@@ -13,6 +13,7 @@ import kotlinx.serialization.json.encodeToJsonElement
 data class FoodItemDto(
     val id: String,
     val name: String,
+    val brand: String? = null,
     val baseUnit: BaseUnit,
     val kcalPer100: Double,
     val proteinPer100: Double,
@@ -32,6 +33,7 @@ data class FoodItemDto(
 private fun FoodItem.toDto(tagIds: List<String>) = FoodItemDto(
     id = id,
     name = name,
+    brand = brand,
     baseUnit = baseUnit,
     kcalPer100 = kcalPer100,
     proteinPer100 = proteinPer100,
@@ -51,6 +53,7 @@ private fun FoodItem.toDto(tagIds: List<String>) = FoodItemDto(
 private fun FoodItemDto.toEntity() = FoodItem(
     id = id,
     name = name,
+    brand = brand,
     baseUnit = baseUnit,
     kcalPer100 = kcalPer100,
     proteinPer100 = proteinPer100,

@@ -9,6 +9,8 @@ import com.example.prokject2_tracker.analyse.AnalyseRoute
 import com.example.prokject2_tracker.analyse.AnalyseScreen
 import com.example.prokject2_tracker.fitness.FitnessRoute
 import com.example.prokject2_tracker.fitness.FitnessScreen
+import com.example.prokject2_tracker.fitness.cardio.CardioActivityTypeManageRoute
+import com.example.prokject2_tracker.fitness.cardio.CardioActivityTypeManageScreen
 import com.example.prokject2_tracker.fitness.cardio.CardioEditRoute
 import com.example.prokject2_tracker.fitness.cardio.CardioEditScreen
 import com.example.prokject2_tracker.fitness.strength.StrengthExerciseEditRoute
@@ -39,6 +41,10 @@ import com.example.prokject2_tracker.nutrition.library.LibraryRoute
 import com.example.prokject2_tracker.nutrition.library.LibraryScreen
 import com.example.prokject2_tracker.nutrition.recipe.RecipeEditRoute
 import com.example.prokject2_tracker.nutrition.recipe.RecipeEditScreen
+import com.example.prokject2_tracker.overview.OverviewRoute
+import com.example.prokject2_tracker.overview.OverviewScreen
+import com.example.prokject2_tracker.weight.WeightRoute
+import com.example.prokject2_tracker.weight.WeightScreen
 
 @Composable
 fun AppNavHost(
@@ -48,9 +54,12 @@ fun AppNavHost(
 ) {
     NavHost(
         navController = navController,
-        startDestination = DiaryRoute,
+        startDestination = OverviewRoute,
         modifier = modifier,
     ) {
+        composable<OverviewRoute> {
+            OverviewScreen(onOpenDrawer = onOpenDrawer)
+        }
         composable<DiaryRoute> {
             DiaryScreen(
                 onAddEntry = { epochDay -> navController.navigate(DiaryAddEntryRoute(epochDay)) },
@@ -72,6 +81,9 @@ fun AppNavHost(
         }
         composable<HabitRoute> {
             HabitScreen(onOpenDrawer = onOpenDrawer)
+        }
+        composable<WeightRoute> {
+            WeightScreen(onOpenDrawer = onOpenDrawer)
         }
         composable<DiaryAddEntryRoute> {
             DiaryAddEntryScreen(
@@ -112,11 +124,15 @@ fun AppNavHost(
                 onAddStrengthLogEntry = { navController.navigate(StrengthLogEditRoute()) },
                 onEditStrengthLogEntry = { entryId -> navController.navigate(StrengthLogEditRoute(entryId = entryId)) },
                 onOpenExerciseLibrary = { navController.navigate(StrengthExerciseLibraryRoute) },
+                onOpenCardioActivityTypeLibrary = { navController.navigate(CardioActivityTypeManageRoute) },
                 onOpenDrawer = onOpenDrawer,
             )
         }
         composable<CardioEditRoute> {
             CardioEditScreen(onDone = { navController.popBackStack() })
+        }
+        composable<CardioActivityTypeManageRoute> {
+            CardioActivityTypeManageScreen(onBack = { navController.popBackStack() })
         }
         composable<StrengthLogEditRoute> {
             StrengthLogEditScreen(onDone = { navController.popBackStack() })

@@ -2,6 +2,7 @@ package com.example.prokject2_tracker.core.database
 
 import android.content.Context
 import androidx.room.Room
+import com.example.prokject2_tracker.fitness.cardio.CardioActivityTypeDao
 import com.example.prokject2_tracker.fitness.cardio.CardioDao
 import com.example.prokject2_tracker.fitness.strength.StrengthExerciseDao
 import com.example.prokject2_tracker.fitness.strength.StrengthLogDao
@@ -10,10 +11,12 @@ import com.example.prokject2_tracker.fluid.FluidTypeDao
 import com.example.prokject2_tracker.fluid.FluidUnitDao
 import com.example.prokject2_tracker.habit.HabitCheckInDao
 import com.example.prokject2_tracker.habit.HabitDao
+import com.example.prokject2_tracker.habit.HabitGoalDao
 import com.example.prokject2_tracker.nutrition.diary.DiaryDao
 import com.example.prokject2_tracker.nutrition.food.FoodDao
 import com.example.prokject2_tracker.nutrition.food.TagDao
 import com.example.prokject2_tracker.nutrition.recipe.RecipeDao
+import com.example.prokject2_tracker.weight.BodyWeightDao
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -28,9 +31,19 @@ object DatabaseModule {
     @Singleton
     fun provideAppDatabase(@ApplicationContext context: Context): AppDatabase =
         Room.databaseBuilder(context, AppDatabase::class.java, "prokject2_tracker.db")
-            // Pre-release: schema changes freely without bumping `version`. Destructively
-            // recreate on any mismatch instead of crashing; switch to real migrations once shipped.
-            .fallbackToDestructiveMigration(dropAllTables = false)
+            .addMigrations(
+                MIGRATION_1_2,
+                MIGRATION_2_3,
+                MIGRATION_3_4,
+                MIGRATION_4_5,
+                MIGRATION_5_6,
+                MIGRATION_6_7,
+            )
+            // Upgrades now always go through a real, data-preserving Migration above — a missing
+            // migration crashes loudly in development instead of silently wiping a real user's
+            // data again. Downgrades only happen when sideloading an older debug APK over a newer
+            // one (dev-only, data loss already expected there), so that fallback is kept.
+            .fallbackToDestructiveMigrationOnDowngrade(dropAllTables = false)
             .build()
 
     @Provides
@@ -58,6 +71,9 @@ object DatabaseModule {
     fun provideCardioDao(database: AppDatabase): CardioDao = database.cardioDao()
 
     @Provides
+    fun provideCardioActivityTypeDao(database: AppDatabase): CardioActivityTypeDao = database.cardioActivityTypeDao()
+
+    @Provides
     fun provideStrengthExerciseDao(database: AppDatabase): StrengthExerciseDao = database.strengthExerciseDao()
 
     @Provides
@@ -68,4 +84,10 @@ object DatabaseModule {
 
     @Provides
     fun provideHabitCheckInDao(database: AppDatabase): HabitCheckInDao = database.habitCheckInDao()
+
+    @Provides
+    fun provideHabitGoalDao(database: AppDatabase): HabitGoalDao = database.habitGoalDao()
+
+    @Provides
+    fun provideBodyWeightDao(database: AppDatabase): BodyWeightDao = database.bodyWeightDao()
 }

@@ -37,3 +37,18 @@ class CardioCaloriesMetricSeriesProvider @Inject constructor(
         cardioDao.observeDailyCaloriesBurnedTotals(range.startInclusive, range.endInclusive)
             .map { rows -> rows.map { MetricPoint(it.epochDay, it.value) } }
 }
+
+class CardioHeartRateMetricSeriesProvider @Inject constructor(
+    private val cardioDao: CardioDao,
+) : MetricSeriesProvider {
+    override fun descriptor() = MetricSeriesDescriptor(
+        id = "cardio.avg_heart_rate",
+        displayName = "Cardio-Herzfrequenz",
+        unit = "bpm",
+        category = "cardio",
+    )
+
+    override fun getSeries(range: EpochDayRange): Flow<List<MetricPoint>> =
+        cardioDao.observeDailyAvgHeartRateTotals(range.startInclusive, range.endInclusive)
+            .map { rows -> rows.map { MetricPoint(it.epochDay, it.value) } }
+}
