@@ -35,6 +35,7 @@ fun StrengthExerciseEditScreen(
     viewModel: StrengthExerciseEditViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsState()
+    val muscleGroups by viewModel.muscleGroups.collectAsState()
 
     LaunchedEffect(state.isSaved) {
         if (state.isSaved) onDone()
@@ -73,11 +74,11 @@ fun StrengthExerciseEditScreen(
                 modifier = Modifier.horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                MuscleGroup.entries.forEach { group ->
+                muscleGroups.forEach { group ->
                     FilterChip(
-                        selected = state.muscleGroup == group,
+                        selected = state.muscleGroupId == group.id,
                         onClick = { viewModel.onMuscleGroupChange(group) },
-                        label = { Text(group.label()) },
+                        label = { Text(group.name) },
                     )
                 }
             }

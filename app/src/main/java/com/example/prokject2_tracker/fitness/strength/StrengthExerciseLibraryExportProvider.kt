@@ -13,7 +13,8 @@ import kotlinx.serialization.json.encodeToJsonElement
 data class StrengthExerciseDto(
     val id: String,
     val name: String,
-    val muscleGroup: MuscleGroup,
+    val muscleGroupId: String,
+    val muscleGroupName: String,
     val createdAtEpochMillis: Long,
     val updatedAtEpochMillis: Long,
 )
@@ -21,7 +22,8 @@ data class StrengthExerciseDto(
 private fun StrengthExercise.toDto() = StrengthExerciseDto(
     id = id,
     name = name,
-    muscleGroup = muscleGroup,
+    muscleGroupId = muscleGroupId,
+    muscleGroupName = muscleGroupName,
     createdAtEpochMillis = createdAt.toEpochMilli(),
     updatedAtEpochMillis = updatedAt.toEpochMilli(),
 )
@@ -29,7 +31,8 @@ private fun StrengthExercise.toDto() = StrengthExerciseDto(
 private fun StrengthExerciseDto.toEntity() = StrengthExercise(
     id = id,
     name = name,
-    muscleGroup = muscleGroup,
+    muscleGroupId = muscleGroupId,
+    muscleGroupName = muscleGroupName,
     createdAt = Instant.ofEpochMilli(createdAtEpochMillis),
     updatedAt = Instant.ofEpochMilli(updatedAtEpochMillis),
 )

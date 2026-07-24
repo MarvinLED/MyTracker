@@ -45,4 +45,10 @@ interface CardioDao {
 
     @Delete
     suspend fun delete(session: CardioSession)
+
+    @Query("SELECT COUNT(*) FROM cardio_sessions WHERE epochDay BETWEEN :startInclusive AND :endInclusive")
+    suspend fun countSessionsBetween(startInclusive: Long, endInclusive: Long): Int
+
+    @Query("SELECT COALESCE(SUM(durationMinutes),0) FROM cardio_sessions WHERE epochDay BETWEEN :startInclusive AND :endInclusive")
+    suspend fun sumDurationMinutesBetween(startInclusive: Long, endInclusive: Long): Double
 }

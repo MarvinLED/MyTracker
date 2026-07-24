@@ -64,7 +64,7 @@ fun StrengthExerciseListContent(
                                     .clickable { onEditExercise(exercise.id) },
                             ) {
                                 Text(exercise.name)
-                                Text(exercise.muscleGroup.label())
+                                Text(exercise.muscleGroupName)
                             }
                             IconButton(onClick = {
                                 viewModel.deleteIfUnused(exercise) { blockedDeleteExercise = exercise }

@@ -9,7 +9,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
 class StrengthSetsMetricSeriesProvider @Inject constructor(
-    private val strengthLogDao: StrengthLogDao,
+    private val strengthSetDao: StrengthSetDao,
 ) : MetricSeriesProvider {
     override fun descriptor() = MetricSeriesDescriptor(
         id = "strength.sets_total",
@@ -19,12 +19,12 @@ class StrengthSetsMetricSeriesProvider @Inject constructor(
     )
 
     override fun getSeries(range: EpochDayRange): Flow<List<MetricPoint>> =
-        strengthLogDao.observeDailySetsTotals(range.startInclusive, range.endInclusive)
+        strengthSetDao.observeDailySetsTotals(range.startInclusive, range.endInclusive)
             .map { rows -> rows.map { MetricPoint(it.epochDay, it.value) } }
 }
 
 class StrengthVolumeMetricSeriesProvider @Inject constructor(
-    private val strengthLogDao: StrengthLogDao,
+    private val strengthSetDao: StrengthSetDao,
 ) : MetricSeriesProvider {
     override fun descriptor() = MetricSeriesDescriptor(
         id = "strength.volume_kg",
@@ -34,6 +34,6 @@ class StrengthVolumeMetricSeriesProvider @Inject constructor(
     )
 
     override fun getSeries(range: EpochDayRange): Flow<List<MetricPoint>> =
-        strengthLogDao.observeDailyVolumeTotals(range.startInclusive, range.endInclusive)
+        strengthSetDao.observeDailyVolumeTotals(range.startInclusive, range.endInclusive)
             .map { rows -> rows.map { MetricPoint(it.epochDay, it.value) } }
 }

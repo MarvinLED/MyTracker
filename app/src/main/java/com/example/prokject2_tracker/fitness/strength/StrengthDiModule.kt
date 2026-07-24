@@ -17,6 +17,10 @@ interface StrengthDiModule {
 
     @Binds
     @IntoSet
+    fun bindMuscleGroupLibraryExportProvider(impl: MuscleGroupLibraryExportProvider): LibraryExportProvider
+
+    @Binds
+    @IntoSet
     fun bindStrengthSetsMetricSeriesProvider(impl: StrengthSetsMetricSeriesProvider): MetricSeriesProvider
 
     @Binds

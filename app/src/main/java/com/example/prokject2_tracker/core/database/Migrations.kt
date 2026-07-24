@@ -295,3 +295,139 @@ object MIGRATION_6_7 : Migration(6, 7) {
         db.execSQL("CREATE INDEX IF NOT EXISTS `index_cardio_sessions_epochDay` ON `cardio_sessions` (`epochDay`)")
     }
 }
+
+object MIGRATION_7_8 : Migration(7, 8) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        // muscle_groups: new table + 8 seeded defaults. Must match
+        // StrengthExerciseRepository.DEFAULT_MUSCLE_GROUPS exactly (Brust/Rücken/Beine/Schultern/
+        // Arme/Rumpf/Ganzkörper/Sonstiges) so ensureDefaultMuscleGroupsSeeded()'s isNotEmpty() check
+        // no-ops afterwards instead of double-seeding.
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `muscle_groups` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, " +
+                "`sortOrder` INTEGER NOT NULL, `createdAt` INTEGER NOT NULL, PRIMARY KEY(`id`))",
+        )
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_muscle_groups_name` ON `muscle_groups` (`name`)")
+
+        val now = System.currentTimeMillis()
+        val muscleGroups = listOf(
+            "musclegroup-brust" to "Brust",
+            "musclegroup-ruecken" to "Rücken",
+            "musclegroup-beine" to "Beine",
+            "musclegroup-schultern" to "Schultern",
+            "musclegroup-arme" to "Arme",
+            "musclegroup-rumpf" to "Rumpf",
+            "musclegroup-ganzkoerper" to "Ganzkörper",
+            "musclegroup-sonstiges" to "Sonstiges",
+        )
+        muscleGroups.forEachIndexed { index, (id, name) ->
+            db.execSQL(
+                "INSERT INTO `muscle_groups` (`id`, `name`, `sortOrder`, `createdAt`) " +
+                    "VALUES ('$id', '$name', $index, $now)",
+            )
+        }
+
+        // strength_exercises: legacy `muscleGroup` enum -> muscleGroupId/muscleGroupName snapshot.
+        // SQLite can't drop a column or add a NOT NULL column referencing derived data in place,
+        // so create-copy-drop-rename (same idiom as cardio_sessions in MIGRATION_6_7).
+        db.execSQL(
+            "CREATE TABLE `strength_exercises_new` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, " +
+                "`muscleGroupId` TEXT NOT NULL, `muscleGroupName` TEXT NOT NULL, `createdAt` INTEGER NOT NULL, " +
+                "`updatedAt` INTEGER NOT NULL, PRIMARY KEY(`id`))",
+        )
+        db.execSQL(
+            "INSERT INTO `strength_exercises_new` (`id`, `name`, `muscleGroupId`, `muscleGroupName`, " +
+                "`createdAt`, `updatedAt`) " +
+                "SELECT `id`, `name`, " +
+                "CASE `muscleGroup` " +
+                "WHEN 'CHEST' THEN 'musclegroup-brust' " +
+                "WHEN 'BACK' THEN 'musclegroup-ruecken' " +
+                "WHEN 'LEGS' THEN 'musclegroup-beine' " +
+                "WHEN 'SHOULDERS' THEN 'musclegroup-schultern' " +
+                "WHEN 'ARMS' THEN 'musclegroup-arme' " +
+                "WHEN 'CORE' THEN 'musclegroup-rumpf' " +
+                "WHEN 'FULL_BODY' THEN 'musclegroup-ganzkoerper' " +
+                "ELSE 'musclegroup-sonstiges' END, " +
+                "CASE `muscleGroup` " +
+                "WHEN 'CHEST' THEN 'Brust' " +
+                "WHEN 'BACK' THEN 'Rücken' " +
+                "WHEN 'LEGS' THEN 'Beine' " +
+                "WHEN 'SHOULDERS' THEN 'Schultern' " +
+                "WHEN 'ARMS' THEN 'Arme' " +
+                "WHEN 'CORE' THEN 'Rumpf' " +
+                "WHEN 'FULL_BODY' THEN 'Ganzkörper' " +
+                "ELSE 'Sonstiges' END, " +
+                "`createdAt`, `updatedAt` FROM `strength_exercises`",
+        )
+        db.execSQL("DROP TABLE `strength_exercises`")
+        db.execSQL("ALTER TABLE `strength_exercises_new` RENAME TO `strength_exercises`")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_strength_exercises_name` ON `strength_exercises` (`name`)")
+
+        // strength_sets: new table. Backfilled below from the still-old-shaped strength_log_entries
+        // (sets/reps/weightKg not yet dropped) joined against the now-restructured strength_exercises
+        // for muscleGroupId, expanding each entry's `sets` count into that many individual rows with
+        // the same reps/weightKg (legacy data has no per-set variation).
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `strength_sets` (`id` TEXT NOT NULL, `logEntryId` TEXT NOT NULL, " +
+                "`epochDay` INTEGER NOT NULL, `exerciseId` TEXT NOT NULL, `muscleGroupId` TEXT NOT NULL, " +
+                "`setIndex` INTEGER NOT NULL, `reps` INTEGER NOT NULL, `weightKg` REAL, PRIMARY KEY(`id`), " +
+                "FOREIGN KEY(`logEntryId`) REFERENCES `strength_log_entries`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        )
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_strength_sets_logEntryId` ON `strength_sets` (`logEntryId`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_strength_sets_epochDay` ON `strength_sets` (`epochDay`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_strength_sets_exerciseId` ON `strength_sets` (`exerciseId`)")
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS `index_strength_sets_muscleGroupId` ON `strength_sets` (`muscleGroupId`)",
+        )
+
+        db.query(
+            "SELECT sle.id, sle.epochDay, sle.exerciseId, sle.sets, sle.reps, sle.weightKg, se.muscleGroupId " +
+                "FROM strength_log_entries sle JOIN strength_exercises se ON se.id = sle.exerciseId",
+        ).use { cursor ->
+            while (cursor.moveToNext()) {
+                val logEntryId = cursor.getString(0)
+                val epochDay = cursor.getLong(1)
+                val exerciseId = cursor.getString(2)
+                val sets = cursor.getInt(3)
+                val reps = cursor.getInt(4)
+                val weightKg = cursor.getDouble(5)
+                val muscleGroupId = cursor.getString(6)
+                for (setIndex in 0 until sets) {
+                    db.execSQL(
+                        "INSERT INTO `strength_sets` (`id`, `logEntryId`, `epochDay`, `exerciseId`, " +
+                            "`muscleGroupId`, `setIndex`, `reps`, `weightKg`) VALUES " +
+                            "('$logEntryId-set-$setIndex', '$logEntryId', $epochDay, '$exerciseId', " +
+                            "'$muscleGroupId', $setIndex, $reps, $weightKg)",
+                    )
+                }
+            }
+        }
+
+        // strength_log_entries: drop sets/reps/weightKg, now represented by strength_sets rows.
+        db.execSQL(
+            "CREATE TABLE `strength_log_entries_new` (`id` TEXT NOT NULL, `epochDay` INTEGER NOT NULL, " +
+                "`createdAt` INTEGER NOT NULL, `exerciseId` TEXT NOT NULL, `exerciseName` TEXT NOT NULL, " +
+                "`note` TEXT, PRIMARY KEY(`id`))",
+        )
+        db.execSQL(
+            "INSERT INTO `strength_log_entries_new` (`id`, `epochDay`, `createdAt`, `exerciseId`, " +
+                "`exerciseName`, `note`) " +
+                "SELECT `id`, `epochDay`, `createdAt`, `exerciseId`, `exerciseName`, `note` " +
+                "FROM `strength_log_entries`",
+        )
+        db.execSQL("DROP TABLE `strength_log_entries`")
+        db.execSQL("ALTER TABLE `strength_log_entries_new` RENAME TO `strength_log_entries`")
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS `index_strength_log_entries_epochDay` ON `strength_log_entries` (`epochDay`)",
+        )
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS `index_strength_log_entries_exerciseId` ON `strength_log_entries` (`exerciseId`)",
+        )
+
+        // fitness_goals: new table, empty (no seed data — user-configured).
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `fitness_goals` (`id` TEXT NOT NULL, `metric` TEXT NOT NULL, " +
+                "`period` TEXT NOT NULL, `muscleGroupId` TEXT, `targetValue` REAL NOT NULL, " +
+                "`createdAt` INTEGER NOT NULL, PRIMARY KEY(`id`))",
+        )
+    }
+}

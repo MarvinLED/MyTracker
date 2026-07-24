@@ -10,20 +10,24 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 @HiltViewModel
-class StrengthExerciseListViewModel @Inject constructor(
+class MuscleGroupManageViewModel @Inject constructor(
     private val strengthExerciseRepository: StrengthExerciseRepository,
 ) : ViewModel() {
-    val exercises: StateFlow<List<StrengthExercise>> = strengthExerciseRepository.observeAll()
+    val groups: StateFlow<List<MuscleGroup>> = strengthExerciseRepository.observeMuscleGroups()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    init {
-        viewModelScope.launch { strengthExerciseRepository.ensureDefaultMuscleGroupsSeeded() }
+    fun create(name: String) {
+        viewModelScope.launch { strengthExerciseRepository.createMuscleGroup(name) }
     }
 
-    fun deleteIfUnused(exercise: StrengthExercise, onBlocked: () -> Unit) {
+    fun update(group: MuscleGroup, name: String) {
+        viewModelScope.launch { strengthExerciseRepository.updateMuscleGroup(group, name) }
+    }
+
+    fun deleteIfUnused(group: MuscleGroup, onBlocked: () -> Unit) {
         viewModelScope.launch {
-            if (strengthExerciseRepository.canDelete(exercise.id)) {
-                strengthExerciseRepository.delete(exercise)
+            if (strengthExerciseRepository.canDeleteMuscleGroup(group.id)) {
+                strengthExerciseRepository.deleteMuscleGroup(group)
             } else {
                 onBlocked()
             }

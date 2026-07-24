@@ -4,9 +4,8 @@ import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import com.example.prokject2_tracker.core.util.GoalPeriod
 import java.time.Instant
-
-enum class GoalPeriod { DAILY, WEEKLY, MONTHLY }
 
 /**
  * A target for a [Habit] over a given [period]. Habit-owned child, deleted along with its habit.

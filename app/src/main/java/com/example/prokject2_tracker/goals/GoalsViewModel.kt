@@ -3,7 +3,13 @@ package com.example.prokject2_tracker.goals
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.prokject2_tracker.core.datastore.UserPreferencesRepository
+import com.example.prokject2_tracker.core.util.GoalPeriod
 import com.example.prokject2_tracker.core.util.toLocaleDoubleOrNull
+import com.example.prokject2_tracker.fitness.FitnessGoal
+import com.example.prokject2_tracker.fitness.FitnessGoalMetric
+import com.example.prokject2_tracker.fitness.FitnessGoalRepository
+import com.example.prokject2_tracker.fitness.strength.MuscleGroup
+import com.example.prokject2_tracker.fitness.strength.StrengthExerciseRepository
 import com.example.prokject2_tracker.fluid.FluidRepository
 import com.example.prokject2_tracker.fluid.FluidType
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -22,6 +28,15 @@ data class FluidTypeGoalInput(
     val maxText: String,
 )
 
+data class FitnessGoalRow(
+    val id: String,
+    val metric: FitnessGoalMetric,
+    val period: GoalPeriod,
+    val muscleGroupId: String?,
+    val muscleGroupName: String?,
+    val targetText: String,
+)
+
 data class GoalsUiState(
     val calorieGoal: String = "",
     val waterGoal: String = "",
@@ -33,12 +48,16 @@ data class GoalsUiState(
     val fiberGoal: String = "",
     val saltGoal: String = "",
     val fluidTypeGoals: List<FluidTypeGoalInput> = emptyList(),
+    val fitnessGoals: List<FitnessGoalRow> = emptyList(),
+    val availableMuscleGroups: List<MuscleGroup> = emptyList(),
 )
 
 @HiltViewModel
 class GoalsViewModel @Inject constructor(
     private val userPreferencesRepository: UserPreferencesRepository,
     private val fluidRepository: FluidRepository,
+    private val fitnessGoalRepository: FitnessGoalRepository,
+    private val strengthExerciseRepository: StrengthExerciseRepository,
 ) : ViewModel() {
     private val _state = MutableStateFlow(GoalsUiState())
     val state: StateFlow<GoalsUiState> = _state.asStateFlow()
@@ -50,6 +69,8 @@ class GoalsViewModel @Inject constructor(
         viewModelScope.launch {
             val prefs = userPreferencesRepository.userPreferences.first()
             val types = fluidRepository.observeTypes().first()
+            val muscleGroups = strengthExerciseRepository.observeMuscleGroups().first()
+            val fitnessGoals = fitnessGoalRepository.observeAll().first()
             _state.value = GoalsUiState(
                 calorieGoal = prefs.dailyCalorieGoalKcal.toString(),
                 waterGoal = prefs.dailyWaterGoalMl.toString(),
@@ -67,9 +88,20 @@ class GoalsViewModel @Inject constructor(
                         maxText = type.dailyGoalMaxMl?.toString().orEmpty(),
                     )
                 },
+                fitnessGoals = fitnessGoals.map { it.toRow(muscleGroups) },
+                availableMuscleGroups = muscleGroups,
             )
         }
     }
+
+    private fun FitnessGoal.toRow(muscleGroups: List<MuscleGroup>) = FitnessGoalRow(
+        id = id,
+        metric = metric,
+        period = period,
+        muscleGroupId = muscleGroupId,
+        muscleGroupName = muscleGroups.firstOrNull { it.id == muscleGroupId }?.name,
+        targetText = targetValue.toString(),
+    )
 
     fun onCalorieGoalChange(value: String) { _state.value = _state.value.copy(calorieGoal = value) }
     fun onWaterGoalChange(value: String) { _state.value = _state.value.copy(waterGoal = value) }
@@ -97,6 +129,34 @@ class GoalsViewModel @Inject constructor(
         )
     }
 
+    fun onFitnessGoalTargetChange(goalId: String, value: String) {
+        _state.value = _state.value.copy(
+            fitnessGoals = _state.value.fitnessGoals.map {
+                if (it.id == goalId) it.copy(targetText = value) else it
+            },
+        )
+    }
+
+    fun addFitnessGoal(metric: FitnessGoalMetric, period: GoalPeriod, muscleGroupId: String?, targetValue: Double) {
+        viewModelScope.launch {
+            fitnessGoalRepository.setGoal(metric, period, muscleGroupId, targetValue)
+            reloadFitnessGoals()
+        }
+    }
+
+    fun removeFitnessGoal(goalId: String) {
+        viewModelScope.launch {
+            fitnessGoalRepository.deleteGoal(goalId)
+            reloadFitnessGoals()
+        }
+    }
+
+    private suspend fun reloadFitnessGoals() {
+        val muscleGroups = _state.value.availableMuscleGroups
+        val fitnessGoals = fitnessGoalRepository.observeAll().first()
+        _state.value = _state.value.copy(fitnessGoals = fitnessGoals.map { it.toRow(muscleGroups) })
+    }
+
     fun save() {
         val s = _state.value
         viewModelScope.launch {
@@ -115,6 +175,11 @@ class GoalsViewModel @Inject constructor(
                     dailyGoalMinMl = row.minText.toLocaleDoubleOrNull(),
                     dailyGoalMaxMl = row.maxText.toLocaleDoubleOrNull(),
                 )
+            }
+            s.fitnessGoals.forEach { row ->
+                row.targetText.toLocaleDoubleOrNull()?.let {
+                    fitnessGoalRepository.setGoal(row.metric, row.period, row.muscleGroupId, it)
+                }
             }
             _saved.emit(Unit)
         }

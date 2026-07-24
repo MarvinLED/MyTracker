@@ -73,4 +73,54 @@ class MigrationTest {
         }
         db.close()
     }
+
+    @Test
+    fun migrate1To8_seedsEightDefaultMuscleGroups() {
+        helper.createDatabase(dbName, 1).close()
+
+        val db = helper.runMigrationsAndValidate(
+            dbName,
+            8,
+            true,
+            MIGRATION_1_2,
+            MIGRATION_2_3,
+            MIGRATION_3_4,
+            MIGRATION_4_5,
+            MIGRATION_5_6,
+            MIGRATION_6_7,
+            MIGRATION_7_8,
+        )
+
+        db.query("SELECT COUNT(*) FROM muscle_groups").use { cursor ->
+            cursor.moveToFirst()
+            assertEquals(8, cursor.getInt(0))
+        }
+        db.close()
+    }
+
+    @Test
+    fun migrate7To8_expandsLegacySetsIntoIndividualStrengthSets() {
+        val v7 = helper.createDatabase(dbName, 7)
+        v7.execSQL(
+            "INSERT INTO strength_exercises (id, name, muscleGroup, createdAt, updatedAt) " +
+                "VALUES ('exercise-1', 'Bankdrücken', 'CHEST', 1700000000000, 1700000000000)",
+        )
+        v7.execSQL(
+            "INSERT INTO strength_log_entries (id, epochDay, createdAt, exerciseId, exerciseName, sets, reps, weightKg, note) " +
+                "VALUES ('entry-1', 20000, 1700000000000, 'exercise-1', 'Bankdrücken', 3, 10, 40.0, NULL)",
+        )
+        v7.close()
+
+        val db = helper.runMigrationsAndValidate(dbName, 8, true, MIGRATION_7_8)
+
+        db.query("SELECT COUNT(*) FROM strength_sets WHERE logEntryId = 'entry-1'").use { cursor ->
+            cursor.moveToFirst()
+            assertEquals(3, cursor.getInt(0))
+        }
+        db.query("SELECT COUNT(*) FROM strength_sets WHERE logEntryId = 'entry-1' AND muscleGroupId = 'musclegroup-brust'").use { cursor ->
+            cursor.moveToFirst()
+            assertEquals(3, cursor.getInt(0))
+        }
+        db.close()
+    }
 }

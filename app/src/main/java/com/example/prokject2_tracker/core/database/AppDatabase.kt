@@ -3,14 +3,20 @@ package com.example.prokject2_tracker.core.database
 import androidx.room.Database
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
+import com.example.prokject2_tracker.fitness.FitnessGoal
+import com.example.prokject2_tracker.fitness.FitnessGoalDao
 import com.example.prokject2_tracker.fitness.cardio.CardioActivityType
 import com.example.prokject2_tracker.fitness.cardio.CardioActivityTypeDao
 import com.example.prokject2_tracker.fitness.cardio.CardioDao
 import com.example.prokject2_tracker.fitness.cardio.CardioSession
+import com.example.prokject2_tracker.fitness.strength.MuscleGroup
+import com.example.prokject2_tracker.fitness.strength.MuscleGroupDao
 import com.example.prokject2_tracker.fitness.strength.StrengthExercise
 import com.example.prokject2_tracker.fitness.strength.StrengthExerciseDao
 import com.example.prokject2_tracker.fitness.strength.StrengthLogDao
 import com.example.prokject2_tracker.fitness.strength.StrengthLogEntry
+import com.example.prokject2_tracker.fitness.strength.StrengthSet
+import com.example.prokject2_tracker.fitness.strength.StrengthSetDao
 import com.example.prokject2_tracker.fluid.FluidDao
 import com.example.prokject2_tracker.fluid.FluidEntry
 import com.example.prokject2_tracker.fluid.FluidType
@@ -49,14 +55,17 @@ import com.example.prokject2_tracker.weight.BodyWeightEntry
         CardioActivityType::class,
         StrengthExercise::class,
         StrengthLogEntry::class,
+        StrengthSet::class,
+        MuscleGroup::class,
         Habit::class,
         HabitCheckIn::class,
         HabitGoal::class,
         Tag::class,
         FoodItemTag::class,
         BodyWeightEntry::class,
+        FitnessGoal::class,
     ],
-    version = 7,
+    version = 8,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -71,9 +80,12 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun cardioActivityTypeDao(): CardioActivityTypeDao
     abstract fun strengthExerciseDao(): StrengthExerciseDao
     abstract fun strengthLogDao(): StrengthLogDao
+    abstract fun strengthSetDao(): StrengthSetDao
+    abstract fun muscleGroupDao(): MuscleGroupDao
     abstract fun habitDao(): HabitDao
     abstract fun habitCheckInDao(): HabitCheckInDao
     abstract fun habitGoalDao(): HabitGoalDao
     abstract fun tagDao(): TagDao
     abstract fun bodyWeightDao(): BodyWeightDao
+    abstract fun fitnessGoalDao(): FitnessGoalDao
 }

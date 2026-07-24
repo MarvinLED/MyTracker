@@ -23,4 +23,12 @@ object DateUtils {
 
     fun startOfMonthEpochDay(epochDay: Long): Long =
         localDateOfEpochDay(epochDay).withDayOfMonth(1).toEpochDay()
+
+    fun daysBetweenEpochDays(fromInclusive: Long, toInclusive: Long): Long = toInclusive - fromInclusive
+
+    fun formatDaysSince(days: Long): String = when {
+        days <= 0 -> "heute"
+        days == 1L -> "gestern"
+        else -> "vor $days Tagen"
+    }
 }

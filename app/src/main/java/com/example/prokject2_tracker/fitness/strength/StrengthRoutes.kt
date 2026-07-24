@@ -9,4 +9,4 @@ data object StrengthExerciseLibraryRoute
 data class StrengthExerciseEditRoute(val exerciseId: String? = null)
 
 @Serializable
-data class StrengthLogEditRoute(val entryId: String? = null)
+data object MuscleGroupManageRoute

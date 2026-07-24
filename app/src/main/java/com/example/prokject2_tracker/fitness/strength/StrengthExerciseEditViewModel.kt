@@ -7,17 +7,20 @@ import androidx.navigation.toRoute
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 data class StrengthExerciseEditState(
     val id: String? = null,
     val name: String = "",
-    val muscleGroup: MuscleGroup = MuscleGroup.FULL_BODY,
+    val muscleGroupId: String? = null,
+    val muscleGroupName: String = "",
     val isSaved: Boolean = false,
 ) {
-    val isValid: Boolean get() = name.isNotBlank()
+    val isValid: Boolean get() = name.isNotBlank() && muscleGroupId != null
 }
 
 @HiltViewModel
@@ -31,6 +34,9 @@ class StrengthExerciseEditViewModel @Inject constructor(
     private val _state = MutableStateFlow(StrengthExerciseEditState(id = route.exerciseId))
     val state: StateFlow<StrengthExerciseEditState> = _state.asStateFlow()
 
+    val muscleGroups: StateFlow<List<MuscleGroup>> = strengthExerciseRepository.observeMuscleGroups()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
     init {
         val exerciseId = route.exerciseId
         if (exerciseId != null) {
@@ -40,7 +46,8 @@ class StrengthExerciseEditViewModel @Inject constructor(
                     _state.value = StrengthExerciseEditState(
                         id = exercise.id,
                         name = exercise.name,
-                        muscleGroup = exercise.muscleGroup,
+                        muscleGroupId = exercise.muscleGroupId,
+                        muscleGroupName = exercise.muscleGroupName,
                     )
                 }
             }
@@ -48,19 +55,26 @@ class StrengthExerciseEditViewModel @Inject constructor(
     }
 
     fun onNameChange(value: String) { _state.value = _state.value.copy(name = value) }
-    fun onMuscleGroupChange(value: MuscleGroup) { _state.value = _state.value.copy(muscleGroup = value) }
+    fun onMuscleGroupChange(group: MuscleGroup) {
+        _state.value = _state.value.copy(muscleGroupId = group.id, muscleGroupName = group.name)
+    }
 
     fun save() {
         val s = _state.value
-        if (!s.isValid) return
+        val muscleGroupId = s.muscleGroupId
+        if (!s.isValid || muscleGroupId == null) return
         viewModelScope.launch {
             val current = existing
             if (current == null) {
-                strengthExerciseRepository.create(name = s.name, muscleGroup = s.muscleGroup)
+                strengthExerciseRepository.create(
+                    name = s.name,
+                    muscleGroupId = muscleGroupId,
+                    muscleGroupName = s.muscleGroupName,
+                )
             } else {
                 strengthExerciseRepository.update(
                     current,
-                    current.copy(name = s.name, muscleGroup = s.muscleGroup),
+                    current.copy(name = s.name, muscleGroupId = muscleGroupId, muscleGroupName = s.muscleGroupName),
                 )
             }
             _state.value = _state.value.copy(isSaved = true)

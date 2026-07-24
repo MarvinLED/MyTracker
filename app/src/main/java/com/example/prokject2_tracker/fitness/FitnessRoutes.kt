@@ -4,3 +4,6 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 data object FitnessRoute
+
+@Serializable
+data class TrainingEntryRoute(val cardioSessionId: String? = null, val strengthLogEntryId: String? = null)

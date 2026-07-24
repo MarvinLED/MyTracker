@@ -5,15 +5,22 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Snackbar
@@ -26,12 +33,20 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.prokject2_tracker.core.util.GoalPeriod
+import com.example.prokject2_tracker.core.util.label
+import com.example.prokject2_tracker.core.util.toLocaleDoubleOrNull
+import com.example.prokject2_tracker.fitness.FitnessGoalMetric
+import com.example.prokject2_tracker.fitness.label
+import com.example.prokject2_tracker.fitness.strength.MuscleGroup
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -161,6 +176,140 @@ fun GoalsScreen(
                     }
                 }
             }
+
+            Text("Fitness", style = MaterialTheme.typography.titleMedium)
+            state.fitnessGoals.forEach { row ->
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Text(
+                        "${row.metric.label()} · ${row.period.label()}" + (row.muscleGroupName?.let { " · $it" } ?: ""),
+                        modifier = Modifier.weight(1f),
+                    )
+                    OutlinedTextField(
+                        value = row.targetText,
+                        onValueChange = { viewModel.onFitnessGoalTargetChange(row.id, it) },
+                        label = { Text("Ziel") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        modifier = Modifier.width(100.dp),
+                    )
+                    IconButton(onClick = { viewModel.removeFitnessGoal(row.id) }) {
+                        Icon(Icons.Filled.Delete, contentDescription = "Ziel löschen")
+                    }
+                }
+            }
+            AddFitnessGoalRow(
+                availableMuscleGroups = state.availableMuscleGroups,
+                onAdd = viewModel::addFitnessGoal,
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AddFitnessGoalRow(
+    availableMuscleGroups: List<MuscleGroup>,
+    onAdd: (FitnessGoalMetric, GoalPeriod, String?, Double) -> Unit,
+) {
+    var metric by remember { mutableStateOf(FitnessGoalMetric.CARDIO_SESSIONS) }
+    var metricMenuExpanded by remember { mutableStateOf(false) }
+    var period by remember { mutableStateOf(GoalPeriod.WEEKLY) }
+    var muscleGroup by remember { mutableStateOf<MuscleGroup?>(null) }
+    var muscleGroupMenuExpanded by remember { mutableStateOf(false) }
+    var targetText by remember { mutableStateOf("") }
+
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        ExposedDropdownMenuBox(
+            expanded = metricMenuExpanded,
+            onExpandedChange = { metricMenuExpanded = it },
+        ) {
+            OutlinedTextField(
+                modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable, true).fillMaxWidth(),
+                readOnly = true,
+                value = metric.label(),
+                onValueChange = {},
+                label = { Text("Metrik") },
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = metricMenuExpanded) },
+            )
+            ExposedDropdownMenu(
+                expanded = metricMenuExpanded,
+                onDismissRequest = { metricMenuExpanded = false },
+            ) {
+                FitnessGoalMetric.entries.forEach { candidate ->
+                    DropdownMenuItem(
+                        text = { Text(candidate.label()) },
+                        onClick = {
+                            metric = candidate
+                            if (candidate != FitnessGoalMetric.STRENGTH_SETS_MUSCLE_GROUP) muscleGroup = null
+                            metricMenuExpanded = false
+                        },
+                    )
+                }
+            }
+        }
+
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            listOf(GoalPeriod.WEEKLY, GoalPeriod.MONTHLY).forEach { candidate ->
+                FilterChip(
+                    selected = period == candidate,
+                    onClick = { period = candidate },
+                    label = { Text(candidate.label()) },
+                )
+            }
+        }
+
+        if (metric == FitnessGoalMetric.STRENGTH_SETS_MUSCLE_GROUP) {
+            ExposedDropdownMenuBox(
+                expanded = muscleGroupMenuExpanded,
+                onExpandedChange = { muscleGroupMenuExpanded = it },
+            ) {
+                OutlinedTextField(
+                    modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable, true).fillMaxWidth(),
+                    readOnly = true,
+                    value = muscleGroup?.name.orEmpty(),
+                    onValueChange = {},
+                    label = { Text("Muskelgruppe") },
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = muscleGroupMenuExpanded) },
+                )
+                ExposedDropdownMenu(
+                    expanded = muscleGroupMenuExpanded,
+                    onDismissRequest = { muscleGroupMenuExpanded = false },
+                ) {
+                    availableMuscleGroups.forEach { candidate ->
+                        DropdownMenuItem(
+                            text = { Text(candidate.name) },
+                            onClick = {
+                                muscleGroup = candidate
+                                muscleGroupMenuExpanded = false
+                            },
+                        )
+                    }
+                }
+            }
+        }
+
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedTextField(
+                value = targetText,
+                onValueChange = { targetText = it },
+                label = { Text("Ziel") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                modifier = Modifier.weight(1f),
+            )
+            val target = targetText.toLocaleDoubleOrNull()
+            val muscleGroupMissing = metric == FitnessGoalMetric.STRENGTH_SETS_MUSCLE_GROUP && muscleGroup == null
+            TextButton(
+                onClick = {
+                    onAdd(metric, period, muscleGroup?.id, target!!)
+                    metric = FitnessGoalMetric.CARDIO_SESSIONS
+                    period = GoalPeriod.WEEKLY
+                    muscleGroup = null
+                    targetText = ""
+                },
+                enabled = target != null && !muscleGroupMissing,
+            ) { Text("Ziel hinzufügen") }
         }
     }
 }
