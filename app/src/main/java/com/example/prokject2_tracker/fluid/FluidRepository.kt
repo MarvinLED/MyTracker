@@ -52,7 +52,7 @@ class FluidRepository @Inject constructor(
         )
     }
 
-    suspend fun createType(name: String, defaultQuickAddMl: Double) {
+    suspend fun createType(name: String, defaultQuickAddMl: Double, colorArgb: Int?) {
         val maxSortOrder = fluidTypeDao.getAllOnce().maxOfOrNull { it.sortOrder } ?: -1
         fluidTypeDao.upsert(
             FluidType(
@@ -61,12 +61,15 @@ class FluidRepository @Inject constructor(
                 defaultQuickAddMl = defaultQuickAddMl,
                 sortOrder = maxSortOrder + 1,
                 createdAt = Instant.now(),
+                colorArgb = colorArgb,
             ),
         )
     }
 
-    suspend fun updateType(existing: FluidType, name: String, defaultQuickAddMl: Double) {
-        fluidTypeDao.upsert(existing.copy(name = name, defaultQuickAddMl = defaultQuickAddMl))
+    suspend fun updateType(existing: FluidType, name: String, defaultQuickAddMl: Double, colorArgb: Int?) {
+        fluidTypeDao.upsert(
+            existing.copy(name = name, defaultQuickAddMl = defaultQuickAddMl, colorArgb = colorArgb),
+        )
     }
 
     suspend fun canDeleteType(typeId: String): Boolean = !fluidTypeDao.isUsedInAnyEntry(typeId)
@@ -137,5 +140,32 @@ class FluidRepository @Inject constructor(
 
     suspend fun delete(entry: FluidEntry) {
         fluidDao.delete(entry)
+    }
+
+    /**
+     * Mirrors a Tagebuch entry whose Lebensmittel is linked to a Getränkeart into the fluid log,
+     * replacing whatever that diary entry produced before. Called by the diary side on every
+     * log/update; [typeId] `null` or a non-positive [amountMl] just clears the mirrored row (the
+     * food's link was removed, or the entry no longer contributes any fluid).
+     */
+    suspend fun syncFromDiaryEntry(diaryEntryId: String, epochDay: Long, typeId: String?, amountMl: Double) {
+        fluidDao.deleteForDiaryEntry(diaryEntryId)
+        if (typeId == null || amountMl <= 0.0) return
+        val type = fluidTypeDao.getById(typeId) ?: return
+        fluidDao.upsert(
+            FluidEntry(
+                id = IdGenerator.newId(),
+                epochDay = epochDay,
+                createdAt = Instant.now(),
+                fluidTypeId = type.id,
+                fluidTypeName = type.name,
+                amountMl = amountMl,
+                sourceDiaryEntryId = diaryEntryId,
+            ),
+        )
+    }
+
+    suspend fun deleteForDiaryEntry(diaryEntryId: String) {
+        fluidDao.deleteForDiaryEntry(diaryEntryId)
     }
 }

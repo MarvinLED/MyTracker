@@ -24,6 +24,12 @@ interface FluidDao {
     )
     fun observeDailyMlTotals(startInclusive: Long, endInclusive: Long): Flow<List<DailyMlTotal>>
 
+    @Query("SELECT * FROM fluid_entries WHERE sourceDiaryEntryId = :diaryEntryId")
+    suspend fun getForDiaryEntry(diaryEntryId: String): List<FluidEntry>
+
+    @Query("DELETE FROM fluid_entries WHERE sourceDiaryEntryId = :diaryEntryId")
+    suspend fun deleteForDiaryEntry(diaryEntryId: String)
+
     @Upsert
     suspend fun upsert(entry: FluidEntry)
 

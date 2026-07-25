@@ -18,6 +18,7 @@ data class FluidTypeDto(
     val createdAtEpochMillis: Long,
     val dailyGoalMinMl: Double? = null,
     val dailyGoalMaxMl: Double? = null,
+    val colorArgb: Int? = null,
 )
 
 private fun FluidType.toDto() = FluidTypeDto(
@@ -28,6 +29,7 @@ private fun FluidType.toDto() = FluidTypeDto(
     createdAtEpochMillis = createdAt.toEpochMilli(),
     dailyGoalMinMl = dailyGoalMinMl,
     dailyGoalMaxMl = dailyGoalMaxMl,
+    colorArgb = colorArgb,
 )
 
 private fun FluidTypeDto.toEntity() = FluidType(
@@ -38,6 +40,7 @@ private fun FluidTypeDto.toEntity() = FluidType(
     createdAt = Instant.ofEpochMilli(createdAtEpochMillis),
     dailyGoalMinMl = dailyGoalMinMl,
     dailyGoalMaxMl = dailyGoalMaxMl,
+    colorArgb = colorArgb,
 )
 
 /** Exports/imports drink-type definitions only — logged fluid entries are tracked data and never included. */

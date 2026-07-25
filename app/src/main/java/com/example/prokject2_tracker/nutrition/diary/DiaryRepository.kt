@@ -1,9 +1,11 @@
 package com.example.prokject2_tracker.nutrition.diary
 
 import com.example.prokject2_tracker.core.util.IdGenerator
+import com.example.prokject2_tracker.fluid.FluidRepository
 import com.example.prokject2_tracker.nutrition.NutritionMath
 import com.example.prokject2_tracker.nutrition.food.BaseUnit
 import com.example.prokject2_tracker.nutrition.food.FoodDao
+import com.example.prokject2_tracker.nutrition.food.FoodItem
 import com.example.prokject2_tracker.nutrition.recipe.RecipeDao
 import java.time.Instant
 import javax.inject.Inject
@@ -15,6 +17,7 @@ class DiaryRepository @Inject constructor(
     private val diaryDao: DiaryDao,
     private val foodDao: FoodDao,
     private val recipeDao: RecipeDao,
+    private val fluidRepository: FluidRepository,
 ) {
     fun observeForDay(epochDay: Long): Flow<List<DiaryEntry>> = diaryDao.observeForDay(epochDay)
 
@@ -24,11 +27,45 @@ class DiaryRepository @Inject constructor(
         diaryDao.observeDailyKcalTotals(startInclusive, endInclusive)
 
     suspend fun logFood(epochDay: Long, foodId: String, amountBaseUnits: Double, mealType: MealType) {
-        diaryDao.upsert(buildFoodEntry(IdGenerator.newId(), epochDay, foodId, amountBaseUnits, mealType))
+        val entry = buildFoodEntry(IdGenerator.newId(), epochDay, foodId, amountBaseUnits, mealType)
+        diaryDao.upsert(entry)
+        syncFluidForFoodEntry(entry, foodDao.getById(foodId))
     }
 
     suspend fun logRecipe(epochDay: Long, recipeId: String, servingsConsumed: Double, mealType: MealType) {
         diaryDao.upsert(buildRecipeEntry(IdGenerator.newId(), epochDay, recipeId, servingsConsumed, mealType))
+    }
+
+    /**
+     * Logs a one-off Schnelleintrag: no library item behind it, kcal is the only required value and
+     * the macros are whatever the user bothered to type — all already totals, never per 100 g.
+     */
+    suspend fun logQuick(
+        epochDay: Long,
+        name: String,
+        kcal: Double,
+        protein: Double,
+        carbs: Double,
+        fat: Double,
+        mealType: MealType,
+    ) {
+        diaryDao.upsert(
+            DiaryEntry(
+                id = IdGenerator.newId(),
+                epochDay = epochDay,
+                createdAt = Instant.now(),
+                mealType = mealType,
+                sourceType = DiarySourceType.QUICK,
+                sourceId = "",
+                sourceName = name,
+                quantity = 1.0,
+                quantityUnit = "Schnelleintrag",
+                kcal = kcal,
+                protein = protein,
+                carbs = carbs,
+                fat = fat,
+            ),
+        )
     }
 
     /** Re-derives the nutrition snapshot from the source's *current* state; does not touch other rows. */
@@ -36,12 +73,34 @@ class DiaryRepository @Inject constructor(
         val updated = when (entry.sourceType) {
             DiarySourceType.FOOD -> buildFoodEntry(entry.id, entry.epochDay, entry.sourceId, newQuantity, newMealType)
             DiarySourceType.RECIPE -> buildRecipeEntry(entry.id, entry.epochDay, entry.sourceId, newQuantity, newMealType)
+            // A Schnelleintrag has no source to re-derive from — its snapshot *is* the entry.
+            DiarySourceType.QUICK -> entry.copy(mealType = newMealType)
         }
         diaryDao.upsert(updated)
+        if (updated.sourceType == DiarySourceType.FOOD) {
+            syncFluidForFoodEntry(updated, foodDao.getById(updated.sourceId))
+        }
     }
 
     suspend fun delete(entry: DiaryEntry) {
         diaryDao.delete(entry)
+        fluidRepository.deleteForDiaryEntry(entry.id)
+    }
+
+    /**
+     * Mirrors the fluid a drink-like Lebensmittel contributes into the Flüssigkeiten log. Foods
+     * without a [FoodItem.fluidTypeId] clear any previously mirrored row instead, so unlinking a
+     * food and re-saving an entry doesn't leave a stale drink behind.
+     */
+    private suspend fun syncFluidForFoodEntry(entry: DiaryEntry, food: FoodItem?) {
+        val typeId = food?.fluidTypeId
+        val mlPer100 = food?.fluidMlPer100 ?: 100.0
+        fluidRepository.syncFromDiaryEntry(
+            diaryEntryId = entry.id,
+            epochDay = entry.epochDay,
+            typeId = typeId,
+            amountMl = entry.quantity * mlPer100 / 100.0,
+        )
     }
 
     private suspend fun buildFoodEntry(

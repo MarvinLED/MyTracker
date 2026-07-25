@@ -20,4 +20,10 @@ data class FluidType(
     val createdAt: Instant,
     val dailyGoalMinMl: Double? = null,
     val dailyGoalMaxMl: Double? = null,
+    /**
+     * Colour this type is drawn with in the Flüssigkeiten pie charts, as a packed ARGB int. Null
+     * means "not chosen yet" and falls back to a fixed palette slot — see
+     * [com.example.prokject2_tracker.fluid.chartColor].
+     */
+    val colorArgb: Int? = null,
 )

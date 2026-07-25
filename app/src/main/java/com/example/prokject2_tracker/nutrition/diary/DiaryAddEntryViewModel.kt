@@ -4,6 +4,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.navigation.toRoute
+import com.example.prokject2_tracker.core.util.toLocaleDoubleOrNull
 import com.example.prokject2_tracker.nutrition.food.FoodItem
 import com.example.prokject2_tracker.nutrition.food.FoodRepository
 import com.example.prokject2_tracker.nutrition.recipe.RecipeRepository
@@ -20,6 +21,27 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+
+/** Blank is allowed (counts as 0); a non-blank value must parse as a number. */
+private fun String.isBlankOrValidNumber(): Boolean = isBlank() || toLocaleDoubleOrNull() != null
+
+/** Blank means "not specified" and contributes 0 to the entry. */
+private fun String.toOptionalNutrient(): Double = toLocaleDoubleOrNull() ?: 0.0
+
+/** The Schnelleintrag form: only [kcal] is required, every macro stays optional. */
+data class QuickEntryState(
+    val name: String = "",
+    val kcal: String = "",
+    val protein: String = "",
+    val carbs: String = "",
+    val fat: String = "",
+) {
+    val isValid: Boolean
+        get() = kcal.toLocaleDoubleOrNull()?.let { it > 0.0 } == true &&
+            protein.isBlankOrValidNumber() &&
+            carbs.isBlankOrValidNumber() &&
+            fat.isBlankOrValidNumber()
+}
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
@@ -59,6 +81,9 @@ class DiaryAddEntryViewModel @Inject constructor(
     private val _amountText = MutableStateFlow("")
     val amountText: StateFlow<String> = _amountText.asStateFlow()
 
+    private val _quick = MutableStateFlow(QuickEntryState())
+    val quick: StateFlow<QuickEntryState> = _quick.asStateFlow()
+
     private val _mealType = MutableStateFlow(MealType.BREAKFAST)
     val mealType: StateFlow<MealType> = _mealType.asStateFlow()
 
@@ -66,8 +91,12 @@ class DiaryAddEntryViewModel @Inject constructor(
     val isSaved: StateFlow<Boolean> = _isSaved.asStateFlow()
 
     val isValid: StateFlow<Boolean> =
-        combine(_selectedFood, _selectedRecipe, _amountText) { food, recipe, amount ->
-            (food != null || recipe != null) && amount.toDoubleOrNull()?.let { it > 0.0 } == true
+        combine(_sourceType, _selectedFood, _selectedRecipe, _amountText, _quick) { type, food, recipe, amount, quick ->
+            if (type == DiarySourceType.QUICK) {
+                quick.isValid
+            } else {
+                (food != null || recipe != null) && amount.toLocaleDoubleOrNull()?.let { it > 0.0 } == true
+            }
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
     fun selectSourceType(type: DiarySourceType) {
@@ -89,11 +118,28 @@ class DiaryAddEntryViewModel @Inject constructor(
         _amountText.value = "1"
     }
 
+    fun clearSelection() {
+        _selectedFood.value = null
+        _selectedRecipe.value = null
+        _amountText.value = ""
+    }
+
     fun onAmountChange(value: String) { _amountText.value = value }
     fun onMealTypeChange(value: MealType) { _mealType.value = value }
 
+    fun onQuickNameChange(value: String) { _quick.value = _quick.value.copy(name = value) }
+    fun onQuickKcalChange(value: String) { _quick.value = _quick.value.copy(kcal = value) }
+    fun onQuickProteinChange(value: String) { _quick.value = _quick.value.copy(protein = value) }
+    fun onQuickCarbsChange(value: String) { _quick.value = _quick.value.copy(carbs = value) }
+    fun onQuickFatChange(value: String) { _quick.value = _quick.value.copy(fat = value) }
+
     fun save() {
-        val amount = _amountText.value.toDoubleOrNull() ?: return
+        if (!isValid.value) return
+        if (_sourceType.value == DiarySourceType.QUICK) {
+            saveQuick()
+            return
+        }
+        val amount = _amountText.value.toLocaleDoubleOrNull() ?: return
         val food = _selectedFood.value
         val recipe = _selectedRecipe.value
         viewModelScope.launch {
@@ -102,6 +148,23 @@ class DiaryAddEntryViewModel @Inject constructor(
                 recipe != null -> diaryRepository.logRecipe(epochDay, recipe.recipe.id, amount, _mealType.value)
                 else -> return@launch
             }
+            _isSaved.value = true
+        }
+    }
+
+    private fun saveQuick() {
+        val q = _quick.value
+        val kcal = q.kcal.toLocaleDoubleOrNull() ?: return
+        viewModelScope.launch {
+            diaryRepository.logQuick(
+                epochDay = epochDay,
+                name = q.name.ifBlank { "Schnelleintrag" },
+                kcal = kcal,
+                protein = q.protein.toOptionalNutrient(),
+                carbs = q.carbs.toOptionalNutrient(),
+                fat = q.fat.toOptionalNutrient(),
+                mealType = _mealType.value,
+            )
             _isSaved.value = true
         }
     }

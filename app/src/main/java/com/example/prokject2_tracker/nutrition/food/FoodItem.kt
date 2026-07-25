@@ -29,6 +29,16 @@ data class FoodItem(
     val servingName: String? = null,
     /** Amount of [baseUnit] that one [servingName] corresponds to. */
     val servingAmount: Double? = null,
+    /**
+     * Optional link into the Getränkearten library: this food (partly) *consists of* that fluid,
+     * so logging it to the diary also logs a fluid entry. Null means the food isn't a drink.
+     */
+    val fluidTypeId: String? = null,
+    /**
+     * How many ml of [fluidTypeId] 100 [baseUnit] of this food contain — 100.0 means "consists
+     * entirely of it" (a drink), less covers e.g. a soup. Null is read as 100.0.
+     */
+    val fluidMlPer100: Double? = null,
     val createdAt: Instant,
     val updatedAt: Instant,
 )

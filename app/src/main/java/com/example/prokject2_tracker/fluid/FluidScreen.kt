@@ -5,6 +5,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -30,7 +31,6 @@ import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedTextField
@@ -118,62 +118,82 @@ fun FluidScreen(
             )
         },
     ) { padding ->
-        Column(
+        val distributionSlices = uiState.entries.distributionSlices(types)
+        val goalSlices = goalSlices(consumedMl = uiState.totalMl, goalMl = uiState.goalMl)
+
+        LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
-                .padding(16.dp),
+                .padding(padding),
+            contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Card(modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(
-                        "${uiState.totalMl.formatDecimal(3)} / ${uiState.goalMl.formatDecimal(3)} ml",
-                        style = MaterialTheme.typography.titleMedium,
-                    )
-                    val progress = if (uiState.goalMl > 0) {
-                        (uiState.totalMl / uiState.goalMl).toFloat().coerceIn(0f, 1f)
-                    } else {
-                        0f
+            item(key = "charts") {
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(
+                            "${uiState.totalMl.formatDecimal(3)} / ${uiState.goalMl.formatDecimal(3)} ml",
+                            style = MaterialTheme.typography.titleMedium,
+                        )
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            FluidChartBlock(
+                                title = "Verteilung",
+                                slices = distributionSlices,
+                                centerValue = "${(uiState.totalMl / 1000.0).formatDecimal(3)} l",
+                                centerLabel = "gesamt",
+                                valueLabel = { "${it.value.formatDecimal(3)} ml" },
+                                emptyText = "Noch nichts getrunken.",
+                                modifier = Modifier.weight(1f),
+                            )
+                            FluidChartBlock(
+                                title = "Tagesziel",
+                                slices = goalSlices,
+                                centerValue = goalPercentLabel(uiState.totalMl, uiState.goalMl),
+                                centerLabel = "vom Ziel",
+                                valueLabel = { "${it.value.formatDecimal(3)} ml" },
+                                emptyText = "Kein Ziel gesetzt.",
+                                modifier = Modifier.weight(1f),
+                            )
+                        }
                     }
-                    LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth())
                 }
             }
 
             if (types.isNotEmpty()) {
-                Row(
-                    modifier = Modifier.horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    types.forEach { type ->
-                        AssistChip(
-                            onClick = { viewModel.quickAdd(type, type.defaultQuickAddMl) },
-                            label = { Text("${type.name} +${type.defaultQuickAddMl.formatDecimal(3)}") },
-                        )
+                item(key = "quick-add-chips") {
+                    Row(
+                        modifier = Modifier.horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        types.forEach { type ->
+                            AssistChip(
+                                onClick = { viewModel.quickAdd(type, type.defaultQuickAddMl) },
+                                label = { Text("${type.name} +${type.defaultQuickAddMl.formatDecimal(3)}") },
+                            )
+                        }
                     }
                 }
             }
 
-            AddFluidRow(types = types, units = units, onAdd = viewModel::addWithUnit)
+            item(key = "add-row") {
+                AddFluidRow(types = types, units = units, onAdd = viewModel::addWithUnit)
+            }
 
             if (uiState.entries.isEmpty()) {
-                Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                    Text("Noch nichts für diesen Tag getrunken.")
+                item(key = "empty") {
+                    Box(modifier = Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
+                        Text("Noch nichts für diesen Tag getrunken.")
+                    }
                 }
             } else {
-                LazyColumn(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
-                ) {
-                    items(uiState.entries.groupedSummaryLines(), key = { it.first }) { (typeId, line) ->
-                        Text(
-                            line,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { expandedType = typeId }
-                                .padding(vertical = 4.dp),
-                        )
-                    }
+                items(uiState.entries.groupedSummaryLines(), key = { it.first }) { (typeId, line) ->
+                    Text(
+                        line,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { expandedType = typeId }
+                            .padding(vertical = 4.dp),
+                    )
                 }
             }
         }
@@ -293,6 +313,52 @@ private fun AddFluidRow(types: List<FluidType>, units: List<FluidUnit>, onAdd: (
         }
     }
 }
+
+/**
+ * One slice per drink type consumed today, ordered by the library's own order so a type keeps its
+ * colour across days. Types past the palette's eight slots (or logged under a type that has since
+ * been deleted from the library) fold into one "Sonstige" slice rather than repeating a hue.
+ */
+@Composable
+private fun List<FluidEntry>.distributionSlices(types: List<FluidType>): List<FluidSlice> {
+    val palette = fluidPalette()
+    val otherColor = MaterialTheme.colorScheme.onSurfaceVariant
+    val totalsByType = groupBy { it.fluidTypeId }.mapValues { (_, entries) -> entries.sumOf { it.amountMl } }
+
+    val named = mutableListOf<Pair<Int, FluidSlice>>()
+    var otherTotal = 0.0
+    totalsByType.forEach { (typeId, total) ->
+        val index = types.indexOfFirst { it.id == typeId }
+        val type = types.getOrNull(index)
+        if (type == null || index >= palette.size) {
+            otherTotal += total
+        } else {
+            named += index to FluidSlice(label = type.name, value = total, color = type.chartColor(index))
+        }
+    }
+    val ordered = named.sortedBy { (index, _) -> index }.map { (_, slice) -> slice }
+    return if (otherTotal > 0.0) ordered + FluidSlice("Sonstige", otherTotal, otherColor) else ordered
+}
+
+/** Drunk vs. still open against the daily goal; once the goal is reached the ring is simply full. */
+@Composable
+private fun goalSlices(consumedMl: Double, goalMl: Double): List<FluidSlice> {
+    val reachedColor = MaterialTheme.colorScheme.primary
+    val openColor = MaterialTheme.colorScheme.outline
+    if (goalMl <= 0.0) return emptyList()
+    val open = goalMl - consumedMl
+    return if (open <= 0.0) {
+        listOf(FluidSlice("Getrunken", consumedMl, reachedColor))
+    } else {
+        listOf(
+            FluidSlice("Getrunken", consumedMl, reachedColor),
+            FluidSlice("Offen", open, openColor),
+        )
+    }
+}
+
+private fun goalPercentLabel(consumedMl: Double, goalMl: Double): String =
+    if (goalMl <= 0.0) "–" else "${Math.round(consumedMl / goalMl * 100.0)} %"
 
 /** "-1,5l Wasser (400ml+400ml+700ml)" per fluid type, in the types' library sort order. */
 private fun List<FluidEntry>.groupedSummaryLines(): List<Pair<String, String>> =

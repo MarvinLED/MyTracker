@@ -186,4 +186,43 @@ class MigrationTest {
         }
         db.close()
     }
+
+    @Test
+    fun migrate9To10_addsNullableFluidLinkColumnsWithoutTouchingExistingRows() {
+        val v9 = helper.createDatabase(dbName, 9)
+        v9.execSQL(
+            "INSERT INTO food_items (id, name, baseUnit, kcalPer100, proteinPer100, carbsPer100, fatPer100, " +
+                "saturatedFatPer100, sugarPer100, fiberPer100, saltPer100, createdAt, updatedAt) " +
+                "VALUES ('food-1', 'Milch', 'G', 64.0, 3.4, 4.8, 3.6, 2.3, 4.8, 0.0, 0.1, 1700000000000, 1700000000000)",
+        )
+        v9.execSQL(
+            "INSERT INTO fluid_types (id, name, defaultQuickAddMl, sortOrder, createdAt) " +
+                "VALUES ('fluidtype-wasser', 'Wasser', 250.0, 0, 1700000000000)",
+        )
+        v9.execSQL(
+            "INSERT INTO fluid_entries (id, epochDay, createdAt, fluidTypeId, fluidTypeName, amountMl) " +
+                "VALUES ('entry-1', 20000, 1700000000000, 'fluidtype-wasser', 'Wasser', 250.0)",
+        )
+        v9.close()
+
+        val db = helper.runMigrationsAndValidate(dbName, 10, true, MIGRATION_9_10)
+
+        // Existing rows survive, and every new column defaults to "not set" rather than a value.
+        db.query("SELECT name, fluidTypeId, fluidMlPer100 FROM food_items WHERE id = 'food-1'").use { cursor ->
+            cursor.moveToFirst()
+            assertEquals("Milch", cursor.getString(0))
+            assertEquals(true, cursor.isNull(1))
+            assertEquals(true, cursor.isNull(2))
+        }
+        db.query("SELECT colorArgb FROM fluid_types WHERE id = 'fluidtype-wasser'").use { cursor ->
+            cursor.moveToFirst()
+            assertEquals(true, cursor.isNull(0))
+        }
+        db.query("SELECT amountMl, sourceDiaryEntryId FROM fluid_entries WHERE id = 'entry-1'").use { cursor ->
+            cursor.moveToFirst()
+            assertEquals(250.0, cursor.getDouble(0), 0.0001)
+            assertEquals(true, cursor.isNull(1))
+        }
+        db.close()
+    }
 }

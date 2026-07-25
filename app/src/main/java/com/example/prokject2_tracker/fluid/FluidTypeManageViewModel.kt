@@ -16,12 +16,12 @@ class FluidTypeManageViewModel @Inject constructor(
     val types: StateFlow<List<FluidType>> = fluidRepository.observeTypes()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    fun create(name: String, defaultQuickAddMl: Double) {
-        viewModelScope.launch { fluidRepository.createType(name, defaultQuickAddMl) }
+    fun create(name: String, defaultQuickAddMl: Double, colorArgb: Int?) {
+        viewModelScope.launch { fluidRepository.createType(name, defaultQuickAddMl, colorArgb) }
     }
 
-    fun update(type: FluidType, name: String, defaultQuickAddMl: Double) {
-        viewModelScope.launch { fluidRepository.updateType(type, name, defaultQuickAddMl) }
+    fun update(type: FluidType, name: String, defaultQuickAddMl: Double, colorArgb: Int?) {
+        viewModelScope.launch { fluidRepository.updateType(type, name, defaultQuickAddMl, colorArgb) }
     }
 
     fun deleteIfUnused(type: FluidType, onBlocked: () -> Unit) {

@@ -37,6 +37,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.prokject2_tracker.fluid.FluidType
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -48,6 +49,7 @@ fun FoodEditScreen(
     val state by viewModel.state.collectAsState()
     val allTags by viewModel.allTags.collectAsState()
     val allBrands by viewModel.allBrands.collectAsState()
+    val fluidTypes by viewModel.fluidTypes.collectAsState()
 
     LaunchedEffect(state.isSaved) {
         if (state.isSaved) onDone()
@@ -173,6 +175,28 @@ fun FoodEditScreen(
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 modifier = Modifier.fillMaxWidth(),
             )
+            Text("Flüssigkeit", style = MaterialTheme.typography.titleSmall)
+            Text(
+                "Besteht dieses Lebensmittel aus einer Flüssigkeit, wird sie beim Eintragen ins " +
+                    "Tagebuch automatisch mitgezählt.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            FluidTypePicker(
+                types = fluidTypes,
+                selectedId = state.fluidTypeId,
+                onSelect = viewModel::onFluidTypeChange,
+            )
+            if (state.fluidTypeId != null) {
+                OutlinedTextField(
+                    value = state.fluidMlPer100,
+                    onValueChange = viewModel::onFluidMlPer100Change,
+                    label = { Text("davon Flüssigkeit (ml) pro 100 g") },
+                    supportingText = { Text("100 = besteht ganz aus dieser Flüssigkeit") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
             Text("Tags", style = MaterialTheme.typography.titleSmall)
             if (state.tags.isNotEmpty()) {
                 FlowRow(
@@ -218,6 +242,28 @@ fun FoodEditScreen(
                     }
                 }
             }
+        }
+    }
+}
+
+/** "Keine" plus one chip per Getränkeart; tapping the selected chip again clears the link. */
+@Composable
+private fun FluidTypePicker(types: List<FluidType>, selectedId: String?, onSelect: (String?) -> Unit) {
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        FilterChip(
+            selected = selectedId == null,
+            onClick = { onSelect(null) },
+            label = { Text("Keine") },
+        )
+        types.forEach { type ->
+            FilterChip(
+                selected = selectedId == type.id,
+                onClick = { onSelect(if (selectedId == type.id) null else type.id) },
+                label = { Text(type.name) },
+            )
         }
     }
 }

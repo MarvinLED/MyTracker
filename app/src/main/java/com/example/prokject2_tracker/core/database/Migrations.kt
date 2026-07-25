@@ -491,3 +491,25 @@ object MIGRATION_8_9 : Migration(8, 9) {
         db.execSQL("CREATE INDEX IF NOT EXISTS `index_strength_sets_exerciseId` ON `strength_sets` (`exerciseId`)")
     }
 }
+
+object MIGRATION_9_10 : Migration(9, 10) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        // food_items: optional link into the Getränkearten library, so logging a drink-like
+        // Lebensmittel to the diary also logs the fluid. Both nullable — existing foods keep
+        // "no fluid" semantics without a backfill.
+        db.execSQL("ALTER TABLE `food_items` ADD COLUMN `fluidTypeId` TEXT")
+        db.execSQL("ALTER TABLE `food_items` ADD COLUMN `fluidMlPer100` REAL")
+
+        // fluid_types: user-chosen pie-chart colour (packed ARGB); null falls back to a palette slot.
+        db.execSQL("ALTER TABLE `fluid_types` ADD COLUMN `colorArgb` INTEGER")
+
+        // fluid_entries: back-reference to the diary entry that produced this row (null for
+        // everything logged directly in the Flüssigkeiten tab), so it can follow that entry's
+        // edits and deletions.
+        db.execSQL("ALTER TABLE `fluid_entries` ADD COLUMN `sourceDiaryEntryId` TEXT")
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS `index_fluid_entries_sourceDiaryEntryId` " +
+                "ON `fluid_entries` (`sourceDiaryEntryId`)",
+        )
+    }
+}

@@ -32,6 +32,8 @@ class FoodRepository @Inject constructor(
         saltPer100: Double,
         servingName: String?,
         servingAmount: Double?,
+        fluidTypeId: String?,
+        fluidMlPer100: Double?,
     ): FoodItem {
         val now = Instant.now()
         val food = FoodItem(
@@ -49,6 +51,8 @@ class FoodRepository @Inject constructor(
             saltPer100 = saltPer100,
             servingName = servingName,
             servingAmount = servingAmount,
+            fluidTypeId = fluidTypeId,
+            fluidMlPer100 = fluidMlPer100,
             createdAt = now,
             updatedAt = now,
         )

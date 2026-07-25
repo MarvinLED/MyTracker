@@ -6,6 +6,8 @@ import androidx.lifecycle.viewModelScope
 import androidx.navigation.toRoute
 import com.example.prokject2_tracker.core.util.IdGenerator
 import com.example.prokject2_tracker.core.util.toLocaleDoubleOrNull
+import com.example.prokject2_tracker.fluid.FluidRepository
+import com.example.prokject2_tracker.fluid.FluidType
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.time.Instant
 import javax.inject.Inject
@@ -36,6 +38,10 @@ data class FoodEditState(
     val saltPer100: String = "",
     val servingName: String = "",
     val servingAmount: String = "",
+    /** null = this food isn't (partly) a drink; see [FoodItem.fluidTypeId]. */
+    val fluidTypeId: String? = null,
+    /** Blank means "consists entirely of it" and is saved as 100 ml per 100 g. */
+    val fluidMlPer100: String = "",
     val tags: List<Tag> = emptyList(),
     val tagInput: String = "",
     val isSaved: Boolean = false,
@@ -49,7 +55,8 @@ data class FoodEditState(
             saturatedFatPer100.isBlankOrValidNumber() &&
             sugarPer100.isBlankOrValidNumber() &&
             fiberPer100.isBlankOrValidNumber() &&
-            saltPer100.isBlankOrValidNumber()
+            saltPer100.isBlankOrValidNumber() &&
+            (fluidTypeId == null || fluidMlPer100.isBlankOrValidNumber())
 }
 
 @HiltViewModel
@@ -57,6 +64,7 @@ class FoodEditViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val foodRepository: FoodRepository,
     private val tagRepository: TagRepository,
+    fluidRepository: FluidRepository,
 ) : ViewModel() {
     private val route: FoodEditRoute = savedStateHandle.toRoute()
     private var existing: FoodItem? = null
@@ -68,6 +76,9 @@ class FoodEditViewModel @Inject constructor(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val allBrands: StateFlow<List<String>> = foodRepository.observeAllBrands()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val fluidTypes: StateFlow<List<FluidType>> = fluidRepository.observeTypes()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     init {
@@ -90,6 +101,8 @@ class FoodEditViewModel @Inject constructor(
                         saltPer100 = food.saltPer100.toString(),
                         servingName = food.servingName.orEmpty(),
                         servingAmount = food.servingAmount?.toString().orEmpty(),
+                        fluidTypeId = food.fluidTypeId,
+                        fluidMlPer100 = food.fluidMlPer100?.toString().orEmpty(),
                         tags = tagRepository.getTagsForFoodOnce(food.id),
                     )
                 }
@@ -140,6 +153,17 @@ class FoodEditViewModel @Inject constructor(
     fun onSaltChange(value: String) { _state.value = _state.value.copy(saltPer100 = value) }
     fun onServingNameChange(value: String) { _state.value = _state.value.copy(servingName = value) }
     fun onServingAmountChange(value: String) { _state.value = _state.value.copy(servingAmount = value) }
+    fun onFluidMlPer100Change(value: String) { _state.value = _state.value.copy(fluidMlPer100 = value) }
+
+    /** Picking a type pre-fills 100 ml/100 g ("besteht ganz daraus"); clearing it drops the amount too. */
+    fun onFluidTypeChange(typeId: String?) {
+        val current = _state.value
+        _state.value = when {
+            typeId == null -> current.copy(fluidTypeId = null, fluidMlPer100 = "")
+            current.fluidMlPer100.isBlank() -> current.copy(fluidTypeId = typeId, fluidMlPer100 = "100")
+            else -> current.copy(fluidTypeId = typeId)
+        }
+    }
 
     fun save() {
         val s = _state.value
@@ -148,6 +172,8 @@ class FoodEditViewModel @Inject constructor(
             val brand = s.brand.ifBlank { null }
             val servingName = s.servingName.ifBlank { null }
             val servingAmount = s.servingAmount.toLocaleDoubleOrNull()
+            // A picked type with a blank amount means "besteht ganz aus dieser Flüssigkeit" = 100 ml/100 g.
+            val fluidMlPer100 = s.fluidTypeId?.let { s.fluidMlPer100.toLocaleDoubleOrNull() ?: 100.0 }
             val current = existing
             val savedFoodId: String
             if (current == null) {
@@ -165,6 +191,8 @@ class FoodEditViewModel @Inject constructor(
                     saltPer100 = s.saltPer100.toNutrientValue(),
                     servingName = servingName,
                     servingAmount = servingAmount,
+                    fluidTypeId = s.fluidTypeId,
+                    fluidMlPer100 = fluidMlPer100,
                 )
                 savedFoodId = created.id
             } else {
@@ -185,6 +213,8 @@ class FoodEditViewModel @Inject constructor(
                         saltPer100 = s.saltPer100.toNutrientValue(),
                         servingName = servingName,
                         servingAmount = servingAmount,
+                        fluidTypeId = s.fluidTypeId,
+                        fluidMlPer100 = fluidMlPer100,
                     ),
                 )
             }

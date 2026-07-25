@@ -25,6 +25,8 @@ data class FoodItemDto(
     val saltPer100: Double = 0.0,
     val servingName: String? = null,
     val servingAmount: Double? = null,
+    val fluidTypeId: String? = null,
+    val fluidMlPer100: Double? = null,
     val createdAtEpochMillis: Long,
     val updatedAtEpochMillis: Long,
     val tagIds: List<String> = emptyList(),
@@ -45,6 +47,8 @@ private fun FoodItem.toDto(tagIds: List<String>) = FoodItemDto(
     saltPer100 = saltPer100,
     servingName = servingName,
     servingAmount = servingAmount,
+    fluidTypeId = fluidTypeId,
+    fluidMlPer100 = fluidMlPer100,
     createdAtEpochMillis = createdAt.toEpochMilli(),
     updatedAtEpochMillis = updatedAt.toEpochMilli(),
     tagIds = tagIds,
@@ -65,11 +69,17 @@ private fun FoodItemDto.toEntity() = FoodItem(
     saltPer100 = saltPer100,
     servingName = servingName,
     servingAmount = servingAmount,
+    fluidTypeId = fluidTypeId,
+    fluidMlPer100 = fluidMlPer100,
     createdAt = Instant.ofEpochMilli(createdAtEpochMillis),
     updatedAt = Instant.ofEpochMilli(updatedAtEpochMillis),
 )
 
-/** Imported after `"tags"` (see [importPriority]) since [FoodItemDto.tagIds] are foreign keys into that data. */
+/**
+ * Imported after `"tags"` (see [importPriority]) since [FoodItemDto.tagIds] are foreign keys into
+ * that data — and after `"fluidTypes"` (default priority 0) for the same reason, since
+ * [FoodItemDto.fluidTypeId] points into the Getränkearten library.
+ */
 class FoodLibraryExportProvider @Inject constructor(
     private val foodDao: FoodDao,
     private val tagDao: TagDao,

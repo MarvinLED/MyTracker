@@ -138,7 +138,13 @@ private fun DiaryEntryRow(entry: DiaryEntry, onDelete: () -> Unit) {
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(entry.sourceName)
-                Text("${entry.quantity.formatCompact()} ${entry.quantityUnit} · ${entry.kcal.formatCompact()} kcal")
+                // A Schnelleintrag has no meaningful quantity — its "1 Schnelleintrag" would just be noise.
+                val details = if (entry.sourceType == DiarySourceType.QUICK) {
+                    "${entry.quantityUnit} · ${entry.kcal.formatCompact()} kcal"
+                } else {
+                    "${entry.quantity.formatCompact()} ${entry.quantityUnit} · ${entry.kcal.formatCompact()} kcal"
+                }
+                Text(details)
             }
             IconButton(onClick = onDelete) {
                 Icon(Icons.Filled.Delete, contentDescription = "Löschen")
