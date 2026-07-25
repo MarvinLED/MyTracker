@@ -1,5 +1,6 @@
 package com.example.prokject2_tracker.fluid
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -101,7 +102,13 @@ fun FluidChartLegend(slices: List<FluidSlice>, valueLabel: (FluidSlice) -> Strin
     Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         slices.forEach { slice ->
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Surface(color = slice.color, shape = CircleShape, modifier = Modifier.size(10.dp)) {}
+                // Outlined so a dot the user coloured close to the surface (weiß, braun) keeps an edge.
+                Surface(
+                    color = slice.color,
+                    shape = CircleShape,
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+                    modifier = Modifier.size(10.dp),
+                ) {}
                 Spacer(Modifier.width(8.dp))
                 Text(
                     slice.label,

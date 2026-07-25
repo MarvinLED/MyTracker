@@ -4,9 +4,11 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.navigation.toRoute
+import com.example.prokject2_tracker.fluid.FluidRepository
 import com.example.prokject2_tracker.nutrition.food.BaseUnit
 import com.example.prokject2_tracker.nutrition.food.FoodItem
 import com.example.prokject2_tracker.nutrition.food.FoodRepository
+import com.example.prokject2_tracker.nutrition.food.fluidMlOf
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -15,6 +17,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -23,7 +26,16 @@ data class IngredientRow(
     val foodName: String,
     val baseUnit: BaseUnit,
     val amountText: String,
-)
+    /**
+     * The ingredient's link into the Getränkearten library, copied from the Lebensmittel so the row
+     * can show the fluid it brings along while the amount is still being typed.
+     */
+    val fluidTypeId: String? = null,
+    val fluidMlPer100: Double? = null,
+) {
+    val fluidMl: Double
+        get() = fluidMlOf(fluidTypeId, fluidMlPer100, amountText.toDoubleOrNull() ?: 0.0)
+}
 
 data class RecipeEditState(
     val id: String? = null,
@@ -40,12 +52,22 @@ data class RecipeEditState(
             ingredients.all { it.amountText.toDoubleOrNull() != null }
 }
 
+private fun FoodItem.toIngredientRow(amountText: String) = IngredientRow(
+    foodId = id,
+    foodName = name,
+    baseUnit = baseUnit,
+    amountText = amountText,
+    fluidTypeId = fluidTypeId,
+    fluidMlPer100 = fluidMlPer100,
+)
+
 @OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class RecipeEditViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val recipeRepository: RecipeRepository,
     private val foodRepository: FoodRepository,
+    fluidRepository: FluidRepository,
 ) : ViewModel() {
     private val route: RecipeEditRoute = savedStateHandle.toRoute()
     private var existing: Recipe? = null
@@ -60,6 +82,11 @@ class RecipeEditViewModel @Inject constructor(
         .flatMapLatest { q -> if (q.isBlank()) foodRepository.observeAll() else foodRepository.search(q) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    /** Names for the ingredients' [IngredientRow.fluidTypeId]s, so rows can label the fluid they add. */
+    val fluidTypeNames: StateFlow<Map<String, String>> = fluidRepository.observeTypes()
+        .map { types -> types.associate { it.id to it.name } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
+
     init {
         val recipeId = route.recipeId
         if (recipeId != null) {
@@ -72,12 +99,7 @@ class RecipeEditViewModel @Inject constructor(
                         servings = recipeWithNutrition.recipe.servings.toString(),
                         instructions = recipeWithNutrition.recipe.instructions.orEmpty(),
                         ingredients = recipeWithNutrition.ingredients.map {
-                            IngredientRow(
-                                foodId = it.food.id,
-                                foodName = it.food.name,
-                                baseUnit = it.food.baseUnit,
-                                amountText = it.ingredient.amountBaseUnits.toString(),
-                            )
+                            it.food.toIngredientRow(amountText = it.ingredient.amountBaseUnits.toString())
                         },
                     )
                 }
@@ -92,8 +114,9 @@ class RecipeEditViewModel @Inject constructor(
 
     fun addIngredient(food: FoodItem) {
         if (_state.value.ingredients.any { it.foodId == food.id }) return
-        val row = IngredientRow(foodId = food.id, foodName = food.name, baseUnit = food.baseUnit, amountText = "")
-        _state.value = _state.value.copy(ingredients = _state.value.ingredients + row)
+        _state.value = _state.value.copy(
+            ingredients = _state.value.ingredients + food.toIngredientRow(amountText = ""),
+        )
     }
 
     fun updateIngredientAmount(foodId: String, amountText: String) {

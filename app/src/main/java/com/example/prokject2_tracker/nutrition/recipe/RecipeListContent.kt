@@ -64,6 +64,15 @@ fun RecipeListContent(
                                     "${item.perServing.kcal.formatCompact()} kcal / Portion " +
                                         "(${item.recipe.servings.formatCompact()} Portionen)",
                                 )
+                                if (item.fluids.isNotEmpty()) {
+                                    Text(
+                                        item.fluids.joinToString(" · ") {
+                                            "${it.name} ${it.totalMl.formatCompact()} ml"
+                                        },
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
                                 if (item.tags.isNotEmpty()) {
                                     Text(
                                         item.tags.joinToString(" · ") { it.name },

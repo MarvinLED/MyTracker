@@ -513,3 +513,31 @@ object MIGRATION_9_10 : Migration(9, 10) {
         )
     }
 }
+
+object MIGRATION_10_11 : Migration(10, 11) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        // diary_entries: the servings a logged Rezept was divided into, snapshotted alongside the
+        // nutrition. Nullable — existing recipe entries fall back to the library recipe's current
+        // value, so no backfill is needed (and none would be correct for a since-edited recipe).
+        db.execSQL("ALTER TABLE `diary_entries` ADD COLUMN `recipeServings` REAL")
+
+        // diary_recipe_ingredients: new table, empty. Holds a single diary entry's own copy of a
+        // recipe's ingredients ("I made it differently that day"); rows only appear once the user
+        // actually changes one, so nothing to migrate into it.
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `diary_recipe_ingredients` (`id` TEXT NOT NULL, " +
+                "`diaryEntryId` TEXT NOT NULL, `foodId` TEXT NOT NULL, `amountBaseUnits` REAL NOT NULL, " +
+                "`sortOrder` INTEGER NOT NULL, PRIMARY KEY(`id`), " +
+                "FOREIGN KEY(`diaryEntryId`) REFERENCES `diary_entries`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE , " +
+                "FOREIGN KEY(`foodId`) REFERENCES `food_items`(`id`) ON UPDATE NO ACTION ON DELETE NO ACTION )",
+        )
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS `index_diary_recipe_ingredients_diaryEntryId` " +
+                "ON `diary_recipe_ingredients` (`diaryEntryId`)",
+        )
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS `index_diary_recipe_ingredients_foodId` " +
+                "ON `diary_recipe_ingredients` (`foodId`)",
+        )
+    }
+}

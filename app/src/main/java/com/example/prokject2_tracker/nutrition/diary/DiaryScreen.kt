@@ -1,5 +1,6 @@
 package com.example.prokject2_tracker.nutrition.diary
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,6 +16,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -43,6 +45,7 @@ import java.util.Locale
 @Composable
 fun DiaryScreen(
     onAddEntry: (Long) -> Unit,
+    onEditEntry: (String) -> Unit,
     onOpenDrawer: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: DiaryViewModel = hiltViewModel(),
@@ -101,7 +104,11 @@ fun DiaryScreen(
                                 Text(mealType.label(), style = MaterialTheme.typography.titleSmall)
                             }
                             items(entries, key = { it.id }) { entry ->
-                                DiaryEntryRow(entry, onDelete = { viewModel.deleteEntry(entry) })
+                                DiaryEntryRow(
+                                    entry = entry,
+                                    onEdit = { onEditEntry(entry.id) },
+                                    onDelete = { viewModel.deleteEntry(entry) },
+                                )
                             }
                         }
                     }
@@ -130,13 +137,13 @@ private fun DayTotalCard(uiState: DiaryDayUiState) {
 }
 
 @Composable
-private fun DiaryEntryRow(entry: DiaryEntry, onDelete: () -> Unit) {
+private fun DiaryEntryRow(entry: DiaryEntry, onEdit: () -> Unit, onDelete: () -> Unit) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Column(modifier = Modifier.weight(1f)) {
+            Column(modifier = Modifier.weight(1f).clickable(onClick = onEdit)) {
                 Text(entry.sourceName)
                 // A Schnelleintrag has no meaningful quantity — its "1 Schnelleintrag" would just be noise.
                 val details = if (entry.sourceType == DiarySourceType.QUICK) {
@@ -145,6 +152,9 @@ private fun DiaryEntryRow(entry: DiaryEntry, onDelete: () -> Unit) {
                     "${entry.quantity.formatCompact()} ${entry.quantityUnit} · ${entry.kcal.formatCompact()} kcal"
                 }
                 Text(details)
+            }
+            IconButton(onClick = onEdit) {
+                Icon(Icons.Filled.Edit, contentDescription = "Bearbeiten")
             }
             IconButton(onClick = onDelete) {
                 Icon(Icons.Filled.Delete, contentDescription = "Löschen")

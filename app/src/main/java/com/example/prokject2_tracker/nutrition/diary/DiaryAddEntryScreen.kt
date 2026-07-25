@@ -350,7 +350,20 @@ private fun SelectionCard(
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onPrimaryContainer,
                 )
-                if (food?.fluidTypeId != null) {
+                // A recipe counts as fluid via its ingredients, so name them — "wird auch als
+                // Flüssigkeit gezählt" alone would leave the user guessing which drink it lands on.
+                val fluidHint = when {
+                    food?.fluidTypeId != null -> "wird auch als Flüssigkeit gezählt"
+                    recipe != null && recipe.fluids.isNotEmpty() -> {
+                        val perServing = recipe.fluids.joinToString(" · ") {
+                            val ml = if (recipe.recipe.servings > 0.0) it.totalMl / recipe.recipe.servings else it.totalMl
+                            "${it.name} ${ml.formatCompact()} ml"
+                        }
+                        "wird auch als Flüssigkeit gezählt: $perServing / Portion"
+                    }
+                    else -> null
+                }
+                if (fluidHint != null) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(
                             Icons.Filled.LocalDrink,
@@ -360,7 +373,7 @@ private fun SelectionCard(
                         )
                         Spacer(Modifier.width(4.dp))
                         Text(
-                            "wird auch als Flüssigkeit gezählt",
+                            fluidHint,
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onPrimaryContainer,
                         )

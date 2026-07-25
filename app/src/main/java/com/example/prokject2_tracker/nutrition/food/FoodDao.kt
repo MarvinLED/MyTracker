@@ -20,6 +20,9 @@ interface FoodDao {
     @Query("SELECT * FROM food_items WHERE id = :id")
     suspend fun getById(id: String): FoodItem?
 
+    @Query("SELECT * FROM food_items WHERE id IN (:ids)")
+    suspend fun getByIds(ids: List<String>): List<FoodItem>
+
     @Query("SELECT * FROM food_items ORDER BY name COLLATE NOCASE")
     suspend fun getAllOnce(): List<FoodItem>
 
@@ -29,6 +32,13 @@ interface FoodDao {
     @Delete
     suspend fun delete(food: FoodItem)
 
-    @Query("SELECT EXISTS(SELECT 1 FROM recipe_ingredients WHERE foodId = :foodId)")
+    /**
+     * Both tables reference food_items with a NO_ACTION foreign key, so deleting a food either is
+     * used in a Rezept or in a Tagebuch entry's own per-day copy of one would be rejected by SQLite.
+     */
+    @Query(
+        "SELECT EXISTS(SELECT 1 FROM recipe_ingredients WHERE foodId = :foodId) " +
+            "OR EXISTS(SELECT 1 FROM diary_recipe_ingredients WHERE foodId = :foodId)",
+    )
     suspend fun isUsedInAnyRecipe(foodId: String): Boolean
 }

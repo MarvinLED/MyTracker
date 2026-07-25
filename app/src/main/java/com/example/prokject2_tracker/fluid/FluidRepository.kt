@@ -21,6 +21,9 @@ private val DEFAULT_FLUID_TYPES = listOf(
 /** Seeded once on first run; the user can rename/add/remove freely afterwards (e.g. add "Glas" = 400 ml). */
 private val DEFAULT_FLUID_UNITS = listOf(100.0, 150.0, 200.0, 250.0, 300.0, 330.0, 400.0, 500.0, 750.0, 1000.0)
 
+/** One drink type's share of what a Tagebuch entry contributes to the fluid log. */
+data class FluidContribution(val typeId: String, val amountMl: Double)
+
 @Singleton
 class FluidRepository @Inject constructor(
     private val fluidDao: FluidDao,
@@ -138,31 +141,42 @@ class FluidRepository @Inject constructor(
         )
     }
 
+    /** Corrects a mistyped amount; the type and the Maßeinheit it was logged with stay as they were. */
+    suspend fun updateEntryAmount(entry: FluidEntry, amountMl: Double) {
+        fluidDao.upsert(entry.copy(amountMl = amountMl))
+    }
+
     suspend fun delete(entry: FluidEntry) {
         fluidDao.delete(entry)
     }
 
     /**
-     * Mirrors a Tagebuch entry whose Lebensmittel is linked to a Getränkeart into the fluid log,
-     * replacing whatever that diary entry produced before. Called by the diary side on every
-     * log/update; [typeId] `null` or a non-positive [amountMl] just clears the mirrored row (the
-     * food's link was removed, or the entry no longer contributes any fluid).
+     * Mirrors the fluid a Tagebuch entry contributes into the fluid log, replacing whatever that
+     * diary entry produced before. Called by the diary side on every log/update. A Lebensmittel
+     * contributes at most one type; a Rezept contributes one per drink-linked ingredient, hence the
+     * list. An empty list (or only non-positive amounts) just clears the mirrored rows — the food's
+     * link was removed, or the entry no longer contributes any fluid.
      */
-    suspend fun syncFromDiaryEntry(diaryEntryId: String, epochDay: Long, typeId: String?, amountMl: Double) {
+    suspend fun syncFromDiaryEntry(diaryEntryId: String, epochDay: Long, contributions: List<FluidContribution>) {
         fluidDao.deleteForDiaryEntry(diaryEntryId)
-        if (typeId == null || amountMl <= 0.0) return
-        val type = fluidTypeDao.getById(typeId) ?: return
-        fluidDao.upsert(
-            FluidEntry(
-                id = IdGenerator.newId(),
-                epochDay = epochDay,
-                createdAt = Instant.now(),
-                fluidTypeId = type.id,
-                fluidTypeName = type.name,
-                amountMl = amountMl,
-                sourceDiaryEntryId = diaryEntryId,
-            ),
-        )
+        val now = Instant.now()
+        contributions
+            .filter { it.amountMl > 0.0 }
+            .groupBy { it.typeId }
+            .forEach { (typeId, sameType) ->
+                val type = fluidTypeDao.getById(typeId) ?: return@forEach
+                fluidDao.upsert(
+                    FluidEntry(
+                        id = IdGenerator.newId(),
+                        epochDay = epochDay,
+                        createdAt = now,
+                        fluidTypeId = type.id,
+                        fluidTypeName = type.name,
+                        amountMl = sameType.sumOf { it.amountMl },
+                        sourceDiaryEntryId = diaryEntryId,
+                    ),
+                )
+            }
     }
 
     suspend fun deleteForDiaryEntry(diaryEntryId: String) {

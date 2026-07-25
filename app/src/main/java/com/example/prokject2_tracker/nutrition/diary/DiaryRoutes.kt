@@ -7,3 +7,6 @@ data object DiaryRoute
 
 @Serializable
 data class DiaryAddEntryRoute(val epochDay: Long)
+
+@Serializable
+data class DiaryEditEntryRoute(val entryId: String)

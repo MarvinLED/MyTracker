@@ -1,7 +1,12 @@
 package com.example.prokject2_tracker.nutrition
 
 import com.example.prokject2_tracker.nutrition.food.FoodItem
-import com.example.prokject2_tracker.nutrition.recipe.RecipeIngredientWithFood
+
+/**
+ * A food and how much of it, in the food's own base unit — what both a Rezept's ingredient list and
+ * a Tagebuch entry's per-day copy of one reduce to before any nutrition or fluid is computed.
+ */
+data class FoodAmount(val food: FoodItem, val amountBaseUnits: Double)
 
 data class NutritionTotals(
     val kcal: Double,
@@ -39,9 +44,9 @@ object NutritionMath {
         )
     }
 
-    fun total(ingredients: List<RecipeIngredientWithFood>): NutritionTotals =
+    fun total(ingredients: List<FoodAmount>): NutritionTotals =
         ingredients.fold(NutritionTotals.ZERO) { acc, item ->
-            acc + forFoodAmount(item.food, item.ingredient.amountBaseUnits)
+            acc + forFoodAmount(item.food, item.amountBaseUnits)
         }
 
     fun perServing(total: NutritionTotals, servings: Double): NutritionTotals =

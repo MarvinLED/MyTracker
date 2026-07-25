@@ -32,6 +32,7 @@ import com.example.prokject2_tracker.habit.HabitGoal
 import com.example.prokject2_tracker.habit.HabitGoalDao
 import com.example.prokject2_tracker.nutrition.diary.DiaryDao
 import com.example.prokject2_tracker.nutrition.diary.DiaryEntry
+import com.example.prokject2_tracker.nutrition.diary.DiaryRecipeIngredient
 import com.example.prokject2_tracker.nutrition.food.FoodDao
 import com.example.prokject2_tracker.nutrition.food.FoodItem
 import com.example.prokject2_tracker.nutrition.food.FoodItemTag
@@ -49,6 +50,7 @@ import com.example.prokject2_tracker.weight.BodyWeightEntry
         Recipe::class,
         RecipeIngredient::class,
         DiaryEntry::class,
+        DiaryRecipeIngredient::class,
         FluidEntry::class,
         FluidType::class,
         FluidUnit::class,
@@ -67,7 +69,7 @@ import com.example.prokject2_tracker.weight.BodyWeightEntry
         BodyWeightEntry::class,
         FitnessGoal::class,
     ],
-    version = 10,
+    version = 11,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)

@@ -1,16 +1,38 @@
 package com.example.prokject2_tracker.nutrition.diary
 
 import com.example.prokject2_tracker.core.util.IdGenerator
+import com.example.prokject2_tracker.fluid.FluidContribution
 import com.example.prokject2_tracker.fluid.FluidRepository
+import com.example.prokject2_tracker.nutrition.FoodAmount
 import com.example.prokject2_tracker.nutrition.NutritionMath
 import com.example.prokject2_tracker.nutrition.food.BaseUnit
 import com.example.prokject2_tracker.nutrition.food.FoodDao
 import com.example.prokject2_tracker.nutrition.food.FoodItem
+import com.example.prokject2_tracker.nutrition.food.fluidMl
 import com.example.prokject2_tracker.nutrition.recipe.RecipeDao
+import com.example.prokject2_tracker.nutrition.recipe.foodAmounts
 import java.time.Instant
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.flow.Flow
+
+/** One ingredient row of a per-day recipe copy as edited in the UI, before ids are assigned. */
+data class DiaryRecipeIngredientDraft(
+    val foodId: String,
+    val amountBaseUnits: Double,
+)
+
+/**
+ * The ingredient list a recipe entry is computed from, plus the servings it divides by: either the
+ * library recipe or the entry's own per-day copy of it. Both paths produce an entry the same way,
+ * so the nutrition snapshot and the mirrored fluid can't drift apart between them.
+ */
+private data class RecipeSource(
+    val recipeId: String,
+    val recipeName: String,
+    val servings: Double,
+    val ingredients: List<FoodAmount>,
+)
 
 @Singleton
 class DiaryRepository @Inject constructor(
@@ -26,14 +48,36 @@ class DiaryRepository @Inject constructor(
     fun observeDailyKcalTotals(startInclusive: Long, endInclusive: Long): Flow<List<DailyKcalTotal>> =
         diaryDao.observeDailyKcalTotals(startInclusive, endInclusive)
 
+    suspend fun getEntry(id: String): DiaryEntry? = diaryDao.getById(id)
+
+    /** True when the user has already given this entry its own version of the recipe. */
+    suspend fun hasRecipeDayIngredients(diaryEntryId: String): Boolean =
+        diaryDao.getRecipeIngredients(diaryEntryId).isNotEmpty()
+
+    /**
+     * The ingredients a recipe entry currently follows — its own per-day copy if it has one, else the
+     * library recipe as it stands now. Empty for food and Schnelleintrag entries, and for a recipe
+     * that has since been deleted from the library without this entry ever getting its own copy.
+     */
+    suspend fun getRecipeIngredientsInEffect(entry: DiaryEntry): List<FoodAmount> =
+        if (entry.sourceType == DiarySourceType.RECIPE) {
+            recipeSourceFor(entry)?.ingredients.orEmpty()
+        } else {
+            emptyList()
+        }
+
     suspend fun logFood(epochDay: Long, foodId: String, amountBaseUnits: Double, mealType: MealType) {
-        val entry = buildFoodEntry(IdGenerator.newId(), epochDay, foodId, amountBaseUnits, mealType)
+        val food = requireNotNull(foodDao.getById(foodId)) { "Food $foodId not found" }
+        val entry = foodEntry(IdGenerator.newId(), epochDay, Instant.now(), food, amountBaseUnits, mealType)
         diaryDao.upsert(entry)
-        syncFluidForFoodEntry(entry, foodDao.getById(foodId))
+        syncFluidForFoodEntry(entry, food)
     }
 
     suspend fun logRecipe(epochDay: Long, recipeId: String, servingsConsumed: Double, mealType: MealType) {
-        diaryDao.upsert(buildRecipeEntry(IdGenerator.newId(), epochDay, recipeId, servingsConsumed, mealType))
+        val source = requireNotNull(libraryRecipeSource(recipeId)) { "Recipe $recipeId not found" }
+        val entry = source.toEntry(IdGenerator.newId(), epochDay, Instant.now(), servingsConsumed, mealType)
+        diaryDao.upsert(entry)
+        syncFluidForRecipeEntry(entry, source)
     }
 
     /**
@@ -68,54 +112,199 @@ class DiaryRepository @Inject constructor(
         )
     }
 
-    /** Re-derives the nutrition snapshot from the source's *current* state; does not touch other rows. */
+    /**
+     * Re-derives the nutrition snapshot for a changed amount/meal, from the entry's per-day recipe
+     * copy if it has one and from the source's *current* state otherwise. Does not touch other rows,
+     * and keeps [DiaryEntry.createdAt] so correcting an amount doesn't reshuffle the day's order.
+     */
     suspend fun updateEntry(entry: DiaryEntry, newQuantity: Double, newMealType: MealType) {
-        val updated = when (entry.sourceType) {
-            DiarySourceType.FOOD -> buildFoodEntry(entry.id, entry.epochDay, entry.sourceId, newQuantity, newMealType)
-            DiarySourceType.RECIPE -> buildRecipeEntry(entry.id, entry.epochDay, entry.sourceId, newQuantity, newMealType)
+        when (entry.sourceType) {
+            DiarySourceType.FOOD -> {
+                val food = foodDao.getById(entry.sourceId)
+                if (food == null) {
+                    diaryDao.upsert(entry.scaledTo(newQuantity, newMealType))
+                } else {
+                    val updated = foodEntry(entry.id, entry.epochDay, entry.createdAt, food, newQuantity, newMealType)
+                    diaryDao.upsert(updated)
+                    syncFluidForFoodEntry(updated, food)
+                }
+            }
+            DiarySourceType.RECIPE -> {
+                val source = recipeSourceFor(entry)
+                if (source == null) {
+                    diaryDao.upsert(entry.scaledTo(newQuantity, newMealType))
+                } else {
+                    saveRecipeEntry(entry, source, newQuantity, newMealType, asDayIngredients = false)
+                }
+            }
             // A Schnelleintrag has no source to re-derive from — its snapshot *is* the entry.
-            DiarySourceType.QUICK -> entry.copy(mealType = newMealType)
-        }
-        diaryDao.upsert(updated)
-        if (updated.sourceType == DiarySourceType.FOOD) {
-            syncFluidForFoodEntry(updated, foodDao.getById(updated.sourceId))
+            DiarySourceType.QUICK -> diaryDao.upsert(entry.copy(mealType = newMealType))
         }
     }
 
+    /**
+     * Records "I made the Rezept differently today": [ingredients] becomes this entry's own copy of
+     * the recipe, and its nutrition and mirrored fluid follow that copy from now on. The library
+     * recipe and every other day's entry stay untouched.
+     */
+    suspend fun updateRecipeEntryIngredients(
+        entry: DiaryEntry,
+        newQuantity: Double,
+        newMealType: MealType,
+        ingredients: List<DiaryRecipeIngredientDraft>,
+    ) {
+        val foodsById = foodDao.getByIds(ingredients.map { it.foodId }).associateBy { it.id }
+        val source = RecipeSource(
+            recipeId = entry.sourceId,
+            recipeName = entry.sourceName,
+            servings = servingsOf(entry),
+            ingredients = ingredients.mapNotNull { draft ->
+                foodsById[draft.foodId]?.let { FoodAmount(it, draft.amountBaseUnits) }
+            },
+        )
+        saveRecipeEntry(entry, source, newQuantity, newMealType, asDayIngredients = true)
+    }
+
+    /**
+     * Drops the per-day copy so the entry follows the library recipe again. Keeps the copy if that
+     * recipe no longer exists — there would be nothing left to fall back to.
+     */
+    suspend fun resetRecipeEntryToLibrary(entry: DiaryEntry, newQuantity: Double, newMealType: MealType) {
+        val source = libraryRecipeSource(entry.sourceId)
+        if (source == null) {
+            updateEntry(entry, newQuantity, newMealType)
+            return
+        }
+        val updated = source.toEntry(entry.id, entry.epochDay, entry.createdAt, newQuantity, newMealType)
+        diaryDao.upsertWithRecipeIngredients(updated, emptyList())
+        syncFluidForRecipeEntry(updated, source)
+    }
+
     suspend fun delete(entry: DiaryEntry) {
+        // The per-day recipe copy goes with it via the entity's CASCADE foreign key.
         diaryDao.delete(entry)
         fluidRepository.deleteForDiaryEntry(entry.id)
     }
 
     /**
-     * Mirrors the fluid a drink-like Lebensmittel contributes into the Flüssigkeiten log. Foods
-     * without a [FoodItem.fluidTypeId] clear any previously mirrored row instead, so unlinking a
-     * food and re-saving an entry doesn't leave a stale drink behind.
+     * Writes [source] as [entry]'s new state. [asDayIngredients] true stores [source]'s ingredients
+     * as the entry's own per-day copy of the recipe; false leaves whatever copy (or none) it has.
      */
-    private suspend fun syncFluidForFoodEntry(entry: DiaryEntry, food: FoodItem?) {
-        val typeId = food?.fluidTypeId
-        val mlPer100 = food?.fluidMlPer100 ?: 100.0
-        fluidRepository.syncFromDiaryEntry(
-            diaryEntryId = entry.id,
-            epochDay = entry.epochDay,
-            typeId = typeId,
-            amountMl = entry.quantity * mlPer100 / 100.0,
+    private suspend fun saveRecipeEntry(
+        entry: DiaryEntry,
+        source: RecipeSource,
+        newQuantity: Double,
+        newMealType: MealType,
+        asDayIngredients: Boolean,
+    ) {
+        val updated = source.toEntry(entry.id, entry.epochDay, entry.createdAt, newQuantity, newMealType)
+        if (asDayIngredients) {
+            diaryDao.upsertWithRecipeIngredients(
+                updated,
+                source.ingredients.mapIndexed { index, item ->
+                    DiaryRecipeIngredient(
+                        id = IdGenerator.newId(),
+                        diaryEntryId = updated.id,
+                        foodId = item.food.id,
+                        amountBaseUnits = item.amountBaseUnits,
+                        sortOrder = index,
+                    )
+                },
+            )
+        } else {
+            diaryDao.upsert(updated)
+        }
+        syncFluidForRecipeEntry(updated, source)
+    }
+
+    /** Null when the recipe has since been deleted from the library. */
+    private suspend fun libraryRecipeSource(recipeId: String): RecipeSource? {
+        val withIngredients = recipeDao.getWithIngredients(recipeId) ?: return null
+        return RecipeSource(
+            recipeId = withIngredients.recipe.id,
+            recipeName = withIngredients.recipe.name,
+            servings = withIngredients.recipe.servings,
+            ingredients = withIngredients.ingredients.foodAmounts(),
         )
     }
 
-    private suspend fun buildFoodEntry(
+    /** The entry's own per-day copy of the recipe if it has one, otherwise the library recipe. */
+    private suspend fun recipeSourceFor(entry: DiaryEntry): RecipeSource? {
+        val dayIngredients = diaryDao.getRecipeIngredients(entry.id)
+        if (dayIngredients.isEmpty()) return libraryRecipeSource(entry.sourceId)
+        return RecipeSource(
+            recipeId = entry.sourceId,
+            recipeName = entry.sourceName,
+            servings = servingsOf(entry),
+            ingredients = dayIngredients.foodAmounts(),
+        )
+    }
+
+    /**
+     * The fallback for an entry whose source is gone from the library (and that has no per-day recipe
+     * copy either): the snapshot is the only nutrition left, so re-scale it to the new amount rather
+     * than refuse the edit. Any mirrored fluid stays as it was, for the same reason — there is
+     * nothing left to re-derive it from.
+     */
+    private fun DiaryEntry.scaledTo(newQuantity: Double, newMealType: MealType): DiaryEntry {
+        val factor = if (quantity > 0.0) newQuantity / quantity else 0.0
+        return copy(
+            mealType = newMealType,
+            quantity = newQuantity,
+            kcal = kcal * factor,
+            protein = protein * factor,
+            carbs = carbs * factor,
+            fat = fat * factor,
+        )
+    }
+
+    /**
+     * The servings a recipe entry divides its ingredients by. Entries logged before this was
+     * snapshotted fall back to the library recipe's current value, and to 1 if the recipe is gone —
+     * "the whole pot is one portion" is the only reading left, and it beats dividing by zero.
+     */
+    private suspend fun servingsOf(entry: DiaryEntry): Double =
+        entry.recipeServings ?: recipeDao.getById(entry.sourceId)?.servings ?: 1.0
+
+    private fun RecipeSource.toEntry(
         id: String,
         epochDay: Long,
-        foodId: String,
+        createdAt: Instant,
+        servingsConsumed: Double,
+        mealType: MealType,
+    ): DiaryEntry {
+        val totals = NutritionMath.perServing(NutritionMath.total(ingredients), servings) * servingsConsumed
+        return DiaryEntry(
+            id = id,
+            epochDay = epochDay,
+            createdAt = createdAt,
+            mealType = mealType,
+            sourceType = DiarySourceType.RECIPE,
+            sourceId = recipeId,
+            sourceName = recipeName,
+            quantity = servingsConsumed,
+            quantityUnit = "Portion(en)",
+            kcal = totals.kcal,
+            protein = totals.protein,
+            carbs = totals.carbs,
+            fat = totals.fat,
+            recipeServings = servings,
+        )
+    }
+
+    private fun foodEntry(
+        id: String,
+        epochDay: Long,
+        createdAt: Instant,
+        food: FoodItem,
         amountBaseUnits: Double,
         mealType: MealType,
     ): DiaryEntry {
-        val food = requireNotNull(foodDao.getById(foodId)) { "Food $foodId not found" }
         val totals = NutritionMath.forFoodAmount(food, amountBaseUnits)
         return DiaryEntry(
             id = id,
             epochDay = epochDay,
-            createdAt = Instant.now(),
+            createdAt = createdAt,
             mealType = mealType,
             sourceType = DiarySourceType.FOOD,
             sourceId = food.id,
@@ -129,35 +318,35 @@ class DiaryRepository @Inject constructor(
         )
     }
 
-    private suspend fun buildRecipeEntry(
-        id: String,
-        epochDay: Long,
-        recipeId: String,
-        servingsConsumed: Double,
-        mealType: MealType,
-    ): DiaryEntry {
-        val recipeWithIngredients = requireNotNull(recipeDao.getWithIngredients(recipeId)) {
-            "Recipe $recipeId not found"
-        }
-        val perServing = NutritionMath.perServing(
-            NutritionMath.total(recipeWithIngredients.ingredients),
-            recipeWithIngredients.recipe.servings,
+    /**
+     * Mirrors the fluid a drink-like Lebensmittel contributes into the Flüssigkeiten log. Foods
+     * without a [FoodItem.fluidTypeId] clear any previously mirrored row instead, so unlinking a
+     * food and re-saving an entry doesn't leave a stale drink behind.
+     */
+    private suspend fun syncFluidForFoodEntry(entry: DiaryEntry, food: FoodItem) {
+        fluidRepository.syncFromDiaryEntry(
+            diaryEntryId = entry.id,
+            epochDay = entry.epochDay,
+            contributions = listOfNotNull(
+                food.fluidTypeId?.let { FluidContribution(it, food.fluidMl(entry.quantity)) },
+            ),
         )
-        val totals = perServing * servingsConsumed
-        return DiaryEntry(
-            id = id,
-            epochDay = epochDay,
-            createdAt = Instant.now(),
-            mealType = mealType,
-            sourceType = DiarySourceType.RECIPE,
-            sourceId = recipeWithIngredients.recipe.id,
-            sourceName = recipeWithIngredients.recipe.name,
-            quantity = servingsConsumed,
-            quantityUnit = "Portion(en)",
-            kcal = totals.kcal,
-            protein = totals.protein,
-            carbs = totals.carbs,
-            fat = totals.fat,
+    }
+
+    /**
+     * Same mirroring for a Rezept, but summed over its drink-linked ingredients and scaled from the
+     * whole recipe down to the portions actually eaten.
+     */
+    private suspend fun syncFluidForRecipeEntry(entry: DiaryEntry, source: RecipeSource) {
+        val portionFactor = if (source.servings > 0.0) entry.quantity / source.servings else 0.0
+        fluidRepository.syncFromDiaryEntry(
+            diaryEntryId = entry.id,
+            epochDay = entry.epochDay,
+            contributions = source.ingredients.mapNotNull { item ->
+                item.food.fluidTypeId?.let {
+                    FluidContribution(it, item.food.fluidMl(item.amountBaseUnits) * portionFactor)
+                }
+            },
         )
     }
 }

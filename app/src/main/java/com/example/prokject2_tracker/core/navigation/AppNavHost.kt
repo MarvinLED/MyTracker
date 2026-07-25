@@ -31,6 +31,8 @@ import com.example.prokject2_tracker.habit.HabitRoute
 import com.example.prokject2_tracker.habit.HabitScreen
 import com.example.prokject2_tracker.nutrition.diary.DiaryAddEntryRoute
 import com.example.prokject2_tracker.nutrition.diary.DiaryAddEntryScreen
+import com.example.prokject2_tracker.nutrition.diary.DiaryEditEntryRoute
+import com.example.prokject2_tracker.nutrition.diary.DiaryEditEntryScreen
 import com.example.prokject2_tracker.nutrition.diary.DiaryRoute
 import com.example.prokject2_tracker.nutrition.diary.DiaryScreen
 import com.example.prokject2_tracker.nutrition.food.FoodEditRoute
@@ -63,6 +65,7 @@ fun AppNavHost(
         composable<DiaryRoute> {
             DiaryScreen(
                 onAddEntry = { epochDay -> navController.navigate(DiaryAddEntryRoute(epochDay)) },
+                onEditEntry = { entryId -> navController.navigate(DiaryEditEntryRoute(entryId)) },
                 onOpenDrawer = onOpenDrawer,
             )
         }
@@ -91,6 +94,9 @@ fun AppNavHost(
                 onCreateFood = { navController.navigate(FoodEditRoute()) },
                 onCreateRecipe = { navController.navigate(RecipeEditRoute()) },
             )
+        }
+        composable<DiaryEditEntryRoute> {
+            DiaryEditEntryScreen(onDone = { navController.popBackStack() })
         }
         composable<LibraryRoute> {
             LibraryScreen(

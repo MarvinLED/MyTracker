@@ -20,6 +20,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -42,7 +43,20 @@ fun AppScaffold() {
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = backStackEntry?.destination
 
+    // Routes that a tab/drawer entry is allowed to land on. Everything else is a detail screen
+    // reached from one of them (Getränkearten verwalten, Eintrag hinzufügen, Rezept bearbeiten, ...).
+    val topLevelRoutes = remember {
+        (TopLevelDestination.entries.map { it.routeQualifiedName } +
+            DrawerDestination.entries.map { it.routeQualifiedName }).toSet()
+    }
+
     fun navigateToTopLevel(route: Any) {
+        // Drop any detail screen the user had open *before* popUpTo(saveState = true) snapshots this
+        // tab's stack — otherwise coming back to the tab restores that detail screen instead of the
+        // tab's own overview.
+        while (navController.currentDestination?.route !in topLevelRoutes) {
+            if (!navController.popBackStack()) break
+        }
         navController.navigate(route) {
             popUpTo(navController.graph.findStartDestination().id) {
                 saveState = true

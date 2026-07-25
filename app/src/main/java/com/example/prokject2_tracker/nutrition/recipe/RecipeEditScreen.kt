@@ -21,6 +21,8 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -42,6 +44,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.prokject2_tracker.core.util.formatCompact
 import com.example.prokject2_tracker.nutrition.food.BaseUnit
 import com.example.prokject2_tracker.nutrition.food.FoodItem
 
@@ -53,6 +56,7 @@ fun RecipeEditScreen(
     viewModel: RecipeEditViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsState()
+    val fluidTypeNames by viewModel.fluidTypeNames.collectAsState()
     var showPicker by remember { mutableStateOf(false) }
 
     LaunchedEffect(state.isSaved) {
@@ -107,7 +111,17 @@ fun RecipeEditScreen(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text(row.foodName, modifier = Modifier.weight(1f))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(row.foodName)
+                        val fluidName = row.fluidTypeId?.let { fluidTypeNames[it] }
+                        if (fluidName != null && row.fluidMl > 0.0) {
+                            Text(
+                                "davon ${row.fluidMl.formatCompact()} ml $fluidName",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
                     OutlinedTextField(
                         value = row.amountText,
                         onValueChange = { viewModel.updateIngredientAmount(row.foodId, it) },
@@ -125,6 +139,11 @@ fun RecipeEditScreen(
                 Spacer(Modifier.width(8.dp))
                 Text("Zutat hinzufügen")
             }
+
+            FluidSummaryCard(
+                fluids = state.ingredients.fluidTotals(fluidTypeNames),
+                servings = state.servings.toDoubleOrNull(),
+            )
         }
     }
 
@@ -137,6 +156,50 @@ fun RecipeEditScreen(
                 showPicker = false
             },
         )
+    }
+}
+
+/** Per Getränkeart totals over the ingredient rows, keyed by name and in first-ingredient order. */
+private fun List<IngredientRow>.fluidTotals(fluidTypeNames: Map<String, String>): List<Pair<String, Double>> =
+    filter { it.fluidTypeId != null && it.fluidMl > 0.0 }
+        .groupBy { it.fluidTypeId }
+        .mapNotNull { (typeId, rows) ->
+            fluidTypeNames[typeId]?.let { name -> name to rows.sumOf { it.fluidMl } }
+        }
+
+/**
+ * What the recipe's drink-linked ingredients add up to. Spelled out per portion as well, because
+ * that — not the whole-recipe amount — is what a Tagebuch entry of one portion logs as fluid.
+ */
+@Composable
+private fun FluidSummaryCard(fluids: List<Pair<String, Double>>, servings: Double?) {
+    if (fluids.isEmpty()) return
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+    ) {
+        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text("Enthaltene Flüssigkeiten", style = MaterialTheme.typography.titleSmall)
+            fluids.forEach { (name, totalMl) ->
+                Row(modifier = Modifier.fillMaxWidth()) {
+                    Text(name, modifier = Modifier.weight(1f))
+                    val perServing = servings?.takeIf { it > 0.0 }?.let { totalMl / it }
+                    Text(
+                        buildString {
+                            append("${totalMl.formatCompact()} ml")
+                            perServing?.let { append(" · ${it.formatCompact()} ml / Portion") }
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+            Text(
+                "Wird beim Hinzufügen zum Tagebuch automatisch bei den Flüssigkeiten mitgezählt.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
     }
 }
 

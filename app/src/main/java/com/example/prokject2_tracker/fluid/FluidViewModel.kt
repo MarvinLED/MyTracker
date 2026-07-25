@@ -74,6 +74,10 @@ class FluidViewModel @Inject constructor(
         viewModelScope.launch { fluidRepository.logFluid(_selectedEpochDay.value, type, unit.amountMl, unit) }
     }
 
+    fun updateAmount(entry: FluidEntry, amountMl: Double) {
+        viewModelScope.launch { fluidRepository.updateEntryAmount(entry, amountMl) }
+    }
+
     fun delete(entry: FluidEntry) {
         viewModelScope.launch { fluidRepository.delete(entry) }
     }

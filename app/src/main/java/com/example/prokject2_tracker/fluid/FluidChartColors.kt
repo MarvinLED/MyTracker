@@ -38,16 +38,46 @@ val FluidPaletteLight: List<Color> = listOf(
     Color(0xFFE34948),
 )
 
+/**
+ * Extra hues offered in the colour picker but never handed out automatically, because a drink's real
+ * colour is sometimes the point (Kaffee/Kakao braun, Milch weiß). They stay out of the eight
+ * auto-assigned slots deliberately: brown is the dimmest fill in the set and white the brightest, so
+ * neither is a good default neighbour for the palette hues — they only appear when the user picks
+ * them. Swatches and legend dots carry an outline so a fill close to the surface still has an edge.
+ */
+val FluidExtraColorsDark: List<Color> = listOf(
+    Color(0xFF9C6644), // braun
+    Color(0xFFF5F5F5), // weiß
+)
+
+val FluidExtraColorsLight: List<Color> = listOf(
+    Color(0xFF7A4A28),
+    Color(0xFFFFFFFF),
+)
+
 /** The palette matching the current theme's chart surface. */
 @Composable
 @ReadOnlyComposable
 fun fluidPalette(): List<Color> =
     if (MaterialTheme.colorScheme.surface.luminance() < 0.5f) FluidPaletteDark else FluidPaletteLight
 
-/** The swatches offered in the colour picker — the palette for the surface the user is looking at. */
+/**
+ * The swatches offered in the colour picker: the eight palette slots for the surface the user is
+ * looking at, followed by the deliberate-pick-only extras.
+ */
 @Composable
 @ReadOnlyComposable
-fun fluidColorChoices(): List<Int> = fluidPalette().map { it.toArgb() }
+fun fluidColorChoices(): List<Int> {
+    val dark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
+    val extras = if (dark) FluidExtraColorsDark else FluidExtraColorsLight
+    return (fluidPalette() + extras).map { it.toArgb() }
+}
+
+/**
+ * Ink that stays readable *on* [this] fill — needed since the picker's white and brown swatches sit
+ * at opposite ends of the luminance range and a single fixed tint would vanish on one of them.
+ */
+fun Color.contrastingInk(): Color = if (luminance() > 0.45f) Color.Black else Color.White
 
 /**
  * The colour a type is drawn with: the user's pick if they made one, otherwise the palette slot for

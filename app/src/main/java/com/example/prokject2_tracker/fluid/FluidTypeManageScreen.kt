@@ -102,6 +102,7 @@ fun FluidTypeManageScreen(
                                 Surface(
                                     color = type.chartColor(index),
                                     shape = CircleShape,
+                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
                                     modifier = Modifier.size(16.dp),
                                 ) {}
                                 Spacer(Modifier.width(12.dp))
@@ -229,10 +230,14 @@ private fun ColorSwatchPicker(selectedArgb: Int?, onSelect: (Int?) -> Unit) {
         )
         choices.forEach { argb ->
             val selected = selectedArgb == argb
+            val swatch = Color(argb)
             Surface(
-                color = Color(argb),
+                color = swatch,
                 shape = CircleShape,
-                border = if (selected) BorderStroke(3.dp, MaterialTheme.colorScheme.onSurface) else null,
+                border = BorderStroke(
+                    if (selected) 3.dp else 1.dp,
+                    if (selected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.outline,
+                ),
                 modifier = Modifier.size(36.dp).clickable { onSelect(argb) },
             ) {
                 if (selected) {
@@ -240,7 +245,7 @@ private fun ColorSwatchPicker(selectedArgb: Int?, onSelect: (Int?) -> Unit) {
                         Icon(
                             Icons.Filled.Check,
                             contentDescription = "Ausgewählt",
-                            tint = Color.White,
+                            tint = swatch.contrastingInk(),
                             modifier = Modifier.size(20.dp),
                         )
                     }

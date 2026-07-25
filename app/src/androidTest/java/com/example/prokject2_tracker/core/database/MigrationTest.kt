@@ -225,4 +225,45 @@ class MigrationTest {
         }
         db.close()
     }
+
+    @Test
+    fun migrate10To11_keepsRecipeDiaryEntriesAndCascadesTheirPerDayIngredients() {
+        val v10 = helper.createDatabase(dbName, 10)
+        v10.execSQL(
+            "INSERT INTO food_items (id, name, baseUnit, kcalPer100, proteinPer100, carbsPer100, fatPer100, " +
+                "saturatedFatPer100, sugarPer100, fiberPer100, saltPer100, createdAt, updatedAt) " +
+                "VALUES ('food-1', 'Reis', 'G', 350.0, 7.0, 78.0, 0.6, 0.2, 0.1, 1.4, 0.0, 1700000000000, 1700000000000)",
+        )
+        v10.execSQL(
+            "INSERT INTO diary_entries (id, epochDay, createdAt, mealType, sourceType, sourceId, sourceName, " +
+                "quantity, quantityUnit, kcal, protein, carbs, fat) " +
+                "VALUES ('entry-1', 20000, 1700000000000, 'LUNCH', 'RECIPE', 'recipe-1', 'Reispfanne', " +
+                "2.0, 'Portion(en)', 700.0, 14.0, 156.0, 1.2)",
+        )
+        v10.close()
+
+        val db = helper.runMigrationsAndValidate(dbName, 11, true, MIGRATION_10_11)
+
+        // The existing recipe entry survives with its snapshot, and recipeServings starts unset so it
+        // keeps falling back to the library recipe.
+        db.query("SELECT sourceName, kcal, recipeServings FROM diary_entries WHERE id = 'entry-1'").use { cursor ->
+            cursor.moveToFirst()
+            assertEquals("Reispfanne", cursor.getString(0))
+            assertEquals(true, cursor.isNull(2))
+            assertEquals(700.0, cursor.getDouble(1), 0.0001)
+        }
+
+        // A per-day ingredient row belongs to its diary entry: deleting the entry takes it along.
+        db.execSQL("PRAGMA foreign_keys = ON")
+        db.execSQL(
+            "INSERT INTO diary_recipe_ingredients (id, diaryEntryId, foodId, amountBaseUnits, sortOrder) " +
+                "VALUES ('day-ing-1', 'entry-1', 'food-1', 220.0, 0)",
+        )
+        db.execSQL("DELETE FROM diary_entries WHERE id = 'entry-1'")
+        db.query("SELECT COUNT(*) FROM diary_recipe_ingredients").use { cursor ->
+            cursor.moveToFirst()
+            assertEquals(0, cursor.getInt(0))
+        }
+        db.close()
+    }
 }
