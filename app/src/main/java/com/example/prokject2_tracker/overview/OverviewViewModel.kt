@@ -2,15 +2,19 @@ package com.example.prokject2_tracker.overview
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.prokject2_tracker.core.datastore.NutrientGoalType
+import com.example.prokject2_tracker.core.datastore.UserPreferences
 import com.example.prokject2_tracker.core.datastore.UserPreferencesRepository
 import com.example.prokject2_tracker.core.datastore.WeightUnit
 import com.example.prokject2_tracker.core.util.DateUtils
+import com.example.prokject2_tracker.core.util.formatCompact
 import com.example.prokject2_tracker.core.util.lbToKg
 import com.example.prokject2_tracker.core.util.toLocaleDoubleOrNull
 import com.example.prokject2_tracker.fluid.FluidRepository
 import com.example.prokject2_tracker.fluid.FluidType
 import com.example.prokject2_tracker.habit.Habit
 import com.example.prokject2_tracker.habit.HabitRepository
+import com.example.prokject2_tracker.nutrition.NutritionTotals
 import com.example.prokject2_tracker.nutrition.diary.DiaryRepository
 import com.example.prokject2_tracker.nutrition.diary.MealType
 import com.example.prokject2_tracker.nutrition.food.FoodItem
@@ -30,6 +34,17 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
+/**
+ * One thing still to do today, already rendered down to two strings — the Übersicht only displays
+ * these, so it needs no knowledge of where each came from.
+ */
+data class OpenGoal(
+    val label: String,
+    val detail: String,
+    /** A blown "höchstens" goal: still open, but not something more of will fix. */
+    val isOverLimit: Boolean = false,
+)
+
 data class OverviewUiState(
     val habits: List<Habit> = emptyList(),
     val checkedInHabitIds: Set<String> = emptySet(),
@@ -40,6 +55,7 @@ data class OverviewUiState(
     val fluidGoalMl: Double = 2000.0,
     val todayWeightKg: Double? = null,
     val weightUnit: WeightUnit = WeightUnit.KG,
+    val openGoals: List<OpenGoal> = emptyList(),
 )
 
 /**
@@ -75,10 +91,12 @@ class OverviewViewModel @Inject constructor(
         fluidSlice,
         bodyWeightRepository.observeForDay(today),
         userPreferencesRepository.userPreferences,
-    ) { (habits, checkIns), (fluidTypes, fluidTotalMl), weightEntry, prefs ->
+        diaryRepository.observeDayNutritionTotals(today),
+    ) { (habits, checkIns), (fluidTypes, fluidTotalMl), weightEntry, prefs, nutritionTotals ->
+        val checkedIn = checkIns.map { it.habitId }.toSet()
         OverviewUiState(
             habits = habits,
-            checkedInHabitIds = checkIns.map { it.habitId }.toSet(),
+            checkedInHabitIds = checkedIn,
             habitValues = checkIns.mapNotNull { checkIn -> checkIn.value?.let { checkIn.habitId to it } }.toMap(),
             habitStreaks = habits.associate { it.id to habitRepository.getCurrentStreak(it, today) },
             fluidTypes = fluidTypes,
@@ -86,8 +104,44 @@ class OverviewViewModel @Inject constructor(
             fluidGoalMl = prefs.dailyWaterGoalMl,
             todayWeightKg = weightEntry?.weightKg,
             weightUnit = prefs.weightUnit,
+            openGoals = openGoals(prefs, nutritionTotals, fluidTotalMl, habits, checkedIn),
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), OverviewUiState())
+
+    /**
+     * Everything still open today, in one flat list so the Übersicht can show it as one compact
+     * block. Only *unmet* goals appear: a list that keeps showing what you already achieved buries
+     * the two things you still have to do.
+     */
+    private fun openGoals(
+        prefs: UserPreferences,
+        nutritionTotals: NutritionTotals,
+        fluidTotalMl: Double,
+        habits: List<Habit>,
+        checkedInHabitIds: Set<String>,
+    ): List<OpenGoal> = buildList {
+        prefs.unmetGoals(nutritionTotals.byNutrient()).forEach { (nutrient, goal, consumed) ->
+            val remaining = goal.value - consumed
+            add(
+                OpenGoal(
+                    label = nutrient.label,
+                    detail = if (goal.type == NutrientGoalType.MAX) {
+                        "${(-remaining).formatCompact()} ${nutrient.unit} zu viel"
+                    } else {
+                        "noch ${remaining.formatCompact()} ${nutrient.unit}"
+                    },
+                    isOverLimit = goal.type == NutrientGoalType.MAX,
+                ),
+            )
+        }
+        val openMl = prefs.dailyWaterGoalMl - fluidTotalMl
+        if (openMl > 0.0) {
+            add(OpenGoal(label = "Flüssigkeit", detail = "noch ${openMl.formatCompact()} ml"))
+        }
+        habits.filterNot { it.id in checkedInHabitIds }.forEach {
+            add(OpenGoal(label = it.name, detail = "offen"))
+        }
+    }
 
     private val _foodQuery = MutableStateFlow("")
     val foodQuery: StateFlow<String> = _foodQuery.asStateFlow()
@@ -124,7 +178,7 @@ class OverviewViewModel @Inject constructor(
 
     fun confirmLogFood() {
         val food = _selectedFood.value ?: return
-        val amount = _amountText.value.toDoubleOrNull() ?: return
+        val amount = _amountText.value.toLocaleDoubleOrNull() ?: return
         val mealType = _mealType.value
         viewModelScope.launch {
             diaryRepository.logFood(today, food.id, amount, mealType)

@@ -1,6 +1,7 @@
 package com.example.prokject2_tracker.fitness.strength
 
 import com.example.prokject2_tracker.core.util.DateUtils
+import com.example.prokject2_tracker.core.util.toLocaleDoubleOrNull
 
 data class StrengthSetInput(
     val reps: String = "",
@@ -18,5 +19,5 @@ data class StrengthEntryFormState(
     val isValid: Boolean
         get() = exerciseId != null && sets.isNotEmpty() &&
             sets.all { it.reps.toIntOrNull()?.let { r -> r > 0 } == true } &&
-            sets.all { it.weightText.isBlank() || it.weightText.toDoubleOrNull()?.let { w -> w >= 0.0 } == true }
+            sets.all { it.weightText.isBlank() || it.weightText.toLocaleDoubleOrNull()?.let { w -> w >= 0.0 } == true }
 }

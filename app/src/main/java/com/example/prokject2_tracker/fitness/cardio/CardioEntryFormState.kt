@@ -1,6 +1,7 @@
 package com.example.prokject2_tracker.fitness.cardio
 
 import com.example.prokject2_tracker.core.util.DateUtils
+import com.example.prokject2_tracker.core.util.toLocaleDoubleOrNull
 
 data class CardioEditState(
     val id: String? = null,
@@ -16,8 +17,8 @@ data class CardioEditState(
 ) {
     val isValid: Boolean
         get() = activityTypeId != null &&
-            durationMinutes.toDoubleOrNull()?.let { it > 0.0 } == true &&
-            (distanceKm.isBlank() || distanceKm.toDoubleOrNull()?.let { it >= 0.0 } == true) &&
-            (caloriesBurned.isBlank() || caloriesBurned.toDoubleOrNull()?.let { it >= 0.0 } == true) &&
+            durationMinutes.toLocaleDoubleOrNull()?.let { it > 0.0 } == true &&
+            (distanceKm.isBlank() || distanceKm.toLocaleDoubleOrNull()?.let { it >= 0.0 } == true) &&
+            (caloriesBurned.isBlank() || caloriesBurned.toLocaleDoubleOrNull()?.let { it >= 0.0 } == true) &&
             (avgHeartRateBpm.isBlank() || avgHeartRateBpm.toIntOrNull()?.let { it > 0 } == true)
 }

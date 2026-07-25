@@ -4,6 +4,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -35,6 +36,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -45,19 +47,26 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInParent
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.prokject2_tracker.core.ui.dismissingKeyboard
 import com.example.prokject2_tracker.core.util.formatCompact
 import com.example.prokject2_tracker.core.util.toLocaleDoubleOrNull
 import com.example.prokject2_tracker.nutrition.food.BaseUnit
 import com.example.prokject2_tracker.nutrition.food.FoodItem
 import com.example.prokject2_tracker.nutrition.recipe.RecipeWithNutrition
+import com.example.prokject2_tracker.ui.theme.AppDomain
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -102,7 +111,7 @@ fun DiaryAddEntryScreen(
         bottomBar = {
             Surface(tonalElevation = 3.dp) {
                 Button(
-                    onClick = viewModel::save,
+                    onClick = dismissingKeyboard(viewModel::save),
                     enabled = isValid,
                     modifier = Modifier
                         .fillMaxWidth()
@@ -116,10 +125,20 @@ fun DiaryAddEntryScreen(
             }
         },
     ) { padding ->
+        val scrollState = rememberScrollState()
+        // With suggestions only appearing while typing, the open keyboard would otherwise cover the
+        // very list the typing produces. Scrolling the search row up to the top of the content hands
+        // the remaining space to the results.
+        var searchRowY by remember { mutableIntStateOf(0) }
+        val hasResults = if (sourceType == DiarySourceType.FOOD) foodResults.isNotEmpty() else recipeResults.isNotEmpty()
+        LaunchedEffect(hasResults, searchRowY) {
+            if (hasResults && searchRowY > 0) scrollState.animateScrollTo(searchRowY)
+        }
+
         Column(
             modifier = Modifier
                 .padding(padding)
-                .verticalScroll(rememberScrollState())
+                .verticalScroll(scrollState)
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
@@ -148,11 +167,28 @@ fun DiaryAddEntryScreen(
                 )
             }
 
+            // The meal belongs to every entry regardless of source, so it sits directly under the
+            // source chips instead of at the bottom of a long form. The accent rule separates the two
+            // choices without needing a heading to say so.
+            HorizontalDivider(thickness = 2.dp, color = AppDomain.DIARY.accent())
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                MealType.entries.forEach { type ->
+                    FilterChip(
+                        selected = mealType == type,
+                        onClick = { viewModel.onMealTypeChange(type) },
+                        label = { Text(type.label()) },
+                    )
+                }
+            }
+            HorizontalDivider(thickness = 2.dp, color = AppDomain.DIARY.accent())
+
             if (sourceType == DiarySourceType.QUICK) {
                 QuickEntryForm(state = quick, viewModel = viewModel)
             } else {
                 SelectionCard(
-                    sourceType = sourceType,
                     food = selectedFood,
                     recipe = selectedRecipe,
                     onClear = viewModel::clearSelection,
@@ -172,11 +208,15 @@ fun DiaryAddEntryScreen(
                     },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .onGloballyPositioned { searchRowY += it.positionInParent().y.toInt() - searchRowY },
                 )
 
                 LazyColumn(
-                    modifier = Modifier.heightIn(max = 260.dp),
+                    // A minimum as well as a maximum: with the keyboard up there has to be room for
+                    // at least a couple of hits, or the list is squeezed to nothing.
+                    modifier = Modifier.heightIn(min = if (hasResults) 130.dp else 0.dp, max = 260.dp),
                     verticalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
                     if (sourceType == DiarySourceType.FOOD) {
@@ -238,6 +278,25 @@ fun DiaryAddEntryScreen(
                     modifier = Modifier.fillMaxWidth(),
                 )
 
+                // Stepper buttons for the common case of nudging a weight, so the keyboard never has
+                // to open. Only for Lebensmittel: ±100 of a Portion isn't a thing.
+                if (selectedFood != null) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                        listOf(-100.0, -10.0, 10.0, 100.0).forEach { delta ->
+                            OutlinedButton(
+                                onClick = { viewModel.adjustAmount(delta) },
+                                contentPadding = PaddingValues(horizontal = 4.dp, vertical = 8.dp),
+                                modifier = Modifier.weight(1f),
+                            ) {
+                                Text(
+                                    if (delta > 0) "+${delta.formatCompact()}" else delta.formatCompact(),
+                                    style = MaterialTheme.typography.labelLarge,
+                                )
+                            }
+                        }
+                    }
+                }
+
                 selectedFood?.let { food ->
                     food.servingAmount?.takeIf { it > 0.0 }?.let { serving ->
                         AssistChip(
@@ -272,52 +331,22 @@ fun DiaryAddEntryScreen(
                 }
             }
 
-            Text("Mahlzeit", style = MaterialTheme.typography.titleSmall)
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                MealType.entries.forEach { type ->
-                    FilterChip(
-                        selected = mealType == type,
-                        onClick = { viewModel.onMealTypeChange(type) },
-                        label = { Text(type.label()) },
-                    )
-                }
-            }
         }
     }
 }
 
 /**
  * The always-visible answer to "what did I actually pick?" — the old screen only reflected the
- * selection in a text-field label, which was easy to miss.
+ * selection in a text-field label, which was easy to miss. Nothing is drawn before a selection
+ * exists: the search field right below already says what to do.
  */
 @Composable
 private fun SelectionCard(
-    sourceType: DiarySourceType,
     food: FoodItem?,
     recipe: RecipeWithNutrition?,
     onClear: () -> Unit,
 ) {
-    if (food == null && recipe == null) {
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-        ) {
-            Text(
-                if (sourceType == DiarySourceType.FOOD) {
-                    "Noch kein Lebensmittel ausgewählt — unten suchen und antippen."
-                } else {
-                    "Noch kein Rezept ausgewählt — unten suchen und antippen."
-                },
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(16.dp),
-            )
-        }
-        return
-    }
+    if (food == null && recipe == null) return
 
     Card(
         modifier = Modifier.fillMaxWidth(),

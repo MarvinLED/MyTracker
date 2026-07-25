@@ -39,6 +39,16 @@ data class DiaryEntry(
     val carbs: Double,
     val fat: Double,
     /**
+     * The remaining nutrients a daily goal can be set for, snapshotted like the macros above so the
+     * Tagebuch can show a bar for each without re-reading the source food. Default 0 because a
+     * [DiarySourceType.QUICK] entry has no source to derive them from, and because entries logged
+     * before they were snapshotted genuinely have no value for them.
+     */
+    val saturatedFat: Double = 0.0,
+    val sugar: Double = 0.0,
+    val fiber: Double = 0.0,
+    val salt: Double = 0.0,
+    /**
      * How many servings the source recipe was divided into when this entry was logged — RECIPE
      * entries only, null for everything else and for recipe entries logged before this was
      * snapshotted. Kept with the entry so a per-day ingredient change still knows what one portion

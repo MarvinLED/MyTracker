@@ -2,6 +2,9 @@ package com.example.prokject2_tracker.goals
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.prokject2_tracker.core.datastore.Nutrient
+import com.example.prokject2_tracker.core.datastore.NutrientGoal
+import com.example.prokject2_tracker.core.datastore.NutrientGoalType
 import com.example.prokject2_tracker.core.datastore.UserPreferencesRepository
 import com.example.prokject2_tracker.core.util.GoalPeriod
 import com.example.prokject2_tracker.core.util.toLocaleDoubleOrNull
@@ -37,16 +40,17 @@ data class FitnessGoalRow(
     val targetText: String,
 )
 
+/** One nutrient's goal row: the value as typed, plus how that value is meant to be read. */
+data class NutrientGoalInput(
+    val nutrient: Nutrient,
+    val valueText: String,
+    val type: NutrientGoalType,
+)
+
 data class GoalsUiState(
-    val calorieGoal: String = "",
     val waterGoal: String = "",
-    val proteinGoal: String = "",
-    val carbsGoal: String = "",
-    val fatGoal: String = "",
-    val saturatedFatGoal: String = "",
-    val sugarGoal: String = "",
-    val fiberGoal: String = "",
-    val saltGoal: String = "",
+    /** One row per [Nutrient], in enum order; a blank value means "no goal". */
+    val nutrientGoals: List<NutrientGoalInput> = emptyList(),
     val fluidTypeGoals: List<FluidTypeGoalInput> = emptyList(),
     val fitnessGoals: List<FitnessGoalRow> = emptyList(),
     val availableMuscleGroups: List<MuscleGroup> = emptyList(),
@@ -72,15 +76,15 @@ class GoalsViewModel @Inject constructor(
             val muscleGroups = strengthExerciseRepository.observeMuscleGroups().first()
             val fitnessGoals = fitnessGoalRepository.observeAll().first()
             _state.value = GoalsUiState(
-                calorieGoal = prefs.dailyCalorieGoalKcal.toString(),
                 waterGoal = prefs.dailyWaterGoalMl.toString(),
-                proteinGoal = prefs.dailyProteinGoalG?.toString().orEmpty(),
-                carbsGoal = prefs.dailyCarbsGoalG?.toString().orEmpty(),
-                fatGoal = prefs.dailyFatGoalG?.toString().orEmpty(),
-                saturatedFatGoal = prefs.dailySaturatedFatGoalG?.toString().orEmpty(),
-                sugarGoal = prefs.dailySugarGoalG?.toString().orEmpty(),
-                fiberGoal = prefs.dailyFiberGoalG?.toString().orEmpty(),
-                saltGoal = prefs.dailySaltGoalG?.toString().orEmpty(),
+                nutrientGoals = Nutrient.entries.map { nutrient ->
+                    val goal = prefs.nutrientGoals[nutrient]
+                    NutrientGoalInput(
+                        nutrient = nutrient,
+                        valueText = goal?.value?.toString().orEmpty(),
+                        type = goal?.type ?: NutrientGoalType.EXACT,
+                    )
+                },
                 fluidTypeGoals = types.map { type ->
                     FluidTypeGoalInput(
                         type = type,
@@ -103,15 +107,23 @@ class GoalsViewModel @Inject constructor(
         targetText = targetValue.toString(),
     )
 
-    fun onCalorieGoalChange(value: String) { _state.value = _state.value.copy(calorieGoal = value) }
     fun onWaterGoalChange(value: String) { _state.value = _state.value.copy(waterGoal = value) }
-    fun onProteinGoalChange(value: String) { _state.value = _state.value.copy(proteinGoal = value) }
-    fun onCarbsGoalChange(value: String) { _state.value = _state.value.copy(carbsGoal = value) }
-    fun onFatGoalChange(value: String) { _state.value = _state.value.copy(fatGoal = value) }
-    fun onSaturatedFatGoalChange(value: String) { _state.value = _state.value.copy(saturatedFatGoal = value) }
-    fun onSugarGoalChange(value: String) { _state.value = _state.value.copy(sugarGoal = value) }
-    fun onFiberGoalChange(value: String) { _state.value = _state.value.copy(fiberGoal = value) }
-    fun onSaltGoalChange(value: String) { _state.value = _state.value.copy(saltGoal = value) }
+
+    fun onNutrientGoalValueChange(nutrient: Nutrient, value: String) {
+        updateNutrient(nutrient) { it.copy(valueText = value) }
+    }
+
+    fun onNutrientGoalTypeChange(nutrient: Nutrient, type: NutrientGoalType) {
+        updateNutrient(nutrient) { it.copy(type = type) }
+    }
+
+    private fun updateNutrient(nutrient: Nutrient, transform: (NutrientGoalInput) -> NutrientGoalInput) {
+        _state.value = _state.value.copy(
+            nutrientGoals = _state.value.nutrientGoals.map {
+                if (it.nutrient == nutrient) transform(it) else it
+            },
+        )
+    }
 
     fun onFluidTypeMinChange(typeId: String, value: String) {
         _state.value = _state.value.copy(
@@ -160,15 +172,16 @@ class GoalsViewModel @Inject constructor(
     fun save() {
         val s = _state.value
         viewModelScope.launch {
-            s.calorieGoal.toLocaleDoubleOrNull()?.let { userPreferencesRepository.setDailyCalorieGoal(it) }
             s.waterGoal.toLocaleDoubleOrNull()?.let { userPreferencesRepository.setDailyWaterGoal(it) }
-            userPreferencesRepository.setDailyProteinGoal(s.proteinGoal.toLocaleDoubleOrNull())
-            userPreferencesRepository.setDailyCarbsGoal(s.carbsGoal.toLocaleDoubleOrNull())
-            userPreferencesRepository.setDailyFatGoal(s.fatGoal.toLocaleDoubleOrNull())
-            userPreferencesRepository.setDailySaturatedFatGoal(s.saturatedFatGoal.toLocaleDoubleOrNull())
-            userPreferencesRepository.setDailySugarGoal(s.sugarGoal.toLocaleDoubleOrNull())
-            userPreferencesRepository.setDailyFiberGoal(s.fiberGoal.toLocaleDoubleOrNull())
-            userPreferencesRepository.setDailySaltGoal(s.saltGoal.toLocaleDoubleOrNull())
+            s.nutrientGoals.forEach { row ->
+                // A blank or unparseable value clears the goal — including its type, so re-entering
+                // a value later doesn't silently inherit a "höchstens" from a goal long deleted.
+                val value = row.valueText.toLocaleDoubleOrNull()?.takeIf { it > 0.0 }
+                userPreferencesRepository.setNutrientGoal(
+                    nutrient = row.nutrient,
+                    goal = value?.let { NutrientGoal(value = it, type = row.type) },
+                )
+            }
             s.fluidTypeGoals.forEach { row ->
                 fluidRepository.updateTypeGoals(
                     row.type,

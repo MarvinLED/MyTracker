@@ -9,10 +9,12 @@ import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.NavigationDrawerItem
 import androidx.compose.material3.NavigationDrawerItemDefaults
 import androidx.compose.material3.Scaffold
@@ -75,14 +77,18 @@ fun AppScaffold() {
                         it.route == destination.routeQualifiedName
                     } == true
 
+                    val accent = destination.domain.accent()
                     NavigationDrawerItem(
                         selected = selected,
                         onClick = {
                             scope.launch { drawerState.close() }
                             navigateToTopLevel(destination.route)
                         },
-                        icon = { Icon(destination.icon, contentDescription = null) },
+                        icon = { Icon(destination.icon, contentDescription = null, tint = accent) },
                         label = { Text(stringResource(destination.labelRes)) },
+                        colors = NavigationDrawerItemDefaults.colors(
+                            selectedContainerColor = accent.copy(alpha = 0.20f),
+                        ),
                         modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding),
                     )
                 }
@@ -102,11 +108,21 @@ fun AppScaffold() {
                             it.route == destination.routeQualifiedName
                         } == true
 
+                        // Each tab wears its own accent, so the bar itself says which area you're in.
+                        // The label is always present, so colour is never the only cue.
+                        val accent = destination.domain.accent()
                         NavigationBarItem(
                             selected = selected,
                             onClick = { navigateToTopLevel(destination.route) },
                             icon = { Icon(destination.icon, contentDescription = null) },
                             label = { Text(stringResource(destination.labelRes)) },
+                            colors = NavigationBarItemDefaults.colors(
+                                selectedIconColor = destination.domain.onAccent(),
+                                selectedTextColor = accent,
+                                indicatorColor = accent,
+                                unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            ),
                         )
                     }
                 }

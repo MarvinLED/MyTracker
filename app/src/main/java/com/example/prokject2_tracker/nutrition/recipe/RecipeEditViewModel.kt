@@ -4,6 +4,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.navigation.toRoute
+import com.example.prokject2_tracker.core.util.toLocaleDoubleOrNull
 import com.example.prokject2_tracker.fluid.FluidRepository
 import com.example.prokject2_tracker.nutrition.food.BaseUnit
 import com.example.prokject2_tracker.nutrition.food.FoodItem
@@ -34,7 +35,7 @@ data class IngredientRow(
     val fluidMlPer100: Double? = null,
 ) {
     val fluidMl: Double
-        get() = fluidMlOf(fluidTypeId, fluidMlPer100, amountText.toDoubleOrNull() ?: 0.0)
+        get() = fluidMlOf(fluidTypeId, fluidMlPer100, amountText.toLocaleDoubleOrNull() ?: 0.0)
 }
 
 data class RecipeEditState(
@@ -47,9 +48,9 @@ data class RecipeEditState(
 ) {
     val isValid: Boolean
         get() = name.isNotBlank() &&
-            servings.toDoubleOrNull()?.let { it > 0.0 } == true &&
+            servings.toLocaleDoubleOrNull()?.let { it > 0.0 } == true &&
             ingredients.isNotEmpty() &&
-            ingredients.all { it.amountText.toDoubleOrNull() != null }
+            ingredients.all { it.amountText.toLocaleDoubleOrNull() != null }
 }
 
 private fun FoodItem.toIngredientRow(amountText: String) = IngredientRow(
@@ -140,10 +141,10 @@ class RecipeEditViewModel @Inject constructor(
             recipeRepository.saveRecipe(
                 existing = existing,
                 name = s.name,
-                servings = s.servings.toDouble(),
+                servings = s.servings.toLocaleDoubleOrNull() ?: return@launch,
                 instructions = s.instructions.ifBlank { null },
                 ingredientDrafts = s.ingredients.map {
-                    RecipeIngredientDraft(foodId = it.foodId, amountBaseUnits = it.amountText.toDouble())
+                    RecipeIngredientDraft(foodId = it.foodId, amountBaseUnits = it.amountText.toLocaleDoubleOrNull() ?: 0.0)
                 },
             )
             _state.value = _state.value.copy(isSaved = true)

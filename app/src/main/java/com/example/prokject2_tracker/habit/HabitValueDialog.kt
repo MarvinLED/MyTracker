@@ -13,6 +13,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
+import com.example.prokject2_tracker.core.util.formatCompact
+import com.example.prokject2_tracker.core.util.toLocaleDoubleOrNull
 
 /**
  * Dialog for logging today's value on a COUNT/DURATION habit. A blank field un-logs/clears the
@@ -26,7 +28,7 @@ fun HabitValueDialog(
     onConfirm: (Double?) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    var text by remember { mutableStateOf(initialValue?.let { formatValue(it) } ?: "") }
+    var text by remember { mutableStateOf(initialValue?.let { it.formatCompact() } ?: "") }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -41,13 +43,10 @@ fun HabitValueDialog(
             )
         },
         confirmButton = {
-            TextButton(onClick = { onConfirm(text.toDoubleOrNull()) }) { Text("Speichern") }
+            TextButton(onClick = { onConfirm(text.toLocaleDoubleOrNull()) }) { Text("Speichern") }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) { Text("Abbrechen") }
         },
     )
 }
-
-private fun formatValue(value: Double): String =
-    if (value == value.toLong().toDouble()) value.toLong().toString() else value.toString()

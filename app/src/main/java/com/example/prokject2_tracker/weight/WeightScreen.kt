@@ -23,6 +23,9 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -37,11 +40,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.example.prokject2_tracker.analyse.SimpleLineChart
 import com.example.prokject2_tracker.core.datastore.WeightUnit
+import com.example.prokject2_tracker.core.ui.ChartLine
+import com.example.prokject2_tracker.core.ui.DatedLineChart
 import com.example.prokject2_tracker.core.util.DateUtils
 import com.example.prokject2_tracker.core.util.formatDecimal
 import com.example.prokject2_tracker.core.util.toLocaleDoubleOrNull
+import com.example.prokject2_tracker.ui.theme.AppDomain
+import com.example.prokject2_tracker.ui.theme.topAppBarColors
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
@@ -69,6 +75,7 @@ fun WeightScreen(
         modifier = modifier,
         topBar = {
             TopAppBar(
+                colors = AppDomain.WEIGHT.topAppBarColors(),
                 navigationIcon = {
                     IconButton(onClick = onOpenDrawer) {
                         Icon(Icons.Filled.Menu, contentDescription = "Menü")
@@ -117,12 +124,36 @@ fun WeightScreen(
                 }
             }
 
-            if (uiState.chartPoints.size >= 2) {
-                Card(modifier = Modifier.fillMaxWidth()) {
-                    SimpleLineChart(
-                        points = uiState.chartPoints,
-                        zeroBased = false,
-                        modifier = Modifier.padding(12.dp),
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(
+                    modifier = Modifier.padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Text("Verlauf", style = MaterialTheme.typography.titleSmall)
+                    SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                        WeightChartRange.entries.forEachIndexed { index, range ->
+                            SegmentedButton(
+                                selected = uiState.chartRange == range,
+                                onClick = { viewModel.onChartRangeChange(range) },
+                                shape = SegmentedButtonDefaults.itemShape(
+                                    index = index,
+                                    count = WeightChartRange.entries.size,
+                                ),
+                                label = { Text(range.label(), style = MaterialTheme.typography.labelMedium) },
+                            )
+                        }
+                    }
+                    DatedLineChart(
+                        lines = listOf(
+                            ChartLine(
+                                label = "Gewicht",
+                                unit = unitLabel,
+                                color = AppDomain.WEIGHT.accent(),
+                                points = uiState.chartPoints,
+                                // Never zero-based: a 78–80 kg range on a 0-axis is a flat line.
+                                zeroBased = false,
+                            ),
+                        ),
                     )
                 }
             }

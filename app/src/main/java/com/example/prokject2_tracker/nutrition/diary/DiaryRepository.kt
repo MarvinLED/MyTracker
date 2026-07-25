@@ -5,6 +5,7 @@ import com.example.prokject2_tracker.fluid.FluidContribution
 import com.example.prokject2_tracker.fluid.FluidRepository
 import com.example.prokject2_tracker.nutrition.FoodAmount
 import com.example.prokject2_tracker.nutrition.NutritionMath
+import com.example.prokject2_tracker.nutrition.NutritionTotals
 import com.example.prokject2_tracker.nutrition.food.BaseUnit
 import com.example.prokject2_tracker.nutrition.food.FoodDao
 import com.example.prokject2_tracker.nutrition.food.FoodItem
@@ -44,6 +45,9 @@ class DiaryRepository @Inject constructor(
     fun observeForDay(epochDay: Long): Flow<List<DiaryEntry>> = diaryDao.observeForDay(epochDay)
 
     fun observeDayTotalKcal(epochDay: Long): Flow<Double> = diaryDao.observeDayTotalKcal(epochDay)
+
+    fun observeDayNutritionTotals(epochDay: Long): Flow<NutritionTotals> =
+        diaryDao.observeDayNutritionTotals(epochDay)
 
     fun observeDailyKcalTotals(startInclusive: Long, endInclusive: Long): Flow<List<DailyKcalTotal>> =
         diaryDao.observeDailyKcalTotals(startInclusive, endInclusive)
@@ -186,6 +190,37 @@ class DiaryRepository @Inject constructor(
         fluidRepository.deleteForDiaryEntry(entry.id)
     }
 
+    /** The entry's per-day recipe copy in the shape [restore] wants it back in. */
+    suspend fun getRecipeIngredientDrafts(diaryEntryId: String): List<DiaryRecipeIngredientDraft> =
+        diaryDao.getRecipeIngredients(diaryEntryId).map {
+            DiaryRecipeIngredientDraft(foodId = it.food.id, amountBaseUnits = it.ingredient.amountBaseUnits)
+        }
+
+    /**
+     * Puts a deleted entry back exactly as it was, snapshot and all — an undo, not a re-log, so the
+     * nutrition is *not* re-derived from a source that may meanwhile have changed. Its per-day recipe
+     * copy and mirrored fluid are rebuilt with it.
+     */
+    suspend fun restore(entry: DiaryEntry, dayIngredients: List<DiaryRecipeIngredientDraft>) {
+        diaryDao.upsertWithRecipeIngredients(
+            entry,
+            dayIngredients.mapIndexed { index, draft ->
+                DiaryRecipeIngredient(
+                    id = IdGenerator.newId(),
+                    diaryEntryId = entry.id,
+                    foodId = draft.foodId,
+                    amountBaseUnits = draft.amountBaseUnits,
+                    sortOrder = index,
+                )
+            },
+        )
+        when (entry.sourceType) {
+            DiarySourceType.FOOD -> foodDao.getById(entry.sourceId)?.let { syncFluidForFoodEntry(entry, it) }
+            DiarySourceType.RECIPE -> recipeSourceFor(entry)?.let { syncFluidForRecipeEntry(entry, it) }
+            DiarySourceType.QUICK -> Unit
+        }
+    }
+
     /**
      * Writes [source] as [entry]'s new state. [asDayIngredients] true stores [source]'s ingredients
      * as the entry's own per-day copy of the recipe; false leaves whatever copy (or none) it has.
@@ -255,6 +290,10 @@ class DiaryRepository @Inject constructor(
             protein = protein * factor,
             carbs = carbs * factor,
             fat = fat * factor,
+            saturatedFat = saturatedFat * factor,
+            sugar = sugar * factor,
+            fiber = fiber * factor,
+            salt = salt * factor,
         )
     }
 
@@ -288,6 +327,10 @@ class DiaryRepository @Inject constructor(
             protein = totals.protein,
             carbs = totals.carbs,
             fat = totals.fat,
+            saturatedFat = totals.saturatedFat,
+            sugar = totals.sugar,
+            fiber = totals.fiber,
+            salt = totals.salt,
             recipeServings = servings,
         )
     }
@@ -315,6 +358,10 @@ class DiaryRepository @Inject constructor(
             protein = totals.protein,
             carbs = totals.carbs,
             fat = totals.fat,
+            saturatedFat = totals.saturatedFat,
+            sugar = totals.sugar,
+            fiber = totals.fiber,
+            salt = totals.salt,
         )
     }
 

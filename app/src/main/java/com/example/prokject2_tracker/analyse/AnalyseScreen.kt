@@ -36,8 +36,12 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.prokject2_tracker.core.metrics.AnalyseDateRange
 import com.example.prokject2_tracker.core.metrics.Granularity
 import com.example.prokject2_tracker.core.metrics.label
+import com.example.prokject2_tracker.core.ui.DatedLineChart
 import com.example.prokject2_tracker.fitness.strength.MuscleGroup
 import com.example.prokject2_tracker.fitness.strength.StrengthExercise
+import com.example.prokject2_tracker.fluid.fluidPalette
+import com.example.prokject2_tracker.ui.theme.AppDomain
+import com.example.prokject2_tracker.ui.theme.topAppBarColors
 
 private val METRIC_CATEGORY_ORDER = listOf("cardio", "strength", "nutrition", "fluid", "habit", "weight", "overall")
 
@@ -61,11 +65,15 @@ fun AnalyseScreen(
     val state by viewModel.uiState.collectAsState()
     val exercises by viewModel.exercises.collectAsState()
     val muscleGroups by viewModel.muscleGroups.collectAsState()
+    // The same validated categorical palette the rest of the app's charts use, so a series here is
+    // coloured out of the same set as a slice in the Flüssigkeiten donut.
+    val chartPalette = fluidPalette()
 
     Scaffold(
         modifier = modifier,
         topBar = {
             TopAppBar(
+                colors = AppDomain.ANALYSE.topAppBarColors(),
                 navigationIcon = {
                     IconButton(onClick = onOpenDrawer) {
                         Icon(Icons.Filled.Menu, contentDescription = "Menü")
@@ -124,10 +132,12 @@ fun AnalyseScreen(
                 }
             }
 
-            val primary = state.primarySeries?.copy(color = MaterialTheme.colorScheme.primary)
-            val secondary = state.secondarySeries?.copy(color = MaterialTheme.colorScheme.secondary)
-            if (primary != null) {
-                ComparisonLineChart(primary = primary, secondary = secondary)
+            val comparisonLines = listOfNotNull(
+                state.primarySeries?.toChartLine(chartPalette[0]),
+                state.secondarySeries?.toChartLine(chartPalette[1]),
+            )
+            if (comparisonLines.isNotEmpty()) {
+                DatedLineChart(lines = comparisonLines)
             } else {
                 Text("Wähle mindestens eine Metrik aus.")
             }
@@ -147,9 +157,9 @@ fun AnalyseScreen(
                             mode = state.exerciseDetailMode,
                             onModeChange = viewModel::onExerciseDetailModeChange,
                         )
-                        val exerciseSeries = state.exerciseDetailSeries?.copy(color = MaterialTheme.colorScheme.primary)
+                        val exerciseSeries = state.exerciseDetailSeries?.toChartLine(chartPalette[0])
                         if (exerciseSeries != null) {
-                            ComparisonLineChart(primary = exerciseSeries)
+                            DatedLineChart(lines = listOf(exerciseSeries))
                         } else {
                             Text("Wähle eine Übung aus.")
                         }
@@ -172,9 +182,9 @@ fun AnalyseScreen(
                             mode = state.muscleGroupDetailMode,
                             onModeChange = viewModel::onMuscleGroupDetailModeChange,
                         )
-                        val muscleGroupSeries = state.muscleGroupDetailSeries?.copy(color = MaterialTheme.colorScheme.primary)
+                        val muscleGroupSeries = state.muscleGroupDetailSeries?.toChartLine(chartPalette[0])
                         if (muscleGroupSeries != null) {
-                            ComparisonLineChart(primary = muscleGroupSeries)
+                            DatedLineChart(lines = listOf(muscleGroupSeries))
                         } else {
                             Text("Wähle eine Muskelgruppe aus.")
                         }

@@ -1,9 +1,9 @@
 package com.example.prokject2_tracker.nutrition.recipe
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -44,7 +44,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.prokject2_tracker.core.ui.dismissingKeyboard
 import com.example.prokject2_tracker.core.util.formatCompact
+import com.example.prokject2_tracker.core.util.toLocaleDoubleOrNull
 import com.example.prokject2_tracker.nutrition.food.BaseUnit
 import com.example.prokject2_tracker.nutrition.food.FoodItem
 
@@ -74,7 +76,7 @@ fun RecipeEditScreen(
                     }
                 },
                 actions = {
-                    TextButton(onClick = viewModel::save, enabled = state.isValid) { Text("Speichern") }
+                    TextButton(onClick = dismissingKeyboard(viewModel::save), enabled = state.isValid) { Text("Speichern") }
                 },
             )
         },
@@ -142,7 +144,7 @@ fun RecipeEditScreen(
 
             FluidSummaryCard(
                 fluids = state.ingredients.fluidTotals(fluidTypeNames),
-                servings = state.servings.toDoubleOrNull(),
+                servings = state.servings.toLocaleDoubleOrNull(),
             )
         }
     }

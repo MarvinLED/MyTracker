@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
@@ -40,10 +41,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.prokject2_tracker.core.util.GoalPeriod
+import com.example.prokject2_tracker.core.util.formatCompact
 import com.example.prokject2_tracker.core.util.label
+import com.example.prokject2_tracker.core.util.toLocaleDoubleOrNull
+import com.example.prokject2_tracker.ui.theme.AppDomain
+import com.example.prokject2_tracker.ui.theme.topAppBarColors
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -62,6 +66,7 @@ fun HabitScreen(
         modifier = modifier,
         topBar = {
             TopAppBar(
+                colors = AppDomain.HABIT.topAppBarColors(),
                 title = { Text("Habits") },
                 navigationIcon = {
                     IconButton(onClick = onOpenDrawer) {
@@ -112,7 +117,7 @@ fun HabitScreen(
                                         if (streak > 0) append("🔥 $streak")
                                         if (habit.type != HabitType.YES_NO) {
                                             if (isNotEmpty()) append(" · ")
-                                            append(value?.let { formatValueText(it) } ?: "–")
+                                            append(value?.let { it.formatCompact() } ?: "–")
                                         }
                                     }
                                     if (subtitle.isNotEmpty()) {
@@ -180,8 +185,6 @@ fun HabitScreen(
     }
 }
 
-private fun formatValueText(value: Double): String =
-    if (value == value.toLong().toDouble()) value.toLong().toString() else value.toString()
 
 @Composable
 private fun HabitNameDialog(
@@ -265,7 +268,7 @@ private fun HabitGoalsDialog(
     val goalsByPeriod = goals.associateBy { it.period }
     val textByPeriod = remember {
         mutableStateOf(
-            GoalPeriod.entries.associateWith { period -> goalsByPeriod[period]?.targetValue?.let { formatValueText(it) } ?: "" },
+            GoalPeriod.entries.associateWith { period -> goalsByPeriod[period]?.targetValue?.let { it.formatCompact() } ?: "" },
         )
     }
 
@@ -287,7 +290,7 @@ private fun HabitGoalsDialog(
                         )
                         if (goal != null && progress != null) {
                             Text(
-                                "${formatValueText(progress)} / ${formatValueText(goal.targetValue)} ${periodContextLabel(period)}",
+                                "${progress.formatCompact()} / ${goal.targetValue.formatCompact()} ${periodContextLabel(period)}",
                                 style = MaterialTheme.typography.bodySmall,
                             )
                         }
@@ -299,7 +302,7 @@ private fun HabitGoalsDialog(
             TextButton(
                 onClick = {
                     GoalPeriod.entries.forEach { period ->
-                        onSetGoal(period, textByPeriod.value[period].orEmpty().toDoubleOrNull())
+                        onSetGoal(period, textByPeriod.value[period].orEmpty().toLocaleDoubleOrNull())
                     }
                     onDismiss()
                 },

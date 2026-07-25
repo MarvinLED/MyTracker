@@ -52,6 +52,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.prokject2_tracker.core.util.formatDecimal
+import com.example.prokject2_tracker.core.util.toLocaleDoubleOrNull
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -173,7 +174,7 @@ private fun FluidTypeDialog(
     var name by remember { mutableStateOf(initialName) }
     var amountText by remember { mutableStateOf(initialAmountMl) }
     var colorArgb by remember { mutableStateOf(initialColorArgb) }
-    val amount = amountText.toDoubleOrNull()
+    val amount = amountText.toLocaleDoubleOrNull()
 
     AlertDialog(
         onDismissRequest = onDismiss,

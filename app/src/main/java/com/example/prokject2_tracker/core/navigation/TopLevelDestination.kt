@@ -12,6 +12,7 @@ import com.example.prokject2_tracker.fitness.FitnessRoute
 import com.example.prokject2_tracker.fluid.FluidRoute
 import com.example.prokject2_tracker.nutrition.diary.DiaryRoute
 import com.example.prokject2_tracker.overview.OverviewRoute
+import com.example.prokject2_tracker.ui.theme.AppDomain
 
 /**
  * Bottom-nav destinations. Kept to a max of 4 (Material3 guidance). Bibliothek/Analyse/Habits
@@ -23,29 +24,34 @@ enum class TopLevelDestination(
     val routeQualifiedName: String,
     @param:StringRes val labelRes: Int,
     val icon: ImageVector,
+    val domain: AppDomain,
 ) {
     OVERVIEW(
         route = OverviewRoute,
         routeQualifiedName = OverviewRoute::class.qualifiedName!!,
         labelRes = R.string.nav_overview,
         icon = Icons.Filled.Home,
+        domain = AppDomain.OVERVIEW,
     ),
     DIARY(
         route = DiaryRoute,
         routeQualifiedName = DiaryRoute::class.qualifiedName!!,
         labelRes = R.string.nav_diary,
         icon = Icons.Filled.Restaurant,
+        domain = AppDomain.DIARY,
     ),
     FLUID(
         route = FluidRoute,
         routeQualifiedName = FluidRoute::class.qualifiedName!!,
         labelRes = R.string.nav_fluid,
         icon = Icons.Filled.LocalDrink,
+        domain = AppDomain.FLUID,
     ),
     FITNESS(
         route = FitnessRoute,
         routeQualifiedName = FitnessRoute::class.qualifiedName!!,
         labelRes = R.string.nav_fitness,
         icon = Icons.Filled.FitnessCenter,
+        domain = AppDomain.FITNESS,
     ),
 }

@@ -4,11 +4,15 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -23,6 +27,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -38,6 +43,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.prokject2_tracker.core.datastore.WeightUnit
+import com.example.prokject2_tracker.core.util.formatCompact
 import com.example.prokject2_tracker.core.util.formatDecimal
 import com.example.prokject2_tracker.core.util.kgToLb
 import com.example.prokject2_tracker.core.util.toLocaleDoubleOrNull
@@ -49,6 +55,8 @@ import com.example.prokject2_tracker.nutrition.diary.MealType
 import com.example.prokject2_tracker.nutrition.diary.label
 import com.example.prokject2_tracker.nutrition.food.BaseUnit
 import com.example.prokject2_tracker.nutrition.food.FoodItem
+import com.example.prokject2_tracker.ui.theme.AppDomain
+import com.example.prokject2_tracker.ui.theme.topAppBarColors
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -88,6 +96,7 @@ fun OverviewScreen(
         modifier = modifier,
         topBar = {
             TopAppBar(
+                colors = AppDomain.OVERVIEW.topAppBarColors(),
                 navigationIcon = {
                     IconButton(onClick = onOpenDrawer) {
                         Icon(Icons.Filled.Menu, contentDescription = "Menü")
@@ -105,6 +114,8 @@ fun OverviewScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(24.dp),
         ) {
+            OpenGoalsSection(openGoals = uiState.openGoals)
+
             HabitsSection(
                 habits = uiState.habits,
                 checkedInHabitIds = uiState.checkedInHabitIds,
@@ -202,7 +213,7 @@ private fun HabitsSection(
                         val subtitle = buildString {
                             if (streak > 0) append("🔥 $streak")
                             if (isNotEmpty()) append(" · ")
-                            append(habitValues[habit.id]?.let { formatHabitValue(it) } ?: "–")
+                            append(habitValues[habit.id]?.let { it.formatCompact() } ?: "–")
                         }
                         Text(subtitle, style = MaterialTheme.typography.bodySmall)
                     }
@@ -212,8 +223,6 @@ private fun HabitsSection(
     }
 }
 
-private fun formatHabitValue(value: Double): String =
-    if (value == value.toLong().toDouble()) value.toLong().toString() else value.toString()
 
 @Composable
 private fun FluidSection(
@@ -295,7 +304,7 @@ private fun FoodSection(
                 }
                 Button(
                     onClick = onConfirm,
-                    enabled = amountText.toDoubleOrNull()?.let { it > 0.0 } == true,
+                    enabled = amountText.toLocaleDoubleOrNull()?.let { it > 0.0 } == true,
                 ) {
                     Text("Eintragen")
                 }
@@ -330,6 +339,66 @@ private fun WeightSection(
                 enabled = weightInput.toLocaleDoubleOrNull() != null,
             ) {
                 Text("Speichern")
+            }
+        }
+    }
+}
+
+/**
+ * Everything still open today, as one dense block of chips rather than a section per source — the
+ * question "what's left?" is one question, so it gets one answer in one place.
+ *
+ * A blown "höchstens" goal is drawn in the error colour *and* labelled "zu viel", so the two kinds
+ * of open ("do more of this" vs "you're over") are never distinguished by colour alone.
+ */
+@Composable
+private fun OpenGoalsSection(openGoals: List<OpenGoal>) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("Offene Ziele", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+            Text(
+                if (openGoals.isEmpty()) "alles erledigt" else "${openGoals.size} offen",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        if (openGoals.isEmpty()) {
+            Text(
+                "Für heute ist nichts mehr offen.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            return@Column
+        }
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            openGoals.forEach { goal ->
+                val container = if (goal.isOverLimit) {
+                    MaterialTheme.colorScheme.errorContainer
+                } else {
+                    MaterialTheme.colorScheme.surfaceContainerHighest
+                }
+                val ink = if (goal.isOverLimit) {
+                    MaterialTheme.colorScheme.onErrorContainer
+                } else {
+                    MaterialTheme.colorScheme.onSurface
+                }
+                Surface(color = container, shape = RoundedCornerShape(8.dp)) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(goal.label, style = MaterialTheme.typography.labelLarge, color = ink)
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            goal.detail,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = if (goal.isOverLimit) ink else MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
             }
         }
     }

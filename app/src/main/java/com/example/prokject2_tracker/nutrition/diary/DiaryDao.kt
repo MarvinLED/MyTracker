@@ -6,6 +6,7 @@ import androidx.room.Insert
 import androidx.room.Query
 import androidx.room.Transaction
 import androidx.room.Upsert
+import com.example.prokject2_tracker.nutrition.NutritionTotals
 import kotlinx.coroutines.flow.Flow
 
 /** Projection matching [com.example.prokject2_tracker.core.metrics.MetricPoint]'s field names. */
@@ -24,6 +25,16 @@ interface DiaryDao {
 
     @Query("SELECT COALESCE(SUM(kcal), 0) FROM diary_entries WHERE epochDay = :epochDay")
     fun observeDayTotalKcal(epochDay: Long): Flow<Double>
+
+    /** Every goal-able nutrient for one day in a single query, rather than one flow per nutrient. */
+    @Query(
+        "SELECT COALESCE(SUM(kcal), 0) AS kcal, COALESCE(SUM(protein), 0) AS protein, " +
+            "COALESCE(SUM(carbs), 0) AS carbs, COALESCE(SUM(fat), 0) AS fat, " +
+            "COALESCE(SUM(saturatedFat), 0) AS saturatedFat, COALESCE(SUM(sugar), 0) AS sugar, " +
+            "COALESCE(SUM(fiber), 0) AS fiber, COALESCE(SUM(salt), 0) AS salt " +
+            "FROM diary_entries WHERE epochDay = :epochDay",
+    )
+    fun observeDayNutritionTotals(epochDay: Long): Flow<NutritionTotals>
 
     @Query(
         "SELECT epochDay, SUM(kcal) AS value FROM diary_entries " +

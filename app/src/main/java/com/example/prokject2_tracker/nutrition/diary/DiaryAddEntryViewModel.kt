@@ -4,6 +4,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.navigation.toRoute
+import com.example.prokject2_tracker.core.util.formatDecimal
 import com.example.prokject2_tracker.core.util.toLocaleDoubleOrNull
 import com.example.prokject2_tracker.nutrition.food.FoodItem
 import com.example.prokject2_tracker.nutrition.food.FoodRepository
@@ -18,12 +19,16 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 /** Blank is allowed (counts as 0); a non-blank value must parse as a number. */
 private fun String.isBlankOrValidNumber(): Boolean = isBlank() || toLocaleDoubleOrNull() != null
+
+/** Prefilled when a food has no named serving size — its values are given per 100 g/ml anyway. */
+private const val DEFAULT_FOOD_AMOUNT = "100"
 
 /** Blank means "not specified" and contributes 0 to the entry. */
 private fun String.toOptionalNutrient(): Double = toLocaleDoubleOrNull() ?: 0.0
@@ -60,14 +65,20 @@ class DiaryAddEntryViewModel @Inject constructor(
     private val _query = MutableStateFlow("")
     val query: StateFlow<String> = _query.asStateFlow()
 
+    // Nothing is suggested until something is typed: an unfiltered list of the whole library is a
+    // wall of text that buries the fields below it, and it isn't an answer to anything the user asked.
     val foodResults: StateFlow<List<FoodItem>> = _query
-        .flatMapLatest { q -> if (q.isBlank()) foodRepository.observeAll() else foodRepository.search(q) }
+        .flatMapLatest { q -> if (q.isBlank()) flowOf(emptyList()) else foodRepository.search(q) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val recipeResults: StateFlow<List<RecipeWithNutrition>> = _query
         .flatMapLatest { q ->
-            recipeRepository.observeAllWithNutrition().map { list ->
-                if (q.isBlank()) list else list.filter { it.recipe.name.contains(q, ignoreCase = true) }
+            if (q.isBlank()) {
+                flowOf(emptyList())
+            } else {
+                recipeRepository.observeAllWithNutrition().map { list ->
+                    list.filter { it.recipe.name.contains(q, ignoreCase = true) }
+                }
             }
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -110,7 +121,15 @@ class DiaryAddEntryViewModel @Inject constructor(
 
     fun selectFood(food: FoodItem) {
         _selectedFood.value = food
-        _amountText.value = food.servingAmount?.toString() ?: ""
+        // A named serving wins; otherwise 100 g/ml, since that's the unit the food's values are given
+        // in and by far the most common thing to log. Beats making the user type it every time.
+        _amountText.value = food.servingAmount?.toString() ?: DEFAULT_FOOD_AMOUNT
+    }
+
+    /** Steps the amount by [delta], clamped at 0 — the ± buttons next to the Menge field. */
+    fun adjustAmount(delta: Double) {
+        val current = _amountText.value.toLocaleDoubleOrNull() ?: 0.0
+        _amountText.value = (current + delta).coerceAtLeast(0.0).formatDecimal(3)
     }
 
     fun selectRecipe(recipe: RecipeWithNutrition) {

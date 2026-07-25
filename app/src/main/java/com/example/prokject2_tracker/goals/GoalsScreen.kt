@@ -23,6 +23,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Snackbar
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -41,12 +44,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.prokject2_tracker.core.datastore.NutrientGoalType
+import com.example.prokject2_tracker.core.datastore.label
+import com.example.prokject2_tracker.core.ui.dismissingKeyboard
 import com.example.prokject2_tracker.core.util.GoalPeriod
 import com.example.prokject2_tracker.core.util.label
 import com.example.prokject2_tracker.core.util.toLocaleDoubleOrNull
 import com.example.prokject2_tracker.fitness.FitnessGoalMetric
 import com.example.prokject2_tracker.fitness.label
 import com.example.prokject2_tracker.fitness.strength.MuscleGroup
+import com.example.prokject2_tracker.ui.theme.AppDomain
+import com.example.prokject2_tracker.ui.theme.topAppBarColors
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -67,6 +75,7 @@ fun GoalsScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) { Snackbar(it) } },
         topBar = {
             TopAppBar(
+                colors = AppDomain.GOALS.topAppBarColors(),
                 navigationIcon = {
                     IconButton(onClick = onOpenDrawer) {
                         Icon(Icons.Filled.Menu, contentDescription = "Menü")
@@ -74,7 +83,7 @@ fun GoalsScreen(
                 },
                 title = { Text("Ziele") },
                 actions = {
-                    TextButton(onClick = viewModel::save) { Text("Speichern") }
+                    TextButton(onClick = dismissingKeyboard(viewModel::save)) { Text("Speichern") }
                 },
             )
         },
@@ -87,62 +96,19 @@ fun GoalsScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Text("Ernährung", style = MaterialTheme.typography.titleMedium)
-            OutlinedTextField(
-                value = state.calorieGoal,
-                onValueChange = viewModel::onCalorieGoalChange,
-                label = { Text("Kalorien (kcal)") },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                modifier = Modifier.fillMaxWidth(),
+            Text(
+                "Leer lassen heißt \"kein Ziel\". Ob ein Wert erreicht oder eingehalten werden soll, " +
+                    "legt die Auswahl darunter fest — das Tagebuch zeigt die Balken entsprechend.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            OutlinedTextField(
-                value = state.proteinGoal,
-                onValueChange = viewModel::onProteinGoalChange,
-                label = { Text("Protein (g)") },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                modifier = Modifier.fillMaxWidth(),
-            )
-            OutlinedTextField(
-                value = state.carbsGoal,
-                onValueChange = viewModel::onCarbsGoalChange,
-                label = { Text("Kohlenhydrate (g)") },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                modifier = Modifier.fillMaxWidth(),
-            )
-            OutlinedTextField(
-                value = state.sugarGoal,
-                onValueChange = viewModel::onSugarGoalChange,
-                label = { Text("davon Zucker (g)") },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                modifier = Modifier.fillMaxWidth(),
-            )
-            OutlinedTextField(
-                value = state.fiberGoal,
-                onValueChange = viewModel::onFiberGoalChange,
-                label = { Text("Ballaststoffe (g)") },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                modifier = Modifier.fillMaxWidth(),
-            )
-            OutlinedTextField(
-                value = state.fatGoal,
-                onValueChange = viewModel::onFatGoalChange,
-                label = { Text("Fett (g)") },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                modifier = Modifier.fillMaxWidth(),
-            )
-            OutlinedTextField(
-                value = state.saturatedFatGoal,
-                onValueChange = viewModel::onSaturatedFatGoalChange,
-                label = { Text("davon gesättigte Fettsäuren (g)") },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                modifier = Modifier.fillMaxWidth(),
-            )
-            OutlinedTextField(
-                value = state.saltGoal,
-                onValueChange = viewModel::onSaltGoalChange,
-                label = { Text("Salz (g)") },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                modifier = Modifier.fillMaxWidth(),
-            )
+            state.nutrientGoals.forEach { row ->
+                NutrientGoalRow(
+                    row = row,
+                    onValueChange = { viewModel.onNutrientGoalValueChange(row.nutrient, it) },
+                    onTypeChange = { viewModel.onNutrientGoalTypeChange(row.nutrient, it) },
+                )
+            }
 
             Text("Flüssigkeiten", style = MaterialTheme.typography.titleMedium)
             OutlinedTextField(
@@ -310,6 +276,40 @@ private fun AddFitnessGoalRow(
                 },
                 enabled = target != null && !muscleGroupMissing,
             ) { Text("Ziel hinzufügen") }
+        }
+    }
+}
+
+/**
+ * One nutrient's goal: the value, plus what that value means. The type selector is only enabled once
+ * a value is there — picking "höchstens" for a nutrient you aren't tracking has no meaning.
+ */
+@Composable
+private fun NutrientGoalRow(
+    row: NutrientGoalInput,
+    onValueChange: (String) -> Unit,
+    onTypeChange: (NutrientGoalType) -> Unit,
+) {
+    val hasValue = row.valueText.toLocaleDoubleOrNull()?.let { it > 0.0 } == true
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        OutlinedTextField(
+            value = row.valueText,
+            onValueChange = onValueChange,
+            label = { Text("${row.nutrient.label} (${row.nutrient.unit})") },
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+            NutrientGoalType.entries.forEachIndexed { index, type ->
+                SegmentedButton(
+                    selected = row.type == type,
+                    onClick = { onTypeChange(type) },
+                    enabled = hasValue,
+                    shape = SegmentedButtonDefaults.itemShape(index = index, count = NutrientGoalType.entries.size),
+                    label = { Text(type.label(), style = MaterialTheme.typography.labelMedium) },
+                )
+            }
         }
     }
 }

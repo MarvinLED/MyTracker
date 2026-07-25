@@ -4,6 +4,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.navigation.toRoute
+import com.example.prokject2_tracker.core.util.toLocaleDoubleOrNull
 import com.example.prokject2_tracker.fitness.cardio.CardioActivityType
 import com.example.prokject2_tracker.fitness.cardio.CardioEditState
 import com.example.prokject2_tracker.fitness.cardio.CardioRepository
@@ -232,9 +233,9 @@ class TrainingEntryViewModel @Inject constructor(
                         epochDay = cardio.epochDay,
                         activityTypeId = activityTypeId,
                         activityTypeName = cardio.activityTypeName,
-                        durationMinutes = cardio.durationMinutes.toDouble(),
-                        distanceKm = cardio.distanceKm.toDoubleOrNull(),
-                        caloriesBurned = cardio.caloriesBurned.toDoubleOrNull(),
+                        durationMinutes = cardio.durationMinutes.toLocaleDoubleOrNull() ?: return@launch,
+                        distanceKm = cardio.distanceKm.toLocaleDoubleOrNull(),
+                        caloriesBurned = cardio.caloriesBurned.toLocaleDoubleOrNull(),
                         avgHeartRateBpm = cardio.avgHeartRateBpm.toIntOrNull(),
                         note = cardio.note.ifBlank { null },
                     )
@@ -252,7 +253,7 @@ class TrainingEntryViewModel @Inject constructor(
                         exerciseId = exerciseId,
                         exerciseName = strength.exerciseName,
                         note = strength.note.ifBlank { null },
-                        sets = strength.sets.map { it.reps.toInt() to it.weightText.toDoubleOrNull() },
+                        sets = strength.sets.map { it.reps.toInt() to it.weightText.toLocaleDoubleOrNull() },
                     )
                     _state.value = _state.value.copy(isSaved = true)
                 }

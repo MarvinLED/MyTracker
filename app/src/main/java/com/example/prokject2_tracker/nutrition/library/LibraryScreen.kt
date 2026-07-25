@@ -25,6 +25,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import com.example.prokject2_tracker.nutrition.food.FoodListContent
 import com.example.prokject2_tracker.nutrition.recipe.RecipeListContent
+import com.example.prokject2_tracker.ui.theme.AppDomain
+import com.example.prokject2_tracker.ui.theme.topAppBarColors
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -45,6 +47,7 @@ fun LibraryScreen(
         modifier = modifier,
         topBar = {
             TopAppBar(
+                colors = AppDomain.LIBRARY.topAppBarColors(),
                 navigationIcon = {
                     IconButton(onClick = onOpenDrawer) {
                         Icon(Icons.Filled.Menu, contentDescription = "Menü")

@@ -41,6 +41,8 @@ import com.example.prokject2_tracker.core.util.label
 import com.example.prokject2_tracker.fitness.cardio.CardioSession
 import com.example.prokject2_tracker.fitness.strength.StrengthLogEntry
 import com.example.prokject2_tracker.fitness.strength.StrengthSet
+import com.example.prokject2_tracker.ui.theme.AppDomain
+import com.example.prokject2_tracker.ui.theme.topAppBarColors
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
@@ -65,6 +67,7 @@ fun FitnessScreen(
         modifier = modifier,
         topBar = {
             TopAppBar(
+                colors = AppDomain.FITNESS.topAppBarColors(),
                 navigationIcon = {
                     IconButton(onClick = onOpenDrawer) {
                         Icon(Icons.Filled.Menu, contentDescription = "Menü")

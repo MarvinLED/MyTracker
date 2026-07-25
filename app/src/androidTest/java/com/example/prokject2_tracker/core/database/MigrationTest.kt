@@ -266,4 +266,33 @@ class MigrationTest {
         }
         db.close()
     }
+
+    @Test
+    fun migrate11To12_addsRemainingNutrientsAsZeroWithoutTouchingTheMacros() {
+        val v11 = helper.createDatabase(dbName, 11)
+        v11.execSQL(
+            "INSERT INTO diary_entries (id, epochDay, createdAt, mealType, sourceType, sourceId, sourceName, " +
+                "quantity, quantityUnit, kcal, protein, carbs, fat, recipeServings) " +
+                "VALUES ('entry-1', 20000, 1700000000000, 'SNACK', 'FOOD', 'food-1', 'Banane', " +
+                "120.0, 'g', 107.0, 1.3, 27.0, 0.4, NULL)",
+        )
+        v11.close()
+
+        val db = helper.runMigrationsAndValidate(dbName, 12, true, MIGRATION_11_12)
+
+        // The macros logged before the extra nutrients existed are untouched, and the new columns
+        // read as 0 = "not recorded" rather than being invented from the food's current values.
+        db.query(
+            "SELECT kcal, protein, saturatedFat, sugar, fiber, salt FROM diary_entries WHERE id = 'entry-1'",
+        ).use { cursor ->
+            cursor.moveToFirst()
+            assertEquals(107.0, cursor.getDouble(0), 0.0001)
+            assertEquals(1.3, cursor.getDouble(1), 0.0001)
+            assertEquals(0.0, cursor.getDouble(2), 0.0001)
+            assertEquals(0.0, cursor.getDouble(3), 0.0001)
+            assertEquals(0.0, cursor.getDouble(4), 0.0001)
+            assertEquals(0.0, cursor.getDouble(5), 0.0001)
+        }
+        db.close()
+    }
 }

@@ -13,6 +13,7 @@ import com.example.prokject2_tracker.analyse.AnalyseRoute
 import com.example.prokject2_tracker.goals.GoalsRoute
 import com.example.prokject2_tracker.habit.HabitRoute
 import com.example.prokject2_tracker.nutrition.library.LibraryRoute
+import com.example.prokject2_tracker.ui.theme.AppDomain
 import com.example.prokject2_tracker.weight.WeightRoute
 
 /**
@@ -24,35 +25,41 @@ enum class DrawerDestination(
     val routeQualifiedName: String,
     @param:StringRes val labelRes: Int,
     val icon: ImageVector,
+    val domain: AppDomain,
 ) {
     LIBRARY(
         route = LibraryRoute,
         routeQualifiedName = LibraryRoute::class.qualifiedName!!,
         labelRes = R.string.nav_library,
         icon = Icons.Filled.Kitchen,
+        domain = AppDomain.LIBRARY,
     ),
     ANALYSE(
         route = AnalyseRoute,
         routeQualifiedName = AnalyseRoute::class.qualifiedName!!,
         labelRes = R.string.nav_analyse,
         icon = Icons.Filled.Insights,
+        domain = AppDomain.ANALYSE,
     ),
     GOALS(
         route = GoalsRoute,
         routeQualifiedName = GoalsRoute::class.qualifiedName!!,
         labelRes = R.string.nav_goals,
         icon = Icons.Filled.Flag,
+        domain = AppDomain.GOALS,
     ),
     HABIT(
         route = HabitRoute,
         routeQualifiedName = HabitRoute::class.qualifiedName!!,
         labelRes = R.string.nav_habit,
         icon = Icons.Filled.Checklist,
+        domain = AppDomain.HABIT,
     ),
     WEIGHT(
         route = WeightRoute,
         routeQualifiedName = WeightRoute::class.qualifiedName!!,
         labelRes = R.string.nav_weight,
         icon = Icons.Filled.MonitorWeight,
+        domain = AppDomain.WEIGHT,
     ),
 }

@@ -10,22 +10,35 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalContext
 
+/**
+ * The `surfaceContainer*` roles are set explicitly, not just `surface`: Material derives them from
+ * a *neutral* reference palette when left out, which is why cards used to come out grey on a blue
+ * background instead of a lighter blue.
+ */
 private val DarkColorScheme = darkColorScheme(
     primary = BlueDark80,
     secondary = BlueGreyDark80,
     tertiary = CyanDark80,
-    background = DarkNavyBackground,
-    surface = DarkNavySurface,
-    surfaceVariant = DarkNavySurfaceVariant,
-    onBackground = DarkNavyOnBackground,
-    onSurface = DarkNavyOnBackground,
-    outline = DarkNavyOutline,
-    primaryContainer = DarkNavyPrimaryContainer,
-    onPrimaryContainer = DarkNavyOnPrimaryContainer,
-    secondaryContainer = DarkNavySecondaryContainer,
-    onSecondaryContainer = DarkNavyOnSecondaryContainer,
-    tertiaryContainer = DarkNavyTertiaryContainer,
-    onTertiaryContainer = DarkNavyOnTertiaryContainer,
+    background = DarkBlueBackground,
+    surface = DarkBlueSurface,
+    surfaceVariant = DarkBlueSurfaceVariant,
+    surfaceContainerLowest = DarkBlueSurfaceLowest,
+    surfaceContainerLow = DarkBlueSurfaceLow,
+    surfaceContainer = DarkBlueSurfaceContainer,
+    surfaceContainerHigh = DarkBlueSurfaceHigh,
+    surfaceContainerHighest = DarkBlueSurfaceHighest,
+    surfaceDim = DarkBlueSurfaceLowest,
+    surfaceBright = DarkBlueSurfaceHighest,
+    onBackground = DarkBlueOnBackground,
+    onSurface = DarkBlueOnBackground,
+    onSurfaceVariant = DarkBlueOnSurfaceVariant,
+    outline = DarkBlueOutline,
+    primaryContainer = DarkBluePrimaryContainer,
+    onPrimaryContainer = DarkBlueOnPrimaryContainer,
+    secondaryContainer = DarkBlueSecondaryContainer,
+    onSecondaryContainer = DarkBlueOnSecondaryContainer,
+    tertiaryContainer = DarkBlueTertiaryContainer,
+    onTertiaryContainer = DarkBlueOnTertiaryContainer,
 )
 
 private val LightColorScheme = lightColorScheme(

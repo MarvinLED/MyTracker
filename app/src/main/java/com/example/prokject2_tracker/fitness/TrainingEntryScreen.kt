@@ -23,6 +23,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.prokject2_tracker.core.ui.dismissingKeyboard
 import com.example.prokject2_tracker.fitness.cardio.CardioEntryForm
 import com.example.prokject2_tracker.fitness.strength.StrengthEntryForm
 
@@ -57,7 +58,7 @@ fun TrainingEntryScreen(
                     }
                 },
                 actions = {
-                    TextButton(onClick = viewModel::save, enabled = isValid) { Text("Speichern") }
+                    TextButton(onClick = dismissingKeyboard(viewModel::save), enabled = isValid) { Text("Speichern") }
                 },
             )
         },

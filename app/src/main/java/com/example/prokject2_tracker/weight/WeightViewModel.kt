@@ -22,6 +22,21 @@ import kotlinx.coroutines.launch
 /** A past entry paired with its value already converted to the user's preferred display unit. */
 data class WeightHistoryRow(val entry: BodyWeightEntry, val displayValue: Double)
 
+/** How far back the weight chart looks. [days] null means "every entry there is". */
+enum class WeightChartRange(val days: Int?) {
+    WEEK(7),
+    MONTH(30),
+    YEAR(365),
+    ALL(null),
+}
+
+fun WeightChartRange.label(): String = when (this) {
+    WeightChartRange.WEEK -> "Woche"
+    WeightChartRange.MONTH -> "Monat"
+    WeightChartRange.YEAR -> "Jahr"
+    WeightChartRange.ALL -> "Gesamt"
+}
+
 data class WeightUiState(
     val editingEpochDay: Long,
     val weightUnit: WeightUnit = WeightUnit.KG,
@@ -29,6 +44,7 @@ data class WeightUiState(
     val editingDisplayValue: Double? = null,
     val history: List<WeightHistoryRow> = emptyList(),
     val chartPoints: List<MetricPoint> = emptyList(),
+    val chartRange: WeightChartRange = WeightChartRange.MONTH,
 )
 
 private fun Double.toDisplayUnit(unit: WeightUnit): Double = when (unit) {
@@ -50,31 +66,44 @@ class WeightViewModel @Inject constructor(
     private val _editingEpochDay = MutableStateFlow(DateUtils.todayEpochDay())
     val editingEpochDay: StateFlow<Long> = _editingEpochDay.asStateFlow()
 
-    val uiState: StateFlow<WeightUiState> = _editingEpochDay
-        .flatMapLatest { epochDay ->
+    private val _chartRange = MutableStateFlow(WeightChartRange.MONTH)
+
+    val uiState: StateFlow<WeightUiState> = combine(
+        _editingEpochDay.flatMapLatest { epochDay ->
             combine(
                 bodyWeightRepository.observeForDay(epochDay),
                 bodyWeightRepository.observeAll(),
-                userPreferencesRepository.userPreferences,
-            ) { entryForDay, history, prefs ->
-                WeightUiState(
-                    editingEpochDay = epochDay,
-                    weightUnit = prefs.weightUnit,
-                    editingDisplayValue = entryForDay?.weightKg?.toDisplayUnit(prefs.weightUnit),
-                    history = history
-                        .sortedByDescending { it.epochDay }
-                        .map { WeightHistoryRow(it, it.weightKg.toDisplayUnit(prefs.weightUnit)) },
-                    chartPoints = history
-                        .sortedBy { it.epochDay }
-                        .map { MetricPoint(it.epochDay, it.weightKg.toDisplayUnit(prefs.weightUnit)) },
-                )
-            }
-        }
+            ) { entryForDay, history -> Triple(epochDay, entryForDay, history) }
+        },
+        userPreferencesRepository.userPreferences,
+        _chartRange,
+    ) { (epochDay, entryForDay, history), prefs, range ->
+        // The range is a window ending today, not ending at the last entry: "letzte Woche" should
+        // look empty if nothing was logged in it, rather than silently showing older data.
+        val cutoff = range.days?.let { DateUtils.todayEpochDay() - (it - 1) }
+        WeightUiState(
+            editingEpochDay = epochDay,
+            weightUnit = prefs.weightUnit,
+            editingDisplayValue = entryForDay?.weightKg?.toDisplayUnit(prefs.weightUnit),
+            history = history
+                .sortedByDescending { it.epochDay }
+                .map { WeightHistoryRow(it, it.weightKg.toDisplayUnit(prefs.weightUnit)) },
+            chartPoints = history
+                .filter { cutoff == null || it.epochDay >= cutoff }
+                .sortedBy { it.epochDay }
+                .map { MetricPoint(it.epochDay, it.weightKg.toDisplayUnit(prefs.weightUnit)) },
+            chartRange = range,
+        )
+    }
         .stateIn(
             viewModelScope,
             SharingStarted.WhileSubscribed(5000),
             WeightUiState(editingEpochDay = _editingEpochDay.value),
         )
+
+    fun onChartRangeChange(range: WeightChartRange) {
+        _chartRange.value = range
+    }
 
     fun resetToToday() {
         _editingEpochDay.value = DateUtils.todayEpochDay()

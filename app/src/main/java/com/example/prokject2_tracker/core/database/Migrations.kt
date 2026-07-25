@@ -541,3 +541,17 @@ object MIGRATION_10_11 : Migration(10, 11) {
         )
     }
 }
+
+object MIGRATION_11_12 : Migration(11, 12) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        // diary_entries: the four nutrients beyond the macros, so the Tagebuch can show a progress
+        // bar for every nutrient a goal can be set for. Existing rows default to 0 rather than being
+        // backfilled from their source food: the entry's numbers are a snapshot of the food *as it
+        // was logged*, and the food's sugar/salt values may well have been edited since. 0 honestly
+        // says "not recorded" instead of inventing history.
+        db.execSQL("ALTER TABLE `diary_entries` ADD COLUMN `saturatedFat` REAL NOT NULL DEFAULT 0")
+        db.execSQL("ALTER TABLE `diary_entries` ADD COLUMN `sugar` REAL NOT NULL DEFAULT 0")
+        db.execSQL("ALTER TABLE `diary_entries` ADD COLUMN `fiber` REAL NOT NULL DEFAULT 0")
+        db.execSQL("ALTER TABLE `diary_entries` ADD COLUMN `salt` REAL NOT NULL DEFAULT 0")
+    }
+}

@@ -8,10 +8,16 @@ import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toArgb
 
 /**
- * Categorical palette for the Flüssigkeiten pie charts: eight hues in a fixed order, stepped once
- * for each surface. The two lists are the *same* hues re-stepped for the dark background, not two
- * different palettes — every dark step clears 3:1 contrast on this app's navy chart surface, and
- * adjacent pairs stay separable for colour-vision deficiencies.
+ * Categorical palette for the app's charts: eight hues in a fixed order, stepped once for each
+ * surface. The two lists are the *same* hues re-stepped for the dark background, not two different
+ * palettes.
+ *
+ * The dark column is validated as a set against [com.example.prokject2_tracker.ui.theme
+ * .DarkBlueSurfaceContainer] — the surface chart cards sit on: all eight inside the dark lightness
+ * band, all ≥ 3:1 contrast, worst adjacent CVD ΔE 8.4 (protan) and worst adjacent normal-vision
+ * ΔE 19.3. Re-run that validation if either the palette or the surface ladder changes; the green
+ * slot in particular was re-stepped from `#008300` when the surfaces were lightened, because at the
+ * old step it fell to 2.88:1 against the new card surface.
  *
  * The order is fixed on purpose: a type keeps its slot no matter which other types happen to be
  * drunk on a given day, so the same drink is never re-coloured between two days' charts.
@@ -22,7 +28,7 @@ val FluidPaletteDark: List<Color> = listOf(
     Color(0xFF199E70), // aqua
     Color(0xFFC98500), // gelb
     Color(0xFFD55181), // magenta
-    Color(0xFF008300), // grün
+    Color(0xFF0E9A2B), // grün
     Color(0xFF9085E9), // violett
     Color(0xFFE66767), // rot
 )

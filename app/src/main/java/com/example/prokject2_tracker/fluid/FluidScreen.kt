@@ -54,6 +54,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.prokject2_tracker.core.util.DateUtils
 import com.example.prokject2_tracker.core.util.formatDecimal
 import com.example.prokject2_tracker.core.util.toLocaleDoubleOrNull
+import com.example.prokject2_tracker.ui.theme.AppDomain
+import com.example.prokject2_tracker.ui.theme.topAppBarColors
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
@@ -77,6 +79,7 @@ fun FluidScreen(
         modifier = modifier,
         topBar = {
             TopAppBar(
+                colors = AppDomain.FLUID.topAppBarColors(),
                 navigationIcon = {
                     IconButton(onClick = onOpenDrawer) {
                         Icon(Icons.Filled.Menu, contentDescription = "Menü")
