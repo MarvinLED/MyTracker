@@ -46,6 +46,7 @@ object DatabaseModule {
                 MIGRATION_9_10,
                 MIGRATION_10_11,
                 MIGRATION_11_12,
+                MIGRATION_12_13,
             )
             // Upgrades now always go through a real, data-preserving Migration above — a missing
             // migration crashes loudly in development instead of silently wiping a real user's

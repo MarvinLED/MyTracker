@@ -11,6 +11,7 @@ import com.example.prokject2_tracker.core.util.toLocaleDoubleOrNull
 import com.example.prokject2_tracker.fitness.FitnessGoal
 import com.example.prokject2_tracker.fitness.FitnessGoalMetric
 import com.example.prokject2_tracker.fitness.FitnessGoalRepository
+import com.example.prokject2_tracker.fitness.strength.MovementDirection
 import com.example.prokject2_tracker.fitness.strength.MuscleGroup
 import com.example.prokject2_tracker.fitness.strength.StrengthExerciseRepository
 import com.example.prokject2_tracker.fluid.FluidRepository
@@ -37,6 +38,7 @@ data class FitnessGoalRow(
     val period: GoalPeriod,
     val muscleGroupId: String?,
     val muscleGroupName: String?,
+    val movementDirection: MovementDirection?,
     val targetText: String,
 )
 
@@ -104,6 +106,7 @@ class GoalsViewModel @Inject constructor(
         period = period,
         muscleGroupId = muscleGroupId,
         muscleGroupName = muscleGroups.firstOrNull { it.id == muscleGroupId }?.name,
+        movementDirection = movementDirection,
         targetText = targetValue.toString(),
     )
 
@@ -149,9 +152,15 @@ class GoalsViewModel @Inject constructor(
         )
     }
 
-    fun addFitnessGoal(metric: FitnessGoalMetric, period: GoalPeriod, muscleGroupId: String?, targetValue: Double) {
+    fun addFitnessGoal(
+        metric: FitnessGoalMetric,
+        period: GoalPeriod,
+        muscleGroupId: String?,
+        movementDirection: MovementDirection?,
+        targetValue: Double,
+    ) {
         viewModelScope.launch {
-            fitnessGoalRepository.setGoal(metric, period, muscleGroupId, targetValue)
+            fitnessGoalRepository.setGoal(metric, period, muscleGroupId, movementDirection, targetValue)
             reloadFitnessGoals()
         }
     }
@@ -191,7 +200,7 @@ class GoalsViewModel @Inject constructor(
             }
             s.fitnessGoals.forEach { row ->
                 row.targetText.toLocaleDoubleOrNull()?.let {
-                    fitnessGoalRepository.setGoal(row.metric, row.period, row.muscleGroupId, it)
+                    fitnessGoalRepository.setGoal(row.metric, row.period, row.muscleGroupId, row.movementDirection, it)
                 }
             }
             _saved.emit(Unit)

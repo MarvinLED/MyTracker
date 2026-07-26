@@ -12,14 +12,15 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.DirectionsRun
-import androidx.compose.material.icons.automirrored.filled.ListAlt
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Category
-import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.Card
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -31,6 +32,9 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -38,30 +42,31 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.prokject2_tracker.core.util.DateUtils
 import com.example.prokject2_tracker.core.util.formatCompact
 import com.example.prokject2_tracker.core.util.label
-import com.example.prokject2_tracker.fitness.cardio.CardioSession
-import com.example.prokject2_tracker.fitness.strength.StrengthLogEntry
-import com.example.prokject2_tracker.fitness.strength.StrengthSet
+import com.example.prokject2_tracker.fitness.strength.label
 import com.example.prokject2_tracker.ui.theme.AppDomain
 import com.example.prokject2_tracker.ui.theme.topAppBarColors
-import java.time.format.DateTimeFormatter
-import java.util.Locale
 
-/** Hosts the fitness domain: a unified, date-sorted list of cardio + strength training entries. */
+/**
+ * The Fitness landing screen: goals, then the list of everything trainable. Tapping a row opens
+ * that exercise's or activity's page for today, which is where logging actually happens — the
+ * chronological history moved to its own screen behind the app bar's history icon.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FitnessScreen(
-    onAddTraining: () -> Unit,
-    onEditCardioSession: (String) -> Unit,
-    onEditStrengthLogEntry: (String) -> Unit,
-    onOpenExerciseLibrary: () -> Unit,
+    onOpenHistory: () -> Unit,
+    onOpenExercise: (exerciseId: String) -> Unit,
+    onOpenCardioActivity: (activityTypeId: String) -> Unit,
+    onAddExercise: () -> Unit,
     onOpenMuscleGroupLibrary: () -> Unit,
+    onOpenExerciseLibrary: () -> Unit,
     onOpenCardioActivityTypeLibrary: () -> Unit,
     onOpenDrawer: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: FitnessViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsState()
-    val dateFormatter = DateTimeFormatter.ofPattern("EEEE, d. MMMM", Locale.GERMAN)
+    var showOverflow by remember { mutableStateOf(false) }
 
     Scaffold(
         modifier = modifier,
@@ -75,47 +80,73 @@ fun FitnessScreen(
                 },
                 title = { Text("Fitness") },
                 actions = {
-                    IconButton(onClick = onOpenExerciseLibrary) {
-                        Icon(Icons.AutoMirrored.Filled.ListAlt, contentDescription = "Übungen verwalten")
+                    IconButton(onClick = onOpenHistory) {
+                        Icon(Icons.Filled.History, contentDescription = "Trainingsverlauf")
                     }
-                    IconButton(onClick = onOpenMuscleGroupLibrary) {
-                        Icon(Icons.Filled.Category, contentDescription = "Muskelgruppen verwalten")
+                    // The three library screens are rarely used and read far better as labelled
+                    // menu items than as three more ambiguous glyphs beside the history icon.
+                    IconButton(onClick = { showOverflow = true }) {
+                        Icon(Icons.Filled.MoreVert, contentDescription = "Weitere Optionen")
                     }
-                    IconButton(onClick = onOpenCardioActivityTypeLibrary) {
-                        Icon(Icons.AutoMirrored.Filled.DirectionsRun, contentDescription = "Cardio-Aktivitäten verwalten")
+                    DropdownMenu(expanded = showOverflow, onDismissRequest = { showOverflow = false }) {
+                        DropdownMenuItem(
+                            text = { Text("Übungen verwalten") },
+                            onClick = {
+                                showOverflow = false
+                                onOpenExerciseLibrary()
+                            },
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Muskelgruppen verwalten") },
+                            onClick = {
+                                showOverflow = false
+                                onOpenMuscleGroupLibrary()
+                            },
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Cardio-Aktivitäten verwalten") },
+                            onClick = {
+                                showOverflow = false
+                                onOpenCardioActivityTypeLibrary()
+                            },
+                        )
                     }
                 },
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = onAddTraining) {
-                Icon(Icons.Filled.Add, contentDescription = "Training hinzufügen")
+            // Adding an exercise mid-workout is a real scenario, so the FAB follows the active tab.
+            FloatingActionButton(
+                onClick = if (state.selectedTab == FitnessTab.STRENGTH) onAddExercise else onOpenCardioActivityTypeLibrary,
+                containerColor = AppDomain.FITNESS.accent(),
+                contentColor = AppDomain.FITNESS.onAccent(),
+            ) {
+                Icon(
+                    Icons.Filled.Add,
+                    contentDescription = if (state.selectedTab == FitnessTab.STRENGTH) {
+                        "Übung hinzufügen"
+                    } else {
+                        "Cardio-Aktivität hinzufügen"
+                    },
+                )
             }
         },
     ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .padding(horizontal = 16.dp),
-        ) {
-            Column(
-                modifier = Modifier.padding(vertical = 12.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                Text("Zuletzt Cardio: ${state.daysSinceLastCardio?.let { DateUtils.formatDaysSince(it) } ?: "noch keins"}")
-                Text("Zuletzt Krafttraining: ${state.daysSinceLastStrength?.let { DateUtils.formatDaysSince(it) } ?: "noch keins"}")
-            }
-
+        Column(modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp)) {
             if (state.goals.isNotEmpty()) {
                 Column(
-                    modifier = Modifier.padding(bottom = 12.dp),
+                    modifier = Modifier.padding(vertical = 12.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     state.goals.forEach { goal ->
                         val progress = state.progressByGoalId[goal.id] ?: 0.0
                         Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                            Text("${goal.metric.label()} · ${goal.period.label()}", style = MaterialTheme.typography.bodyMedium)
+                            val scope = goal.muscleGroupId?.let { state.muscleGroupNamesById[it] }
+                                ?: goal.movementDirection?.label()
+                            Text(
+                                "${goal.metric.label()} · ${goal.period.label()}" + (scope?.let { " · $it" } ?: ""),
+                                style = MaterialTheme.typography.bodyMedium,
+                            )
                             Text("${progress.formatCompact()} / ${goal.targetValue.formatCompact()}")
                             val fraction = if (goal.targetValue > 0) {
                                 (progress / goal.targetValue).toFloat().coerceIn(0f, 1f)
@@ -128,92 +159,62 @@ fun FitnessScreen(
                 }
             }
 
-            if (state.rows.isEmpty()) {
+            Row(
+                modifier = Modifier.padding(vertical = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                FilterChip(
+                    selected = state.selectedTab == FitnessTab.STRENGTH,
+                    onClick = { viewModel.onTabSelected(FitnessTab.STRENGTH) },
+                    label = { Text("Kraft") },
+                )
+                FilterChip(
+                    selected = state.selectedTab == FitnessTab.CARDIO,
+                    onClick = { viewModel.onTabSelected(FitnessTab.CARDIO) },
+                    label = { Text("Kardio") },
+                )
+            }
+
+            if (state.items.isEmpty()) {
                 Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                    Text("Noch keine Trainingseinheiten geloggt.")
+                    Text(
+                        if (state.selectedTab == FitnessTab.STRENGTH) {
+                            "Noch keine Übungen angelegt."
+                        } else {
+                            "Noch keine Cardio-Aktivitäten angelegt."
+                        },
+                    )
                 }
             } else {
-                val grouped = state.rows.groupBy { it.epochDay }
+                val today = DateUtils.todayEpochDay()
                 LazyColumn(
                     modifier = Modifier.weight(1f),
                     contentPadding = PaddingValues(vertical = 8.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    grouped.forEach { (epochDay, dayRows) ->
-                        item(key = "header-$epochDay") {
-                            Text(
-                                DateUtils.localDateOfEpochDay(epochDay).format(dateFormatter),
-                                style = MaterialTheme.typography.titleSmall,
-                            )
-                        }
-                        items(
-                            dayRows,
-                            key = { row ->
-                                when (row) {
-                                    is TrainingListRow.Cardio -> "cardio-${row.session.id}"
-                                    is TrainingListRow.Strength -> "strength-${row.entry.id}"
+                    items(state.items, key = { it.id }) { item ->
+                        Card(
+                            modifier = Modifier.fillMaxWidth().clickable {
+                                when (state.selectedTab) {
+                                    FitnessTab.STRENGTH -> onOpenExercise(item.id)
+                                    FitnessTab.CARDIO -> onOpenCardioActivity(item.id)
                                 }
                             },
-                        ) { row ->
-                            when (row) {
-                                is TrainingListRow.Cardio -> CardioTrainingRow(
-                                    session = row.session,
-                                    onClick = { onEditCardioSession(row.session.id) },
-                                    onDelete = { viewModel.deleteCardio(row.session) },
-                                )
-                                is TrainingListRow.Strength -> StrengthTrainingRow(
-                                    entry = row.entry,
-                                    sets = row.sets,
-                                    onClick = { onEditStrengthLogEntry(row.entry.id) },
-                                    onDelete = { viewModel.deleteStrength(row.entry) },
+                        ) {
+                            Column(modifier = Modifier.fillMaxWidth().padding(12.dp)) {
+                                Text(item.name, style = MaterialTheme.typography.bodyLarge)
+                                val lastTrained = item.lastTrainedEpochDay
+                                    ?.let { "zuletzt: ${DateUtils.formatDaysSince(DateUtils.daysBetweenEpochDays(it, today))}" }
+                                    ?: "noch nie trainiert"
+                                Text(
+                                    listOf(item.subtitle, lastTrained).filter { it.isNotBlank() }.joinToString(" · "),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                             }
                         }
                     }
                 }
-            }
-        }
-    }
-}
-
-@Composable
-private fun CardioTrainingRow(session: CardioSession, onClick: () -> Unit, onDelete: () -> Unit) {
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(Icons.AutoMirrored.Filled.DirectionsRun, contentDescription = null, modifier = Modifier.padding(end = 12.dp))
-            Column(modifier = Modifier.weight(1f).clickable(onClick = onClick)) {
-                Text(session.activityTypeName)
-                val distancePart = session.distanceKm?.let { " · ${it.formatCompact()} km" }.orEmpty()
-                val caloriesPart = session.caloriesBurned?.let { " · ${it.formatCompact()} kcal" }.orEmpty()
-                val heartRatePart = session.avgHeartRateBpm?.let { " · ⌀ $it bpm" }.orEmpty()
-                Text("${session.durationMinutes.formatCompact()} min$distancePart$caloriesPart$heartRatePart")
-            }
-            IconButton(onClick = onDelete) {
-                Icon(Icons.Filled.Delete, contentDescription = "Löschen")
-            }
-        }
-    }
-}
-
-@Composable
-private fun StrengthTrainingRow(entry: StrengthLogEntry, sets: List<StrengthSet>, onClick: () -> Unit, onDelete: () -> Unit) {
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(Icons.Filled.Category, contentDescription = null, modifier = Modifier.padding(end = 12.dp))
-            Column(modifier = Modifier.weight(1f).clickable(onClick = onClick)) {
-                Text(entry.exerciseName)
-                val summary = sets.sortedBy { it.setIndex }
-                    .joinToString(" · ") { set -> "${set.reps}× ${set.weightKg?.let { "${it.formatCompact()} kg" } ?: "KG"}" }
-                Text(summary)
-            }
-            IconButton(onClick = onDelete) {
-                Icon(Icons.Filled.Delete, contentDescription = "Löschen")
             }
         }
     }

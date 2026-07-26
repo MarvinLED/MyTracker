@@ -555,3 +555,16 @@ object MIGRATION_11_12 : Migration(11, 12) {
         db.execSQL("ALTER TABLE `diary_entries` ADD COLUMN `salt` REAL NOT NULL DEFAULT 0")
     }
 }
+
+object MIGRATION_12_13 : Migration(12, 13) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        // strength_exercises: the movement pattern an exercise trains (PUSH/PULL/ISOMETRIC),
+        // tagged alongside its muscle groups. Nullable — existing exercises predate the tag and
+        // guessing a direction from the name would invent data the user never entered.
+        db.execSQL("ALTER TABLE `strength_exercises` ADD COLUMN `movementDirection` TEXT")
+
+        // fitness_goals: the movement direction a STRENGTH_SETS_MOVEMENT_DIRECTION goal targets,
+        // mirroring the existing nullable `muscleGroupId` discriminator. Null for every other metric.
+        db.execSQL("ALTER TABLE `fitness_goals` ADD COLUMN `movementDirection` TEXT")
+    }
+}

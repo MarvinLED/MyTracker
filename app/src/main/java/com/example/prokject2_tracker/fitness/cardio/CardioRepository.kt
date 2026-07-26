@@ -5,6 +5,7 @@ import java.time.Instant
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 
 /** Seeded once on first run; the user can rename/add/remove freely afterwards. */
 private val DEFAULT_CARDIO_ACTIVITY_TYPES = listOf(
@@ -36,6 +37,16 @@ class CardioRepository @Inject constructor(
         cardioDao.observeDailyAvgHeartRateTotals(startInclusive, endInclusive)
 
     fun observeActivityTypes(): Flow<List<CardioActivityType>> = cardioActivityTypeDao.observeAll()
+
+    fun observeActivityTypesAlphabetical(): Flow<List<CardioActivityType>> =
+        cardioActivityTypeDao.observeAllAlphabetical()
+
+    fun observeForActivityType(activityTypeId: String): Flow<List<CardioSession>> =
+        cardioDao.observeForActivityType(activityTypeId)
+
+    fun observeLastSessionDayPerActivityType(): Flow<Map<String, Long>> =
+        cardioDao.observeLastSessionDayPerActivityType()
+            .map { rows -> rows.associate { it.activityTypeId to it.epochDay } }
 
     suspend fun ensureDefaultActivityTypesSeeded() {
         if (cardioActivityTypeDao.getAllOnce().isNotEmpty()) return

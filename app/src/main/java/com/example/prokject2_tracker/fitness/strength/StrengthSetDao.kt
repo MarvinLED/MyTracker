@@ -10,6 +10,9 @@ import kotlinx.coroutines.flow.Flow
 data class DailySetsTotal(val epochDay: Long, val value: Double)
 data class DailyVolumeTotal(val epochDay: Long, val value: Double)
 
+/** When each exercise was last trained — the "zuletzt: vor 3 Tagen" subtitle in the exercise list. */
+data class ExerciseLastTrained(val exerciseId: String, val epochDay: Long)
+
 @Dao
 interface StrengthSetDao {
     @Query("SELECT * FROM strength_sets WHERE logEntryId = :logEntryId ORDER BY setIndex")
@@ -32,6 +35,23 @@ interface StrengthSetDao {
 
     @Query("SELECT * FROM strength_sets WHERE exerciseId = :exerciseId ORDER BY epochDay DESC, setIndex DESC LIMIT 1")
     suspend fun getMostRecentForExercise(exerciseId: String): StrengthSet?
+
+    /**
+     * One exercise's whole history, newest day first and in logging order within a day. The join is
+     * what makes that order right when a day holds more than one log entry — `setIndex` restarts at
+     * 0 per entry, so it can't order a day on its own. A single exercise is a few hundred rows even
+     * after years, so the detail page derives its stats from these rows instead of a query per figure.
+     */
+    @Query(
+        "SELECT ss.* FROM strength_sets ss " +
+            "JOIN strength_log_entries sle ON sle.id = ss.logEntryId " +
+            "WHERE ss.exerciseId = :exerciseId " +
+            "ORDER BY ss.epochDay DESC, sle.createdAt ASC, ss.setIndex ASC",
+    )
+    fun observeAllForExercise(exerciseId: String): Flow<List<StrengthSet>>
+
+    @Query("SELECT exerciseId, MAX(epochDay) AS epochDay FROM strength_sets GROUP BY exerciseId")
+    fun observeLastTrainedDayPerExercise(): Flow<List<ExerciseLastTrained>>
 
     @Query(
         "SELECT epochDay, COUNT(*) AS value FROM strength_sets " +
@@ -56,6 +76,19 @@ interface StrengthSetDao {
             "WHERE segm.muscleGroupId = :muscleGroupId AND ss.epochDay BETWEEN :startInclusive AND :endInclusive",
     )
     suspend fun countBetweenForMuscleGroup(muscleGroupId: String, startInclusive: Long, endInclusive: Long): Int
+
+    /** [movementDirection] is a [MovementDirection] name; untagged exercises match nothing. */
+    @Query(
+        "SELECT COUNT(*) FROM strength_sets ss " +
+            "JOIN strength_exercises se ON se.id = ss.exerciseId " +
+            "WHERE se.movementDirection = :movementDirection " +
+            "AND ss.epochDay BETWEEN :startInclusive AND :endInclusive",
+    )
+    suspend fun countBetweenForMovementDirection(
+        movementDirection: String,
+        startInclusive: Long,
+        endInclusive: Long,
+    ): Int
 
     @Query(
         "SELECT epochDay, SUM(reps * COALESCE(weightKg,0)) AS value FROM strength_sets " +
@@ -99,6 +132,32 @@ interface StrengthSetDao {
     )
     fun observeDailySetsTotalsForMuscleGroup(
         muscleGroupId: String,
+        startInclusive: Long,
+        endInclusive: Long,
+    ): Flow<List<DailySetsTotal>>
+
+    @Query(
+        "SELECT ss.epochDay, SUM(ss.reps * COALESCE(ss.weightKg,0)) AS value FROM strength_sets ss " +
+            "JOIN strength_exercises se ON se.id = ss.exerciseId " +
+            "WHERE se.movementDirection = :movementDirection " +
+            "AND ss.epochDay BETWEEN :startInclusive AND :endInclusive " +
+            "GROUP BY ss.epochDay ORDER BY ss.epochDay",
+    )
+    fun observeDailyVolumeTotalsForMovementDirection(
+        movementDirection: String,
+        startInclusive: Long,
+        endInclusive: Long,
+    ): Flow<List<DailyVolumeTotal>>
+
+    @Query(
+        "SELECT ss.epochDay, COUNT(*) AS value FROM strength_sets ss " +
+            "JOIN strength_exercises se ON se.id = ss.exerciseId " +
+            "WHERE se.movementDirection = :movementDirection " +
+            "AND ss.epochDay BETWEEN :startInclusive AND :endInclusive " +
+            "GROUP BY ss.epochDay ORDER BY ss.epochDay",
+    )
+    fun observeDailySetsTotalsForMovementDirection(
+        movementDirection: String,
         startInclusive: Long,
         endInclusive: Long,
     ): Flow<List<DailySetsTotal>>

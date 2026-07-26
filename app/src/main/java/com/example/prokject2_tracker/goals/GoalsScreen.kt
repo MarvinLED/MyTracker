@@ -52,7 +52,9 @@ import com.example.prokject2_tracker.core.util.label
 import com.example.prokject2_tracker.core.util.toLocaleDoubleOrNull
 import com.example.prokject2_tracker.fitness.FitnessGoalMetric
 import com.example.prokject2_tracker.fitness.label
+import com.example.prokject2_tracker.fitness.strength.MovementDirection
 import com.example.prokject2_tracker.fitness.strength.MuscleGroup
+import com.example.prokject2_tracker.fitness.strength.label
 import com.example.prokject2_tracker.ui.theme.AppDomain
 import com.example.prokject2_tracker.ui.theme.topAppBarColors
 
@@ -149,8 +151,9 @@ fun GoalsScreen(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
+                    val scope = row.muscleGroupName ?: row.movementDirection?.label()
                     Text(
-                        "${row.metric.label()} · ${row.period.label()}" + (row.muscleGroupName?.let { " · $it" } ?: ""),
+                        "${row.metric.label()} · ${row.period.label()}" + (scope?.let { " · $it" } ?: ""),
                         modifier = Modifier.weight(1f),
                     )
                     OutlinedTextField(
@@ -177,13 +180,14 @@ fun GoalsScreen(
 @Composable
 private fun AddFitnessGoalRow(
     availableMuscleGroups: List<MuscleGroup>,
-    onAdd: (FitnessGoalMetric, GoalPeriod, String?, Double) -> Unit,
+    onAdd: (FitnessGoalMetric, GoalPeriod, String?, MovementDirection?, Double) -> Unit,
 ) {
     var metric by remember { mutableStateOf(FitnessGoalMetric.CARDIO_SESSIONS) }
     var metricMenuExpanded by remember { mutableStateOf(false) }
     var period by remember { mutableStateOf(GoalPeriod.WEEKLY) }
     var muscleGroup by remember { mutableStateOf<MuscleGroup?>(null) }
     var muscleGroupMenuExpanded by remember { mutableStateOf(false) }
+    var movementDirection by remember { mutableStateOf<MovementDirection?>(null) }
     var targetText by remember { mutableStateOf("") }
 
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -209,6 +213,7 @@ private fun AddFitnessGoalRow(
                         onClick = {
                             metric = candidate
                             if (candidate != FitnessGoalMetric.STRENGTH_SETS_MUSCLE_GROUP) muscleGroup = null
+                            if (candidate != FitnessGoalMetric.STRENGTH_SETS_MOVEMENT_DIRECTION) movementDirection = null
                             metricMenuExpanded = false
                         },
                     )
@@ -256,6 +261,18 @@ private fun AddFitnessGoalRow(
             }
         }
 
+        if (metric == FitnessGoalMetric.STRENGTH_SETS_MOVEMENT_DIRECTION) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                MovementDirection.entries.forEach { candidate ->
+                    FilterChip(
+                        selected = movementDirection == candidate,
+                        onClick = { movementDirection = candidate },
+                        label = { Text(candidate.label()) },
+                    )
+                }
+            }
+        }
+
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedTextField(
                 value = targetText,
@@ -266,15 +283,18 @@ private fun AddFitnessGoalRow(
             )
             val target = targetText.toLocaleDoubleOrNull()
             val muscleGroupMissing = metric == FitnessGoalMetric.STRENGTH_SETS_MUSCLE_GROUP && muscleGroup == null
+            val movementDirectionMissing =
+                metric == FitnessGoalMetric.STRENGTH_SETS_MOVEMENT_DIRECTION && movementDirection == null
             TextButton(
                 onClick = {
-                    onAdd(metric, period, muscleGroup?.id, target!!)
+                    onAdd(metric, period, muscleGroup?.id, movementDirection, target!!)
                     metric = FitnessGoalMetric.CARDIO_SESSIONS
                     period = GoalPeriod.WEEKLY
                     muscleGroup = null
+                    movementDirection = null
                     targetText = ""
                 },
-                enabled = target != null && !muscleGroupMissing,
+                enabled = target != null && !muscleGroupMissing && !movementDirectionMissing,
             ) { Text("Ziel hinzufügen") }
         }
     }

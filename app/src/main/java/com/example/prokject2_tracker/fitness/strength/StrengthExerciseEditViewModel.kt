@@ -17,6 +17,7 @@ data class StrengthExerciseEditState(
     val id: String? = null,
     val name: String = "",
     val muscleGroupIds: Set<String> = emptySet(),
+    val movementDirection: MovementDirection? = null,
     val isSaved: Boolean = false,
 ) {
     val isValid: Boolean get() = name.isNotBlank() && muscleGroupIds.isNotEmpty()
@@ -48,6 +49,7 @@ class StrengthExerciseEditViewModel @Inject constructor(
                         id = exercise.id,
                         name = exercise.name,
                         muscleGroupIds = muscleGroupIds,
+                        movementDirection = exercise.movementDirection,
                     )
                 }
             }
@@ -61,15 +63,30 @@ class StrengthExerciseEditViewModel @Inject constructor(
         _state.value = _state.value.copy(muscleGroupIds = updated)
     }
 
+    /** Tapping the selected direction again clears it — the tag stays optional. */
+    fun onMovementDirectionToggle(direction: MovementDirection) {
+        val updated = if (_state.value.movementDirection == direction) null else direction
+        _state.value = _state.value.copy(movementDirection = updated)
+    }
+
     fun save() {
         val s = _state.value
         if (!s.isValid) return
         viewModelScope.launch {
             val current = existing
             if (current == null) {
-                strengthExerciseRepository.create(name = s.name, muscleGroupIds = s.muscleGroupIds.toList())
+                strengthExerciseRepository.create(
+                    name = s.name,
+                    muscleGroupIds = s.muscleGroupIds.toList(),
+                    movementDirection = s.movementDirection,
+                )
             } else {
-                strengthExerciseRepository.update(current, name = s.name, muscleGroupIds = s.muscleGroupIds.toList())
+                strengthExerciseRepository.update(
+                    current,
+                    name = s.name,
+                    muscleGroupIds = s.muscleGroupIds.toList(),
+                    movementDirection = s.movementDirection,
+                )
             }
             _state.value = _state.value.copy(isSaved = true)
         }

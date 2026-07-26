@@ -4,59 +4,86 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.prokject2_tracker.core.util.DateUtils
 import com.example.prokject2_tracker.fitness.cardio.CardioRepository
-import com.example.prokject2_tracker.fitness.cardio.CardioSession
 import com.example.prokject2_tracker.fitness.strength.StrengthExerciseRepository
-import com.example.prokject2_tracker.fitness.strength.StrengthLogEntry
 import com.example.prokject2_tracker.fitness.strength.StrengthLogRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
+/** Which list the Fitness screen is showing. Strength is the default — it is the one logged mid-set. */
+enum class FitnessTab { STRENGTH, CARDIO }
+
+/** One row of either list: a name plus when it was last done. */
+data class FitnessListItem(
+    val id: String,
+    val name: String,
+    val lastTrainedEpochDay: Long?,
+    /** Muscle groups / movement direction for strength; empty for cardio. */
+    val subtitle: String,
+)
+
 data class FitnessUiState(
-    val rows: List<TrainingListRow> = emptyList(),
-    val daysSinceLastCardio: Long? = null,
-    val daysSinceLastStrength: Long? = null,
+    val selectedTab: FitnessTab = FitnessTab.STRENGTH,
+    val items: List<FitnessListItem> = emptyList(),
     val goals: List<FitnessGoal> = emptyList(),
     val progressByGoalId: Map<String, Double> = emptyMap(),
+    /** Names for the muscle groups goals are scoped to, so same-metric goals stay distinguishable. */
+    val muscleGroupNamesById: Map<String, String> = emptyMap(),
 )
 
 @HiltViewModel
 class FitnessViewModel @Inject constructor(
     private val cardioRepository: CardioRepository,
-    private val strengthLogRepository: StrengthLogRepository,
     private val strengthExerciseRepository: StrengthExerciseRepository,
+    private val strengthLogRepository: StrengthLogRepository,
     private val fitnessGoalRepository: FitnessGoalRepository,
 ) : ViewModel() {
+    private val selectedTab = MutableStateFlow(FitnessTab.STRENGTH)
+
     val uiState: StateFlow<FitnessUiState> = combine(
-        cardioRepository.observeAll(),
-        strengthLogRepository.observeAll(),
-        strengthLogRepository.observeAllSets(),
+        selectedTab,
+        combine(
+            strengthExerciseRepository.observeAllWithMuscleGroups(),
+            strengthLogRepository.observeLastTrainedDayPerExercise(),
+        ) { exercises, lastTrained -> exercises to lastTrained },
+        combine(
+            cardioRepository.observeActivityTypesAlphabetical(),
+            cardioRepository.observeLastSessionDayPerActivityType(),
+        ) { types, lastTrained -> types to lastTrained },
         fitnessGoalRepository.observeAll(),
-    ) { cardioSessions, strengthEntries, allSets, goals ->
-        val today = DateUtils.todayEpochDay()
-        val setsByEntryId = allSets.groupBy { it.logEntryId }
-        val rows: List<TrainingListRow> = cardioSessions.map { TrainingListRow.Cardio(it) } +
-            strengthEntries.map { entry -> TrainingListRow.Strength(entry, setsByEntryId[entry.id].orEmpty()) }
-        val sortedRows = rows.sortedWith(
-            compareByDescending<TrainingListRow> { it.epochDay }.thenByDescending { it.createdAt },
-        )
-        val daysSinceLastCardio = cardioSessions.maxOfOrNull { it.epochDay }
-            ?.let { DateUtils.daysBetweenEpochDays(it, today) }
-        val daysSinceLastStrength = strengthEntries.maxOfOrNull { it.epochDay }
-            ?.let { DateUtils.daysBetweenEpochDays(it, today) }
-        val progressByGoalId = goals.associate { goal ->
-            goal.id to fitnessGoalRepository.getPeriodProgress(goal, today)
+        strengthExerciseRepository.observeMuscleGroups(),
+    ) { tab, (exercises, lastStrength), (activityTypes, lastCardio), goals, muscleGroups ->
+        val items = when (tab) {
+            // Already sorted by `name COLLATE NOCASE` in the DAO.
+            FitnessTab.STRENGTH -> exercises.map { item ->
+                FitnessListItem(
+                    id = item.exercise.id,
+                    name = item.exercise.name,
+                    lastTrainedEpochDay = lastStrength[item.exercise.id],
+                    subtitle = item.muscleGroups.joinToString(" · ") { it.name },
+                )
+            }
+            FitnessTab.CARDIO -> activityTypes.map { type ->
+                FitnessListItem(
+                    id = type.id,
+                    name = type.name,
+                    lastTrainedEpochDay = lastCardio[type.id],
+                    subtitle = "",
+                )
+            }
         }
+        val today = DateUtils.todayEpochDay()
         FitnessUiState(
-            rows = sortedRows,
-            daysSinceLastCardio = daysSinceLastCardio,
-            daysSinceLastStrength = daysSinceLastStrength,
+            selectedTab = tab,
+            items = items,
             goals = goals,
-            progressByGoalId = progressByGoalId,
+            progressByGoalId = goals.associate { it.id to fitnessGoalRepository.getPeriodProgress(it, today) },
+            muscleGroupNamesById = muscleGroups.associate { it.id to it.name },
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), FitnessUiState())
 
@@ -67,11 +94,7 @@ class FitnessViewModel @Inject constructor(
         }
     }
 
-    fun deleteCardio(session: CardioSession) {
-        viewModelScope.launch { cardioRepository.delete(session) }
-    }
-
-    fun deleteStrength(entry: StrengthLogEntry) {
-        viewModelScope.launch { strengthLogRepository.delete(entry) }
+    fun onTabSelected(tab: FitnessTab) {
+        selectedTab.value = tab
     }
 }

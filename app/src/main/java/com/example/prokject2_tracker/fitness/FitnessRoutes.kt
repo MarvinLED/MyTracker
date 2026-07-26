@@ -5,5 +5,6 @@ import kotlinx.serialization.Serializable
 @Serializable
 data object FitnessRoute
 
+/** The chronological training log, moved off the Fitness screen when the exercise list took its place. */
 @Serializable
-data class TrainingEntryRoute(val cardioSessionId: String? = null, val strengthLogEntryId: String? = null)
+data object TrainingHistoryRoute

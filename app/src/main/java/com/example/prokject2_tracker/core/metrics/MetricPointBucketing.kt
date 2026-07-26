@@ -17,6 +17,10 @@ fun List<MetricPoint>.bucketBy(granularity: Granularity, aggregation: MetricAggr
                 MetricAggregation.SUM -> points.sumOf { it.value }
                 MetricAggregation.AVERAGE -> points.sumOf { it.value } / points.size
                 MetricAggregation.LAST -> points.maxBy { it.epochDay }.value
+                // Max-of-daily-max equals the max over the bucket's underlying records, so this
+                // stays exact when a caller pre-aggregates to daily maxima (e.g. heaviest set of
+                // the day -> heaviest set of the week).
+                MetricAggregation.MAX -> points.maxOf { it.value }
             }
             MetricPoint(bucketStart, value)
         }

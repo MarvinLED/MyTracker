@@ -65,7 +65,11 @@ fun StrengthExerciseListContent(
                                     .clickable { onEditExercise(exercise.id) },
                             ) {
                                 Text(exercise.name)
-                                Text(item.muscleGroups.joinToString(", ") { it.name })
+                                val subtitle = (
+                                    item.muscleGroups.map { it.name } +
+                                        listOfNotNull(exercise.movementDirection?.label())
+                                    ).joinToString(" · ")
+                                Text(subtitle)
                             }
                             IconButton(onClick = {
                                 viewModel.deleteIfUnused(exercise) { blockedDeleteExercise = exercise }

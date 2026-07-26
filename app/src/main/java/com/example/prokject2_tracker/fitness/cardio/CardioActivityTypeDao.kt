@@ -11,6 +11,13 @@ interface CardioActivityTypeDao {
     @Query("SELECT * FROM cardio_activity_types ORDER BY sortOrder")
     fun observeAll(): Flow<List<CardioActivityType>>
 
+    /**
+     * For the Fitness list, where the user scans for a name. [observeAll] keeps `sortOrder` for the
+     * manage screen and the entry form's chip row — there the user's own ordering is the point.
+     */
+    @Query("SELECT * FROM cardio_activity_types ORDER BY name COLLATE NOCASE")
+    fun observeAllAlphabetical(): Flow<List<CardioActivityType>>
+
     @Query("SELECT * FROM cardio_activity_types ORDER BY sortOrder")
     suspend fun getAllOnce(): List<CardioActivityType>
 

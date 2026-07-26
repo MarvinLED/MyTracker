@@ -37,7 +37,9 @@ import com.example.prokject2_tracker.core.metrics.AnalyseDateRange
 import com.example.prokject2_tracker.core.metrics.Granularity
 import com.example.prokject2_tracker.core.metrics.label
 import com.example.prokject2_tracker.core.ui.DatedLineChart
+import com.example.prokject2_tracker.fitness.strength.MovementDirection
 import com.example.prokject2_tracker.fitness.strength.MuscleGroup
+import com.example.prokject2_tracker.fitness.strength.label
 import com.example.prokject2_tracker.fitness.strength.StrengthExercise
 import com.example.prokject2_tracker.fluid.fluidPalette
 import com.example.prokject2_tracker.ui.theme.AppDomain
@@ -188,6 +190,31 @@ fun AnalyseScreen(
                         } else {
                             Text("Wähle eine Muskelgruppe aus.")
                         }
+                    }
+                }
+            }
+
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("Sätze/Volumen pro Bewegungsrichtung", style = MaterialTheme.typography.titleMedium)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        MovementDirection.entries.forEach { direction ->
+                            FilterChip(
+                                selected = state.movementDirectionDetail == direction,
+                                onClick = { viewModel.onMovementDirectionDetailChange(direction) },
+                                label = { Text(direction.label()) },
+                            )
+                        }
+                    }
+                    DetailModeChips(
+                        mode = state.movementDirectionDetailMode,
+                        onModeChange = viewModel::onMovementDirectionDetailModeChange,
+                    )
+                    val movementDirectionSeries = state.movementDirectionDetailSeries?.toChartLine(chartPalette[0])
+                    if (movementDirectionSeries != null) {
+                        DatedLineChart(lines = listOf(movementDirectionSeries))
+                    } else {
+                        Text("Wähle eine Bewegungsrichtung aus.")
                     }
                 }
             }

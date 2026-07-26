@@ -14,6 +14,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -71,6 +72,7 @@ fun StrengthExerciseEditScreen(
                 label = { Text("Name") },
                 modifier = Modifier.fillMaxWidth(),
             )
+            Text("Muskelgruppen", style = MaterialTheme.typography.labelLarge)
             Row(
                 modifier = Modifier.horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -80,6 +82,16 @@ fun StrengthExerciseEditScreen(
                         selected = group.id in state.muscleGroupIds,
                         onClick = { viewModel.onMuscleGroupToggle(group) },
                         label = { Text(group.name) },
+                    )
+                }
+            }
+            Text("Bewegungsrichtung (optional)", style = MaterialTheme.typography.labelLarge)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                MovementDirection.entries.forEach { direction ->
+                    FilterChip(
+                        selected = state.movementDirection == direction,
+                        onClick = { viewModel.onMovementDirectionToggle(direction) },
+                        label = { Text(direction.label()) },
                     )
                 }
             }

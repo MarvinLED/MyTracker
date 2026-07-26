@@ -13,7 +13,6 @@ data class CardioEditState(
     val caloriesBurned: String = "",
     val avgHeartRateBpm: String = "",
     val note: String = "",
-    val isSaved: Boolean = false,
 ) {
     val isValid: Boolean
         get() = activityTypeId != null &&

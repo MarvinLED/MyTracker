@@ -46,6 +46,38 @@ class MetricPointBucketingTest {
     }
 
     @Test
+    fun max_takesTheLargestPointInTheBucket_notTheNewest() {
+        // 300 is both largest and newest here, so pair it with a case where they differ.
+        val result = week.bucketBy(Granularity.WEEKLY, MetricAggregation.MAX)
+        assertEquals(300.0, result[0].value, 0.0001)
+
+        val peakInTheMiddle = listOf(
+            MetricPoint(day("2026-07-20"), 100.0),
+            MetricPoint(day("2026-07-22"), 900.0),
+            MetricPoint(day("2026-07-24"), 200.0),
+        )
+        assertEquals(900.0, peakInTheMiddle.bucketBy(Granularity.WEEKLY, MetricAggregation.MAX)[0].value, 0.0001)
+    }
+
+    @Test
+    fun max_singlePointBucket_isThatPoint() {
+        val result = week.bucketBy(Granularity.WEEKLY, MetricAggregation.MAX)
+        assertEquals(50.0, result[1].value, 0.0001)
+    }
+
+    @Test
+    fun monthly_max_acrossMonths() {
+        val across = listOf(
+            MetricPoint(day("2026-06-30"), 10.0),
+            MetricPoint(day("2026-07-01"), 80.0),
+            MetricPoint(day("2026-07-31"), 30.0),
+        )
+        val result = across.bucketBy(Granularity.MONTHLY, MetricAggregation.MAX)
+        assertEquals(10.0, result[0].value, 0.0001)
+        assertEquals(80.0, result[1].value, 0.0001)
+    }
+
+    @Test
     fun monthly_bucketsOnTheFirst() {
         val across = listOf(
             MetricPoint(day("2026-06-30"), 10.0),

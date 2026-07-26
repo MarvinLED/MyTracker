@@ -17,6 +17,20 @@ interface StrengthLogDao {
     @Query("SELECT * FROM strength_log_entries WHERE id = :id")
     suspend fun getById(id: String): StrengthLogEntry?
 
+    /**
+     * Every entry this exercise has on one day, oldest first. Normally one — but nothing in the
+     * schema enforces that, and the outgoing entry form could create several, so the session layer
+     * has to see all of them to merge them.
+     */
+    @Query(
+        "SELECT * FROM strength_log_entries WHERE exerciseId = :exerciseId AND epochDay = :epochDay " +
+            "ORDER BY createdAt",
+    )
+    suspend fun getForExerciseOnDay(exerciseId: String, epochDay: Long): List<StrengthLogEntry>
+
+    @Query("SELECT * FROM strength_log_entries WHERE exerciseId = :exerciseId ORDER BY epochDay DESC, createdAt DESC")
+    fun observeForExercise(exerciseId: String): Flow<List<StrengthLogEntry>>
+
     @Query(
         "SELECT epochDay, 1.0 AS value FROM strength_log_entries " +
             "WHERE epochDay BETWEEN :startInclusive AND :endInclusive " +

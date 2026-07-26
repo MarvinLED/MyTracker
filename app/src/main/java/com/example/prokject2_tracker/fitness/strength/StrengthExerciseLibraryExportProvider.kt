@@ -16,6 +16,8 @@ data class StrengthExerciseDto(
     val createdAtEpochMillis: Long,
     val updatedAtEpochMillis: Long,
     val muscleGroupIds: List<String> = emptyList(),
+    /** Enum name, or null for untagged exercises — also the default for backups written before the tag existed. */
+    val movementDirection: String? = null,
 )
 
 private fun StrengthExercise.toDto(muscleGroupIds: List<String>) = StrengthExerciseDto(
@@ -24,6 +26,7 @@ private fun StrengthExercise.toDto(muscleGroupIds: List<String>) = StrengthExerc
     createdAtEpochMillis = createdAt.toEpochMilli(),
     updatedAtEpochMillis = updatedAt.toEpochMilli(),
     muscleGroupIds = muscleGroupIds,
+    movementDirection = movementDirection?.name,
 )
 
 private fun StrengthExerciseDto.toEntity() = StrengthExercise(
@@ -31,6 +34,10 @@ private fun StrengthExerciseDto.toEntity() = StrengthExercise(
     name = name,
     createdAt = Instant.ofEpochMilli(createdAtEpochMillis),
     updatedAt = Instant.ofEpochMilli(updatedAtEpochMillis),
+    // An unknown value (backup from a newer build) degrades to "untagged" rather than failing the import.
+    movementDirection = movementDirection?.let { name ->
+        MovementDirection.entries.firstOrNull { it.name == name }
+    },
 )
 
 /** Imported after `"muscleGroups"` (see [importPriority]) since [StrengthExerciseDto.muscleGroupIds] are foreign keys into that data. */

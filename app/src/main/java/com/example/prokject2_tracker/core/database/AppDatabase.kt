@@ -69,7 +69,7 @@ import com.example.prokject2_tracker.weight.BodyWeightEntry
         BodyWeightEntry::class,
         FitnessGoal::class,
     ],
-    version = 12,
+    version = 13,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)

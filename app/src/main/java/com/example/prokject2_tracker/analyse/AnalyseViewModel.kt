@@ -11,7 +11,9 @@ import com.example.prokject2_tracker.core.metrics.MetricSeriesDescriptor
 import com.example.prokject2_tracker.core.metrics.MetricSeriesProvider
 import com.example.prokject2_tracker.core.metrics.bucketBy
 import com.example.prokject2_tracker.core.metrics.toEpochDayRange
+import com.example.prokject2_tracker.fitness.strength.MovementDirection
 import com.example.prokject2_tracker.fitness.strength.MuscleGroup
+import com.example.prokject2_tracker.fitness.strength.label
 import com.example.prokject2_tracker.fitness.strength.StrengthExercise
 import com.example.prokject2_tracker.fitness.strength.StrengthExerciseRepository
 import com.example.prokject2_tracker.fitness.strength.StrengthLogRepository
@@ -38,6 +40,8 @@ private data class AnalyseSelection(
     val exerciseDetailMode: DetailMode = DetailMode.VOLUME,
     val muscleGroupDetailMuscleGroupId: String? = null,
     val muscleGroupDetailMode: DetailMode = DetailMode.VOLUME,
+    val movementDirectionDetail: MovementDirection? = null,
+    val movementDirectionDetailMode: DetailMode = DetailMode.VOLUME,
 )
 
 data class AnalyseUiState(
@@ -52,6 +56,9 @@ data class AnalyseUiState(
     val muscleGroupDetailMuscleGroupId: String? = null,
     val muscleGroupDetailMode: DetailMode = DetailMode.VOLUME,
     val muscleGroupDetailSeries: ChartSeries? = null,
+    val movementDirectionDetail: MovementDirection? = null,
+    val movementDirectionDetailMode: DetailMode = DetailMode.VOLUME,
+    val movementDirectionDetailSeries: ChartSeries? = null,
 )
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -104,12 +111,24 @@ class AnalyseViewModel @Inject constructor(
                 }
             } ?: flowOf(emptyList())
 
+            val movementDirectionDetailFlow: Flow<List<MetricPoint>> = selection.movementDirectionDetail?.let { direction ->
+                when (selection.movementDirectionDetailMode) {
+                    DetailMode.VOLUME -> strengthLogRepository
+                        .observeDailyVolumeTotalsForMovementDirection(direction, range.startInclusive, range.endInclusive)
+                        .map { rows -> rows.map { MetricPoint(it.epochDay, it.value) } }
+                    DetailMode.SETS -> strengthLogRepository
+                        .observeDailySetsTotalsForMovementDirection(direction, range.startInclusive, range.endInclusive)
+                        .map { rows -> rows.map { MetricPoint(it.epochDay, it.value) } }
+                }
+            } ?: flowOf(emptyList())
+
             combine(
                 primaryFlow,
                 secondaryFlow,
                 exerciseDetailFlow,
                 muscleGroupDetailFlow,
-            ) { primaryPoints, secondaryPoints, exercisePoints, muscleGroupPoints ->
+                movementDirectionDetailFlow,
+            ) { primaryPoints, secondaryPoints, exercisePoints, muscleGroupPoints, movementDirectionPoints ->
                 val exerciseName = exercises.value.find { it.id == selection.exerciseDetailExerciseId }?.name
                 val muscleGroupName = muscleGroups.value.find { it.id == selection.muscleGroupDetailMuscleGroupId }?.name
 
@@ -153,6 +172,16 @@ class AnalyseViewModel @Inject constructor(
                             color = Color.Unspecified,
                         )
                     },
+                    movementDirectionDetail = selection.movementDirectionDetail,
+                    movementDirectionDetailMode = selection.movementDirectionDetailMode,
+                    movementDirectionDetailSeries = selection.movementDirectionDetail?.let { direction ->
+                        ChartSeries(
+                            points = movementDirectionPoints.bucketBy(selection.granularity, MetricAggregation.SUM),
+                            label = direction.label(),
+                            unit = if (selection.movementDirectionDetailMode == DetailMode.VOLUME) "kg" else "Sätze",
+                            color = Color.Unspecified,
+                        )
+                    },
                 )
             }
         }
@@ -190,5 +219,13 @@ class AnalyseViewModel @Inject constructor(
 
     fun onMuscleGroupDetailModeChange(mode: DetailMode) {
         _selection.value = _selection.value.copy(muscleGroupDetailMode = mode)
+    }
+
+    fun onMovementDirectionDetailChange(direction: MovementDirection) {
+        _selection.value = _selection.value.copy(movementDirectionDetail = direction)
+    }
+
+    fun onMovementDirectionDetailModeChange(mode: DetailMode) {
+        _selection.value = _selection.value.copy(movementDirectionDetailMode = mode)
     }
 }

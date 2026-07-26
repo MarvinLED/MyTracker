@@ -7,14 +7,19 @@ import androidx.navigation.compose.composable
 import androidx.compose.ui.Modifier
 import com.example.prokject2_tracker.analyse.AnalyseRoute
 import com.example.prokject2_tracker.analyse.AnalyseScreen
+import com.example.prokject2_tracker.core.util.DateUtils
 import com.example.prokject2_tracker.fitness.FitnessRoute
 import com.example.prokject2_tracker.fitness.FitnessScreen
-import com.example.prokject2_tracker.fitness.TrainingEntryRoute
-import com.example.prokject2_tracker.fitness.TrainingEntryScreen
+import com.example.prokject2_tracker.fitness.TrainingHistoryRoute
+import com.example.prokject2_tracker.fitness.TrainingHistoryScreen
+import com.example.prokject2_tracker.fitness.cardio.CardioActivityDetailRoute
+import com.example.prokject2_tracker.fitness.cardio.CardioActivityDetailScreen
 import com.example.prokject2_tracker.fitness.cardio.CardioActivityTypeManageRoute
 import com.example.prokject2_tracker.fitness.cardio.CardioActivityTypeManageScreen
 import com.example.prokject2_tracker.fitness.strength.MuscleGroupManageRoute
 import com.example.prokject2_tracker.fitness.strength.MuscleGroupManageScreen
+import com.example.prokject2_tracker.fitness.strength.StrengthExerciseDetailRoute
+import com.example.prokject2_tracker.fitness.strength.StrengthExerciseDetailScreen
 import com.example.prokject2_tracker.fitness.strength.StrengthExerciseEditRoute
 import com.example.prokject2_tracker.fitness.strength.StrengthExerciseEditScreen
 import com.example.prokject2_tracker.fitness.strength.StrengthExerciseLibraryRoute
@@ -125,17 +130,51 @@ fun AppNavHost(
         }
         composable<FitnessRoute> {
             FitnessScreen(
-                onAddTraining = { navController.navigate(TrainingEntryRoute()) },
-                onEditCardioSession = { sessionId -> navController.navigate(TrainingEntryRoute(cardioSessionId = sessionId)) },
-                onEditStrengthLogEntry = { entryId -> navController.navigate(TrainingEntryRoute(strengthLogEntryId = entryId)) },
+                onOpenHistory = { navController.navigate(TrainingHistoryRoute) },
+                onOpenExercise = { exerciseId ->
+                    navController.navigate(
+                        StrengthExerciseDetailRoute(exerciseId = exerciseId, epochDay = DateUtils.todayEpochDay()),
+                    )
+                },
+                onOpenCardioActivity = { activityTypeId ->
+                    navController.navigate(
+                        CardioActivityDetailRoute(
+                            activityTypeId = activityTypeId,
+                            epochDay = DateUtils.todayEpochDay(),
+                        ),
+                    )
+                },
+                onAddExercise = { navController.navigate(StrengthExerciseEditRoute()) },
                 onOpenExerciseLibrary = { navController.navigate(StrengthExerciseLibraryRoute) },
                 onOpenMuscleGroupLibrary = { navController.navigate(MuscleGroupManageRoute) },
                 onOpenCardioActivityTypeLibrary = { navController.navigate(CardioActivityTypeManageRoute) },
                 onOpenDrawer = onOpenDrawer,
             )
         }
-        composable<TrainingEntryRoute> {
-            TrainingEntryScreen(onDone = { navController.popBackStack() })
+        composable<TrainingHistoryRoute> {
+            TrainingHistoryScreen(
+                onBack = { navController.popBackStack() },
+                // Navigating by (subject, day) rather than entry id, so the detail page can show
+                // the right "letztes Training" comparison relative to the day being edited.
+                onOpenStrengthSession = { exerciseId, epochDay ->
+                    navController.navigate(StrengthExerciseDetailRoute(exerciseId = exerciseId, epochDay = epochDay))
+                },
+                onOpenCardioSession = { activityTypeId, epochDay, sessionId ->
+                    navController.navigate(
+                        CardioActivityDetailRoute(
+                            activityTypeId = activityTypeId,
+                            epochDay = epochDay,
+                            sessionId = sessionId,
+                        ),
+                    )
+                },
+            )
+        }
+        composable<StrengthExerciseDetailRoute> {
+            StrengthExerciseDetailScreen(onBack = { navController.popBackStack() })
+        }
+        composable<CardioActivityDetailRoute> {
+            CardioActivityDetailScreen(onBack = { navController.popBackStack() })
         }
         composable<CardioActivityTypeManageRoute> {
             CardioActivityTypeManageScreen(onBack = { navController.popBackStack() })

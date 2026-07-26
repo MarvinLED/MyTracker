@@ -14,6 +14,9 @@ data class DailySessionCount(val epochDay: Long, val value: Double)
 data class DailyDistanceKmTotal(val epochDay: Long, val value: Double)
 data class DailyAvgPace(val epochDay: Long, val value: Double)
 
+/** When each activity type was last done — the subtitle in the Kardio list. */
+data class ActivityTypeLastTrained(val activityTypeId: String, val epochDay: Long)
+
 @Dao
 interface CardioDao {
     @Query("SELECT * FROM cardio_sessions ORDER BY epochDay DESC, createdAt DESC")
@@ -21,6 +24,18 @@ interface CardioDao {
 
     @Query("SELECT * FROM cardio_sessions WHERE id = :id")
     suspend fun getById(id: String): CardioSession?
+
+    /**
+     * One activity's whole history, newest first — the detail page derives its day stats and weekly
+     * chart from these rows. No index on `activityTypeId`: the table is a personal log (a few
+     * hundred rows a year) and adding one would cost a schema migration for a scan that is already
+     * far below a frame.
+     */
+    @Query("SELECT * FROM cardio_sessions WHERE activityTypeId = :activityTypeId ORDER BY epochDay DESC, createdAt DESC")
+    fun observeForActivityType(activityTypeId: String): Flow<List<CardioSession>>
+
+    @Query("SELECT activityTypeId, MAX(epochDay) AS epochDay FROM cardio_sessions GROUP BY activityTypeId")
+    fun observeLastSessionDayPerActivityType(): Flow<List<ActivityTypeLastTrained>>
 
     @Query(
         "SELECT epochDay, SUM(durationMinutes) AS value FROM cardio_sessions " +
