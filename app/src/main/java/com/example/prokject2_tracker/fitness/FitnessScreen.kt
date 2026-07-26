@@ -211,6 +211,15 @@ fun FitnessScreen(
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
+                                // The top set gets its own line and the stronger ink: it is the
+                                // number you open this list to find before starting the exercise.
+                                item.topSets?.let { topSets ->
+                                    Text(
+                                        topSets,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                    )
+                                }
                             }
                         }
                     }

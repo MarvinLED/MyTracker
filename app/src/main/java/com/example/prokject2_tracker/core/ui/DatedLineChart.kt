@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -52,11 +53,15 @@ data class ChartLine(
  * A line chart over dates, with a real date axis and a draggable crosshair that reads out the exact
  * values.
  *
- * Several series are drawn as **stacked panels sharing one x-axis**, never as two lines on two
- * y-scales: a second y-axis makes the crossing points of the two lines look meaningful when they
- * aren't, and the reader cannot tell which line belongs to which scale. Stacked panels keep each
- * series on its own honest scale while the shared crosshair still answers "what were both on the
- * 14th?" — which is the actual reason to compare them.
+ * By default several series are drawn as **stacked panels sharing one x-axis**: each series keeps
+ * its own honest scale, and the shared crosshair still answers "what were both on the 14th?" —
+ * which is the actual reason to compare them.
+ *
+ * [overlaid] draws them in one plot area instead, each still on its own scale. The usual objection
+ * to that — the reader can't tell which line belongs to which axis, so the crossings look meaningful
+ * when they aren't — is answered by giving **every** series its own colour-matched min/max labels in
+ * the left gutter, one column per metric. Use it when the shapes are meant to be read against each
+ * other directly; keep the stacked default when each series is read on its own.
  *
  * [zeroBased] per line controls the y floor: true anchors at 0, false uses min minus 10 % of the
  * range, for series like body weight where day-to-day variation is tiny next to the absolute value
@@ -67,6 +72,7 @@ fun DatedLineChart(
     lines: List<ChartLine>,
     modifier: Modifier = Modifier,
     panelHeight: Int = 140,
+    overlaid: Boolean = false,
 ) {
     val drawable = lines.filter { it.points.size >= 2 }
     if (drawable.isEmpty()) {
@@ -91,21 +97,36 @@ fun DatedLineChart(
     Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         SelectionReadout(lines = drawable, selectedDay = selectedDay)
 
-        drawable.forEach { line ->
-            LinePanel(
-                line = line,
+        // Snap to the nearest day that actually has a point, so the readout never invents a value
+        // for a gap in the data.
+        fun snap(candidates: List<MetricPoint>, fraction: Float): Long? {
+            val target = minDay + Math.round(fraction * dayRange)
+            return candidates.minByOrNull { kotlin.math.abs(it.epochDay - target) }?.epochDay
+        }
+
+        if (overlaid) {
+            OverlaidPanel(
+                lines = drawable,
                 minDay = minDay,
                 dayRange = dayRange,
                 selectedDay = selectedDay,
                 heightDp = panelHeight,
-                showSeriesLabel = drawable.size > 1,
                 onSelectFraction = { fraction ->
-                    // Snap to the nearest day that actually has a point, so the readout never
-                    // invents a value for a gap in the data.
-                    val target = minDay + Math.round(fraction * dayRange)
-                    selectedDay = line.points.minByOrNull { kotlin.math.abs(it.epochDay - target) }?.epochDay
+                    selectedDay = snap(drawable.flatMap { it.points }, fraction)
                 },
             )
+        } else {
+            drawable.forEach { line ->
+                LinePanel(
+                    line = line,
+                    minDay = minDay,
+                    dayRange = dayRange,
+                    selectedDay = selectedDay,
+                    heightDp = panelHeight,
+                    showSeriesLabel = drawable.size > 1,
+                    onSelectFraction = { fraction -> selectedDay = snap(line.points, fraction) },
+                )
+            }
         }
 
         DateAxisLabels(minDay = minDay, maxDay = maxDay)
@@ -161,6 +182,122 @@ private fun SelectionReadout(lines: List<ChartLine>, selectedDay: Long?) {
     }
 }
 
+/** A series' y bounds. Shared by both modes so a line can never be scaled two different ways. */
+private data class LineScale(val min: Double, val max: Double) {
+    val range: Double get() = (max - min).let { if (it > 0) it else 1.0 }
+}
+
+private fun scaleOf(line: ChartLine): LineScale {
+    val rawMax = line.points.maxOf { it.value }
+    val max = if (line.zeroBased) rawMax.coerceAtLeast(1.0) else rawMax
+    val min = if (line.zeroBased) 0.0 else {
+        val rawMin = line.points.minOf { it.value }
+        rawMin - (max - rawMin) * 0.1
+    }
+    return LineScale(min, max)
+}
+
+/**
+ * Every series in one plot area, each mapped through its own [LineScale]. The left gutter carries
+ * one min/max column per metric in that metric's colour — without it the overlay would be exactly
+ * the "which line is this axis for?" trap the stacked mode exists to avoid.
+ */
+@Composable
+private fun OverlaidPanel(
+    lines: List<ChartLine>,
+    minDay: Long,
+    dayRange: Long,
+    selectedDay: Long?,
+    heightDp: Int,
+    onSelectFraction: (Float) -> Unit,
+) {
+    val gridColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.35f)
+    val crosshairColor = MaterialTheme.colorScheme.onSurfaceVariant
+    val markerRing = MaterialTheme.colorScheme.surfaceContainer
+    val series = remember(lines) { lines.map { it to it.points.sortedBy { p -> p.epochDay } } }
+    val scales = remember(lines) { lines.map(::scaleOf) }
+
+    Row(modifier = Modifier.fillMaxWidth().height(heightDp.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            lines.forEachIndexed { index, line ->
+                Column(
+                    modifier = Modifier.fillMaxHeight(),
+                    horizontalAlignment = Alignment.End,
+                ) {
+                    Text(
+                        scales[index].max.formatCompact(),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = line.color,
+                    )
+                    Spacer(Modifier.weight(1f))
+                    Text(
+                        scales[index].min.formatCompact(),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = line.color,
+                    )
+                }
+            }
+        }
+        Spacer(Modifier.width(6.dp))
+
+        Canvas(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxHeight()
+                .pointerInput(minDay, dayRange, series) {
+                    detectTapGestures { offset ->
+                        onSelectFraction((offset.x / size.width.toFloat()).coerceIn(0f, 1f))
+                    }
+                }
+                .pointerInput(minDay, dayRange, series) {
+                    detectHorizontalDragGestures { change, _ ->
+                        onSelectFraction((change.position.x / size.width.toFloat()).coerceIn(0f, 1f))
+                    }
+                },
+        ) {
+            fun xFor(epochDay: Long) = size.width * (epochDay - minDay).toFloat() / dayRange
+
+            listOf(0f, 0.5f, 1f).forEach { fraction ->
+                val y = size.height * fraction
+                drawLine(gridColor, Offset(0f, y), Offset(size.width, y), strokeWidth = 1f)
+            }
+
+            selectedDay?.let { day ->
+                val x = xFor(day)
+                drawLine(crosshairColor, Offset(x, 0f), Offset(x, size.height), strokeWidth = 2f)
+            }
+
+            series.forEachIndexed { index, (line, sorted) ->
+                val scale = scales[index]
+                fun yFor(value: Double) =
+                    size.height - (size.height * ((value - scale.min) / scale.range)).toFloat()
+
+                for (i in 0 until sorted.size - 1) {
+                    drawLine(
+                        color = line.color,
+                        start = Offset(xFor(sorted[i].epochDay), yFor(sorted[i].value)),
+                        end = Offset(xFor(sorted[i + 1].epochDay), yFor(sorted[i + 1].value)),
+                        strokeWidth = 4f,
+                        cap = StrokeCap.Round,
+                    )
+                }
+                if (sorted.size <= 40) {
+                    sorted.forEach { point ->
+                        drawCircle(line.color, radius = 5f, center = Offset(xFor(point.epochDay), yFor(point.value)))
+                    }
+                }
+                selectedDay?.let { day ->
+                    sorted.firstOrNull { it.epochDay == day }?.let { point ->
+                        val center = Offset(xFor(point.epochDay), yFor(point.value))
+                        drawCircle(color = line.color, radius = 8f, center = center)
+                        drawCircle(color = markerRing, radius = 8f, center = center, style = Stroke(width = 3f))
+                    }
+                }
+            }
+        }
+    }
+}
+
 @Composable
 private fun LinePanel(
     line: ChartLine,
@@ -176,12 +313,10 @@ private fun LinePanel(
     val markerRing = MaterialTheme.colorScheme.surfaceContainer
     val sorted = remember(line.points) { line.points.sortedBy { it.epochDay } }
 
-    val maxValue = sorted.maxOf { it.value }.coerceAtLeast(if (line.zeroBased) 1.0 else sorted.maxOf { it.value })
-    val minValue = if (line.zeroBased) 0.0 else {
-        val rawMin = sorted.minOf { it.value }
-        rawMin - (maxValue - rawMin) * 0.1
-    }
-    val valueRange = (maxValue - minValue).let { if (it > 0) it else 1.0 }
+    val scale = remember(line) { scaleOf(line) }
+    val maxValue = scale.max
+    val minValue = scale.min
+    val valueRange = scale.range
 
     Box(modifier = Modifier.fillMaxWidth().height(heightDp.dp)) {
         Canvas(

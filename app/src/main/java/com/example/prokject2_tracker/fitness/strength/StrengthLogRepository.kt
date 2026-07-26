@@ -23,9 +23,10 @@ class StrengthLogRepository @Inject constructor(
     fun observeEntriesForExercise(exerciseId: String): Flow<List<StrengthLogEntry>> =
         strengthLogDao.observeForExercise(exerciseId)
 
-    fun observeLastTrainedDayPerExercise(): Flow<Map<String, Long>> =
-        strengthSetDao.observeLastTrainedDayPerExercise()
-            .map { rows -> rows.associate { it.exerciseId to it.epochDay } }
+    /** Each exercise's most recent session, keyed by exercise id — see the DAO for why one query covers it. */
+    fun observeLastSessionSetsPerExercise(): Flow<Map<String, List<StrengthSet>>> =
+        strengthSetDao.observeLastSessionSetsPerExercise()
+            .map { rows -> rows.groupBy { it.exerciseId } }
 
     suspend fun getById(id: String): StrengthLogEntry? = strengthLogDao.getById(id)
 

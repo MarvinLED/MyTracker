@@ -10,8 +10,6 @@ import kotlinx.coroutines.flow.Flow
 data class DailySetsTotal(val epochDay: Long, val value: Double)
 data class DailyVolumeTotal(val epochDay: Long, val value: Double)
 
-/** When each exercise was last trained — the "zuletzt: vor 3 Tagen" subtitle in the exercise list. */
-data class ExerciseLastTrained(val exerciseId: String, val epochDay: Long)
 
 @Dao
 interface StrengthSetDao {
@@ -50,8 +48,20 @@ interface StrengthSetDao {
     )
     fun observeAllForExercise(exerciseId: String): Flow<List<StrengthSet>>
 
-    @Query("SELECT exerciseId, MAX(epochDay) AS epochDay FROM strength_sets GROUP BY exerciseId")
-    fun observeLastTrainedDayPerExercise(): Flow<List<ExerciseLastTrained>>
+    /**
+     * The sets of every exercise's most recent training day — what the exercise list needs to show
+     * both "zuletzt: vor 3 Tagen" and the top set of that session. Bounded by (exercises × sets per
+     * session), so it stays small no matter how long the log gets; the day itself rides along on the
+     * rows, which is why no separate `MAX(epochDay)` query is needed.
+     */
+    @Query(
+        "SELECT ss.* FROM strength_sets ss " +
+            "JOIN strength_log_entries sle ON sle.id = ss.logEntryId " +
+            "JOIN (SELECT exerciseId, MAX(epochDay) AS lastDay FROM strength_sets GROUP BY exerciseId) latest " +
+            "ON latest.exerciseId = ss.exerciseId AND latest.lastDay = ss.epochDay " +
+            "ORDER BY ss.exerciseId, sle.createdAt ASC, ss.setIndex ASC",
+    )
+    fun observeLastSessionSetsPerExercise(): Flow<List<StrengthSet>>
 
     @Query(
         "SELECT epochDay, COUNT(*) AS value FROM strength_sets " +

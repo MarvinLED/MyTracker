@@ -4,10 +4,12 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.navigation.toRoute
+import com.example.prokject2_tracker.core.metrics.ChartRange
 import com.example.prokject2_tracker.core.metrics.Granularity
 import com.example.prokject2_tracker.core.metrics.MetricAggregation
 import com.example.prokject2_tracker.core.metrics.MetricPoint
 import com.example.prokject2_tracker.core.metrics.bucketBy
+import com.example.prokject2_tracker.core.metrics.granularityFor
 import com.example.prokject2_tracker.core.util.DateUtils
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -23,9 +25,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
-
-/** How many weeks of history the chart shows. Fixed for now — a range picker costs a row of height. */
-private const val CHART_WEEKS = 26
 
 /** Where the steppers start when the exercise has never been logged. */
 private const val DEFAULT_WEIGHT_KG = 20.0
@@ -44,9 +43,12 @@ data class StrengthExerciseDetailUiState(
     val reps: Int = DEFAULT_REPS,
     val note: String = "",
     val canUndoRemoval: Boolean = false,
-    val weeklyVolume: List<MetricPoint> = emptyList(),
-    val weeklyMaxWeight: List<MetricPoint> = emptyList(),
-    val weeklySetCount: List<MetricPoint> = emptyList(),
+    val chartRange: ChartRange = ChartRange.YEAR,
+    /** What one chart point covers at the current range — shown in the header. */
+    val chartGranularity: Granularity = Granularity.WEEKLY,
+    val volumeSeries: List<MetricPoint> = emptyList(),
+    val maxWeightSeries: List<MetricPoint> = emptyList(),
+    val setCountSeries: List<MetricPoint> = emptyList(),
 )
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -77,6 +79,7 @@ class StrengthExerciseDetailViewModel @Inject constructor(
     private val _isBodyweight = MutableStateFlow(false)
     private val _reps = MutableStateFlow(DEFAULT_REPS)
     private val _lastRemoved = MutableStateFlow<Pair<Int, SetDraft>?>(null)
+    private val _chartRange = MutableStateFlow(ChartRange.YEAR)
 
     private val allSets: StateFlow<List<StrengthSet>> =
         strengthLogRepository.observeSetsForExercise(route.exerciseId)
@@ -89,8 +92,8 @@ class StrengthExerciseDetailViewModel @Inject constructor(
         combine(_weightKg, _isBodyweight, _reps, _lastRemoved) { weight, bodyweight, reps, removed ->
             StepperState(weight, bodyweight, reps, removed != null)
         },
-        combine(_exerciseName, _note) { name, note -> name to note },
-    ) { sets, day, draft, stepper, (name, note) ->
+        combine(_exerciseName, _note, _chartRange) { name, note, range -> Triple(name, note, range) },
+    ) { sets, day, draft, stepper, (name, note, range) ->
         val persisted = sets.sessionOn(day)
         // The draft wins while it exists, so the UI never waits for a database round-trip.
         val current = draft?.let { drafted ->
@@ -101,7 +104,8 @@ class StrengthExerciseDetailViewModel @Inject constructor(
             }
         } ?: persisted
         val previous = sets.previousSessionDay(before = day)?.let { sets.sessionOn(it) }
-        val window = sets.chartWindow()
+        val window = sets.chartWindow(range)
+        val granularity = range.granularityFor(window.spanDays())
 
         StrengthExerciseDetailUiState(
             exerciseName = name,
@@ -116,9 +120,11 @@ class StrengthExerciseDetailViewModel @Inject constructor(
             reps = stepper.reps,
             note = note,
             canUndoRemoval = stepper.canUndo,
-            weeklyVolume = window.dailyVolumePoints().bucketBy(Granularity.WEEKLY, MetricAggregation.SUM),
-            weeklyMaxWeight = window.dailyMaxWeightPoints().bucketBy(Granularity.WEEKLY, MetricAggregation.MAX),
-            weeklySetCount = window.dailySetCountPoints().bucketBy(Granularity.WEEKLY, MetricAggregation.SUM),
+            chartRange = range,
+            chartGranularity = granularity,
+            volumeSeries = window.dailyVolumePoints().bucketBy(granularity, MetricAggregation.SUM),
+            maxWeightSeries = window.dailyMaxWeightPoints().bucketBy(granularity, MetricAggregation.MAX),
+            setCountSeries = window.dailySetCountPoints().bucketBy(granularity, MetricAggregation.SUM),
         )
     }.stateIn(
         viewModelScope,
@@ -227,6 +233,10 @@ class StrengthExerciseDetailViewModel @Inject constructor(
         _reps.value = set.reps
     }
 
+    fun onChartRangeChange(range: ChartRange) {
+        _chartRange.value = range
+    }
+
     fun onNoteChange(value: String) {
         _note.value = value
     }
@@ -261,8 +271,20 @@ class StrengthExerciseDetailViewModel @Inject constructor(
     }
 }
 
-/** The trailing window the chart covers. Older sets stay in the database, they're just off-screen. */
-private fun List<StrengthSet>.chartWindow(today: Long = DateUtils.todayEpochDay()): List<StrengthSet> {
-    val firstDay = DateUtils.startOfWeekEpochDay(today) - (CHART_WEEKS - 1) * 7L
-    return filter { it.epochDay >= firstDay }
+/**
+ * The sets the chart's x-axis covers. The window ends at the **last logged day**, not today: after a
+ * week off, a one-week window anchored on today would be empty, while anchored on the last session
+ * it still shows that week of training. Older sets stay in the database, they're just off-screen.
+ */
+private fun List<StrengthSet>.chartWindow(range: ChartRange): List<StrengthSet> {
+    val days = range.days ?: return this
+    val lastDay = maxOfOrNull { it.epochDay } ?: return this
+    return filter { it.epochDay > lastDay - days }
+}
+
+/** Days from the first to the last set in the window — what decides [ChartRange.ALL]'s resolution. */
+private fun List<StrengthSet>.spanDays(): Long {
+    val first = minOfOrNull { it.epochDay } ?: return 0
+    val last = maxOfOrNull { it.epochDay } ?: return 0
+    return last - first
 }

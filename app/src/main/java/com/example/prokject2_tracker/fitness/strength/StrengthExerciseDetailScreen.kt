@@ -1,16 +1,21 @@
 package com.example.prokject2_tracker.fitness.strength
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material3.Card
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -26,9 +31,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.prokject2_tracker.core.metrics.ChartRange
+import com.example.prokject2_tracker.core.metrics.label
+import com.example.prokject2_tracker.core.metrics.pointLabel
 import com.example.prokject2_tracker.core.ui.ChartLine
 import com.example.prokject2_tracker.core.ui.DatedLineChart
 import com.example.prokject2_tracker.fluid.fluidPalette
@@ -46,6 +55,7 @@ fun StrengthExerciseDetailScreen(
 ) {
     val state by viewModel.uiState.collectAsState()
     var showDatePicker by remember { mutableStateOf(false) }
+    var showRangeMenu by remember { mutableStateOf(false) }
     val palette = fluidPalette()
 
     Scaffold(
@@ -98,7 +108,38 @@ fun StrengthExerciseDetailScreen(
                     modifier = Modifier.padding(12.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    Text("Verlauf pro Woche", style = MaterialTheme.typography.titleMedium)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        // The header names what one point covers, so switching the x-axis span can
+                        // never leave you guessing whether a value is a session or a whole month.
+                        Text(
+                            "Verlauf ${state.chartGranularity.pointLabel()}",
+                            style = MaterialTheme.typography.titleMedium,
+                            modifier = Modifier.weight(1f),
+                        )
+                        Box {
+                            TextButton(onClick = { showRangeMenu = true }) {
+                                Text(state.chartRange.label())
+                                Icon(Icons.Filled.ArrowDropDown, contentDescription = "Zeitraum wählen")
+                            }
+                            DropdownMenu(
+                                expanded = showRangeMenu,
+                                onDismissRequest = { showRangeMenu = false },
+                            ) {
+                                ChartRange.entries.forEach { range ->
+                                    DropdownMenuItem(
+                                        text = { Text(range.label()) },
+                                        onClick = {
+                                            viewModel.onChartRangeChange(range)
+                                            showRangeMenu = false
+                                        },
+                                    )
+                                }
+                            }
+                        }
+                    }
                     // Built here rather than via ChartSeries.toChartLine, which infers zeroBased
                     // from the unit string and would put volume on a non-zero axis too.
                     DatedLineChart(
@@ -107,14 +148,14 @@ fun StrengthExerciseDetailScreen(
                                 label = "Volumen",
                                 unit = "kg",
                                 color = palette[0],
-                                points = state.weeklyVolume,
+                                points = state.volumeSeries,
                                 zeroBased = true,
                             ),
                             ChartLine(
                                 label = "Max. Gewicht",
                                 unit = "kg",
                                 color = palette[1],
-                                points = state.weeklyMaxWeight,
+                                points = state.maxWeightSeries,
                                 // A working range of 80–100 kg on a zero axis is a flat line.
                                 zeroBased = false,
                             ),
@@ -122,11 +163,12 @@ fun StrengthExerciseDetailScreen(
                                 label = "Sätze",
                                 unit = "Sätze",
                                 color = palette[2],
-                                points = state.weeklySetCount,
+                                points = state.setCountSeries,
                                 zeroBased = true,
                             ),
                         ),
-                        panelHeight = 110,
+                        panelHeight = 180,
+                        overlaid = true,
                     )
                 }
             }

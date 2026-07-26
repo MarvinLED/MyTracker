@@ -6,6 +6,8 @@ import com.example.prokject2_tracker.core.util.DateUtils
 import com.example.prokject2_tracker.fitness.cardio.CardioRepository
 import com.example.prokject2_tracker.fitness.strength.StrengthExerciseRepository
 import com.example.prokject2_tracker.fitness.strength.StrengthLogRepository
+import com.example.prokject2_tracker.fitness.strength.formatTopSets
+import com.example.prokject2_tracker.fitness.strength.toDraft
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -25,6 +27,8 @@ data class FitnessListItem(
     val lastTrainedEpochDay: Long?,
     /** Muscle groups / movement direction for strength; empty for cardio. */
     val subtitle: String,
+    /** The last session's top set ("70 kg × 5, 5, 5"); null for cardio and untrained exercises. */
+    val topSets: String? = null,
 )
 
 data class FitnessUiState(
@@ -49,23 +53,26 @@ class FitnessViewModel @Inject constructor(
         selectedTab,
         combine(
             strengthExerciseRepository.observeAllWithMuscleGroups(),
-            strengthLogRepository.observeLastTrainedDayPerExercise(),
-        ) { exercises, lastTrained -> exercises to lastTrained },
+            strengthLogRepository.observeLastSessionSetsPerExercise(),
+        ) { exercises, lastSessions -> exercises to lastSessions },
         combine(
             cardioRepository.observeActivityTypesAlphabetical(),
             cardioRepository.observeLastSessionDayPerActivityType(),
         ) { types, lastTrained -> types to lastTrained },
         fitnessGoalRepository.observeAll(),
         strengthExerciseRepository.observeMuscleGroups(),
-    ) { tab, (exercises, lastStrength), (activityTypes, lastCardio), goals, muscleGroups ->
+    ) { tab, (exercises, lastSessions), (activityTypes, lastCardio), goals, muscleGroups ->
         val items = when (tab) {
             // Already sorted by `name COLLATE NOCASE` in the DAO.
             FitnessTab.STRENGTH -> exercises.map { item ->
+                val lastSession = lastSessions[item.exercise.id].orEmpty()
                 FitnessListItem(
                     id = item.exercise.id,
                     name = item.exercise.name,
-                    lastTrainedEpochDay = lastStrength[item.exercise.id],
+                    // Every row of a session carries its day, so the day comes free with the sets.
+                    lastTrainedEpochDay = lastSession.firstOrNull()?.epochDay,
                     subtitle = item.muscleGroups.joinToString(" · ") { it.name },
+                    topSets = formatTopSets(lastSession.map { it.toDraft() }),
                 )
             }
             FitnessTab.CARDIO -> activityTypes.map { type ->
