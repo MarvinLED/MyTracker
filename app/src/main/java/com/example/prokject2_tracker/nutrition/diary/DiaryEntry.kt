@@ -34,6 +34,16 @@ data class DiaryEntry(
     /** FOOD: amount in the source's base unit. RECIPE: number of servings. QUICK: always 1. */
     val quantity: Double,
     val quantityUnit: String,
+    /**
+     * What the user actually typed when they logged this by a named [FoodUnit][com.example
+     * .prokject2_tracker.nutrition.food.FoodUnit] instead of by weight — "2 × Scheibe" for a
+     * [quantity] of 50 g. Null means it was entered in [quantityUnit] directly. Snapshotted like
+     * [sourceName], so renaming or deleting the unit later never rewrites history, and deliberately
+     * *besides* [quantity] rather than replacing it: everything downstream (nutrition, the mirrored
+     * fluid amount) keeps computing on base units.
+     */
+    val unitName: String? = null,
+    val unitCount: Double? = null,
     val kcal: Double,
     val protein: Double,
     val carbs: Double,

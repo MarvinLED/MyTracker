@@ -30,5 +30,12 @@ data class RecipeIngredient(
     val foodId: String,
     /** Amount in the referenced food's [com.example.prokject2_tracker.nutrition.food.BaseUnit]. */
     val amountBaseUnits: Double,
+    /**
+     * How the amount was entered, if by a named
+     * [FoodUnit][com.example.prokject2_tracker.nutrition.food.FoodUnit] instead of by weight —
+     * "2 × Scheibe" for an [amountBaseUnits] of 50. Null means grams were typed directly.
+     */
+    val unitName: String? = null,
+    val unitCount: Double? = null,
     val sortOrder: Int = 0,
 )

@@ -10,6 +10,14 @@ import kotlinx.serialization.json.decodeFromJsonElement
 import kotlinx.serialization.json.encodeToJsonElement
 
 @Serializable
+data class FoodUnitDto(
+    val id: String,
+    val name: String,
+    val amountBaseUnits: Double,
+    val sortOrder: Int = 0,
+)
+
+@Serializable
 data class FoodItemDto(
     val id: String,
     val name: String,
@@ -23,6 +31,10 @@ data class FoodItemDto(
     val sugarPer100: Double = 0.0,
     val fiberPer100: Double = 0.0,
     val saltPer100: Double = 0.0,
+    /**
+     * Legacy: the single named serving foods had before [units] existed. Only ever read, never
+     * written — [toEntity]'s caller folds it into a unit so older backups still import.
+     */
     val servingName: String? = null,
     val servingAmount: Double? = null,
     val fluidTypeId: String? = null,
@@ -30,9 +42,42 @@ data class FoodItemDto(
     val createdAtEpochMillis: Long,
     val updatedAtEpochMillis: Long,
     val tagIds: List<String> = emptyList(),
+    val units: List<FoodUnitDto> = emptyList(),
 )
 
-private fun FoodItem.toDto(tagIds: List<String>) = FoodItemDto(
+private fun FoodUnit.toDto() = FoodUnitDto(
+    id = id,
+    name = name,
+    amountBaseUnits = amountBaseUnits,
+    sortOrder = sortOrder,
+)
+
+private fun FoodUnitDto.toEntity(foodItemId: String) = FoodUnit(
+    id = id,
+    foodItemId = foodItemId,
+    name = name,
+    amountBaseUnits = amountBaseUnits,
+    sortOrder = sortOrder,
+)
+
+/**
+ * The units to import for [dto]: its own list, or — for a backup written before units existed — the
+ * single legacy serving turned into one.
+ */
+private fun FoodItemDto.unitEntities(): List<FoodUnit> = when {
+    units.isNotEmpty() -> units.map { it.toEntity(id) }
+    servingName != null && (servingAmount ?: 0.0) > 0.0 -> listOf(
+        FoodUnit(
+            id = "$id-serving",
+            foodItemId = id,
+            name = servingName,
+            amountBaseUnits = servingAmount!!,
+        ),
+    )
+    else -> emptyList()
+}
+
+private fun FoodItem.toDto(tagIds: List<String>, units: List<FoodUnit>) = FoodItemDto(
     id = id,
     name = name,
     brand = brand,
@@ -45,13 +90,12 @@ private fun FoodItem.toDto(tagIds: List<String>) = FoodItemDto(
     sugarPer100 = sugarPer100,
     fiberPer100 = fiberPer100,
     saltPer100 = saltPer100,
-    servingName = servingName,
-    servingAmount = servingAmount,
     fluidTypeId = fluidTypeId,
     fluidMlPer100 = fluidMlPer100,
     createdAtEpochMillis = createdAt.toEpochMilli(),
     updatedAtEpochMillis = updatedAt.toEpochMilli(),
     tagIds = tagIds,
+    units = units.map { it.toDto() },
 )
 
 private fun FoodItemDto.toEntity() = FoodItem(
@@ -67,8 +111,6 @@ private fun FoodItemDto.toEntity() = FoodItem(
     sugarPer100 = sugarPer100,
     fiberPer100 = fiberPer100,
     saltPer100 = saltPer100,
-    servingName = servingName,
-    servingAmount = servingAmount,
     fluidTypeId = fluidTypeId,
     fluidMlPer100 = fluidMlPer100,
     createdAt = Instant.ofEpochMilli(createdAtEpochMillis),
@@ -83,6 +125,7 @@ private fun FoodItemDto.toEntity() = FoodItem(
 class FoodLibraryExportProvider @Inject constructor(
     private val foodDao: FoodDao,
     private val tagDao: TagDao,
+    private val foodUnitDao: FoodUnitDao,
 ) : LibraryExportProvider {
     override val key = "foods"
     override val importPriority = 5
@@ -92,7 +135,7 @@ class FoodLibraryExportProvider @Inject constructor(
     override suspend fun export(): JsonElement {
         val dtos = foodDao.getAllOnce().map { food ->
             val tagIds = tagDao.getCrossRefsForFood(food.id).map { it.tagId }
-            food.toDto(tagIds)
+            food.toDto(tagIds, foodUnitDao.getForFood(food.id))
         }
         return json.encodeToJsonElement(dtos)
     }
@@ -104,6 +147,7 @@ class FoodLibraryExportProvider @Inject constructor(
             if (existing == null || dto.updatedAtEpochMillis > existing.updatedAt.toEpochMilli()) {
                 foodDao.upsert(dto.toEntity())
                 tagDao.replaceFoodTags(dto.id, dto.tagIds)
+                foodUnitDao.replaceForFood(dto.id, dto.unitEntities())
             }
         }
     }

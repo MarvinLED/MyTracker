@@ -295,4 +295,68 @@ class MigrationTest {
         }
         db.close()
     }
+
+    @Test
+    fun migrate13To14_movesTheSingleServingIntoFoodUnitsAndKeepsTheFood() {
+        val v13 = helper.createDatabase(dbName, 13)
+        v13.execSQL(
+            "INSERT INTO food_items (id, name, brand, baseUnit, kcalPer100, proteinPer100, carbsPer100, fatPer100, " +
+                "saturatedFatPer100, sugarPer100, fiberPer100, saltPer100, servingName, servingAmount, " +
+                "createdAt, updatedAt) " +
+                "VALUES ('food-1', 'Toastbrot', 'Golden', 'G', 250.0, 8.0, 47.0, 3.0, 0.6, 4.0, 3.0, 1.0, " +
+                "'Scheibe', 25.0, 1700000000000, 1700000000000)",
+        )
+        // A food without a serving must not produce a unit row.
+        v13.execSQL(
+            "INSERT INTO food_items (id, name, baseUnit, kcalPer100, proteinPer100, carbsPer100, fatPer100, " +
+                "saturatedFatPer100, sugarPer100, fiberPer100, saltPer100, createdAt, updatedAt) " +
+                "VALUES ('food-2', 'Reis', 'G', 350.0, 7.0, 78.0, 0.6, 0.2, 0.1, 1.4, 0.0, 1700000000000, 1700000000000)",
+        )
+        v13.execSQL(
+            "INSERT INTO diary_entries (id, epochDay, createdAt, mealType, sourceType, sourceId, sourceName, " +
+                "quantity, quantityUnit, kcal, protein, carbs, fat, saturatedFat, sugar, fiber, salt, recipeServings) " +
+                "VALUES ('entry-1', 20000, 1700000000000, 'BREAKFAST', 'FOOD', 'food-1', 'Toastbrot', " +
+                "50.0, 'g', 125.0, 4.0, 23.5, 1.5, 0.3, 2.0, 1.5, 0.5, NULL)",
+        )
+        v13.close()
+
+        val db = helper.runMigrationsAndValidate(dbName, 14, true, MIGRATION_13_14)
+
+        // The serving became a unit...
+        db.query("SELECT foodItemId, name, amountBaseUnits FROM food_units").use { cursor ->
+            assertEquals(1, cursor.count)
+            cursor.moveToFirst()
+            assertEquals("food-1", cursor.getString(0))
+            assertEquals("Scheibe", cursor.getString(1))
+            assertEquals(25.0, cursor.getDouble(2), 0.0001)
+        }
+        // ...and rebuilding food_items to drop the two columns kept every other value.
+        db.query("SELECT name, brand, kcalPer100, saltPer100 FROM food_items WHERE id = 'food-1'").use { cursor ->
+            cursor.moveToFirst()
+            assertEquals("Toastbrot", cursor.getString(0))
+            assertEquals("Golden", cursor.getString(1))
+            assertEquals(250.0, cursor.getDouble(2), 0.0001)
+            assertEquals(1.0, cursor.getDouble(3), 0.0001)
+        }
+        db.query("SELECT COUNT(*) FROM food_items").use { cursor ->
+            cursor.moveToFirst()
+            assertEquals(2, cursor.getInt(0))
+        }
+        // Everything logged so far was typed in grams, which is exactly what a null unit means.
+        db.query("SELECT quantity, unitName, unitCount FROM diary_entries WHERE id = 'entry-1'").use { cursor ->
+            cursor.moveToFirst()
+            assertEquals(50.0, cursor.getDouble(0), 0.0001)
+            assertEquals(true, cursor.isNull(1))
+            assertEquals(true, cursor.isNull(2))
+        }
+        // Deleting a food takes its units with it.
+        db.execSQL("PRAGMA foreign_keys = ON")
+        db.execSQL("DELETE FROM diary_entries WHERE id = 'entry-1'")
+        db.execSQL("DELETE FROM food_items WHERE id = 'food-1'")
+        db.query("SELECT COUNT(*) FROM food_units").use { cursor ->
+            cursor.moveToFirst()
+            assertEquals(0, cursor.getInt(0))
+        }
+        db.close()
+    }
 }

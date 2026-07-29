@@ -19,6 +19,9 @@ import com.example.prokject2_tracker.nutrition.diary.DiaryRepository
 import com.example.prokject2_tracker.nutrition.diary.MealType
 import com.example.prokject2_tracker.nutrition.food.FoodItem
 import com.example.prokject2_tracker.nutrition.food.FoodRepository
+import com.example.prokject2_tracker.nutrition.food.FoodUnit
+import com.example.prokject2_tracker.nutrition.food.amountInBaseUnits
+import com.example.prokject2_tracker.nutrition.food.convertAmountText
 import com.example.prokject2_tracker.weight.BodyWeightRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.time.LocalTime
@@ -163,9 +166,28 @@ class OverviewViewModel @Inject constructor(
         _foodQuery.value = value
     }
 
+    /** The selected food's named units, so the quick log offers "2 × Scheibe" like the Tagebuch does. */
+    val foodUnits: StateFlow<List<FoodUnit>> = _selectedFood
+        .flatMapLatest { food -> food?.let { foodRepository.observeUnits(it.id) } ?: flowOf(emptyList()) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    /** null = the amount is being typed in the food's base unit (g/ml). */
+    private val _selectedUnitId = MutableStateFlow<String?>(null)
+    val selectedUnitId: StateFlow<String?> = _selectedUnitId.asStateFlow()
+
+    private val selectedUnit: FoodUnit?
+        get() = foodUnits.value.firstOrNull { it.id == _selectedUnitId.value }
+
     fun onSelectFood(food: FoodItem) {
         _selectedFood.value = food
-        _amountText.value = food.servingAmount?.toString() ?: ""
+        _amountText.value = ""
+        _selectedUnitId.value = null
+    }
+
+    fun onSelectUnit(unitId: String?) {
+        val from = selectedUnit
+        _selectedUnitId.value = unitId
+        _amountText.value = convertAmountText(_amountText.value, from, selectedUnit)
     }
 
     fun onAmountChange(value: String) {
@@ -178,12 +200,22 @@ class OverviewViewModel @Inject constructor(
 
     fun confirmLogFood() {
         val food = _selectedFood.value ?: return
-        val amount = _amountText.value.toLocaleDoubleOrNull() ?: return
+        val typed = _amountText.value.toLocaleDoubleOrNull() ?: return
+        val unit = selectedUnit
+        val amount = amountInBaseUnits(_amountText.value, unit) ?: return
         val mealType = _mealType.value
         viewModelScope.launch {
-            diaryRepository.logFood(today, food.id, amount, mealType)
+            diaryRepository.logFood(
+                epochDay = today,
+                foodId = food.id,
+                amountBaseUnits = amount,
+                mealType = mealType,
+                unitName = unit?.name,
+                unitCount = unit?.let { typed },
+            )
             _selectedFood.value = null
             _amountText.value = ""
+            _selectedUnitId.value = null
             _foodQuery.value = ""
         }
     }

@@ -17,6 +17,7 @@ import com.example.prokject2_tracker.habit.HabitDao
 import com.example.prokject2_tracker.habit.HabitGoalDao
 import com.example.prokject2_tracker.nutrition.diary.DiaryDao
 import com.example.prokject2_tracker.nutrition.food.FoodDao
+import com.example.prokject2_tracker.nutrition.food.FoodUnitDao
 import com.example.prokject2_tracker.nutrition.food.TagDao
 import com.example.prokject2_tracker.nutrition.recipe.RecipeDao
 import com.example.prokject2_tracker.weight.BodyWeightDao
@@ -47,6 +48,7 @@ object DatabaseModule {
                 MIGRATION_10_11,
                 MIGRATION_11_12,
                 MIGRATION_12_13,
+                MIGRATION_13_14,
             )
             // Upgrades now always go through a real, data-preserving Migration above — a missing
             // migration crashes loudly in development instead of silently wiping a real user's
@@ -57,6 +59,9 @@ object DatabaseModule {
 
     @Provides
     fun provideFoodDao(database: AppDatabase): FoodDao = database.foodDao()
+
+    @Provides
+    fun provideFoodUnitDao(database: AppDatabase): FoodUnitDao = database.foodUnitDao()
 
     @Provides
     fun provideRecipeDao(database: AppDatabase): RecipeDao = database.recipeDao()

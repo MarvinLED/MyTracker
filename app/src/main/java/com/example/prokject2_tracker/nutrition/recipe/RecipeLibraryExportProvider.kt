@@ -15,6 +15,9 @@ data class RecipeIngredientDto(
     val foodId: String,
     val amountBaseUnits: Double,
     val sortOrder: Int,
+    /** How the amount was entered ("2 × Scheibe"); absent in backups written before units existed. */
+    val unitName: String? = null,
+    val unitCount: Double? = null,
 )
 
 @Serializable
@@ -43,7 +46,13 @@ class RecipeLibraryExportProvider @Inject constructor(
     override suspend fun export(): JsonElement {
         val dtos = recipeDao.getAllOnce().map { recipe ->
             val ingredients = recipeDao.getIngredientsOnce(recipe.id).map {
-                RecipeIngredientDto(it.foodId, it.amountBaseUnits, it.sortOrder)
+                RecipeIngredientDto(
+                    foodId = it.foodId,
+                    amountBaseUnits = it.amountBaseUnits,
+                    sortOrder = it.sortOrder,
+                    unitName = it.unitName,
+                    unitCount = it.unitCount,
+                )
             }
             RecipeExportDto(
                 id = recipe.id,
@@ -77,6 +86,8 @@ class RecipeLibraryExportProvider @Inject constructor(
                         recipeId = dto.id,
                         foodId = it.foodId,
                         amountBaseUnits = it.amountBaseUnits,
+                        unitName = it.unitName,
+                        unitCount = it.unitCount,
                         sortOrder = it.sortOrder,
                     )
                 }

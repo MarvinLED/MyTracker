@@ -12,7 +12,14 @@ data class RecipeIngredientWithFood(
 )
 
 fun List<RecipeIngredientWithFood>.foodAmounts(): List<FoodAmount> =
-    map { FoodAmount(food = it.food, amountBaseUnits = it.ingredient.amountBaseUnits) }
+    map {
+        FoodAmount(
+            food = it.food,
+            amountBaseUnits = it.ingredient.amountBaseUnits,
+            unitName = it.ingredient.unitName,
+            unitCount = it.ingredient.unitCount,
+        )
+    }
 
 data class RecipeWithIngredients(
     @Embedded val recipe: Recipe,

@@ -4,9 +4,11 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -35,6 +37,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.prokject2_tracker.core.ui.dismissingKeyboard
@@ -162,20 +165,44 @@ fun FoodEditScreen(
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 modifier = Modifier.fillMaxWidth(),
             )
-            Text("Optionale Portion (z.B. \"Scheibe\")", style = MaterialTheme.typography.titleSmall)
-            OutlinedTextField(
-                value = state.servingName,
-                onValueChange = viewModel::onServingNameChange,
-                label = { Text("Bezeichnung") },
-                modifier = Modifier.fillMaxWidth(),
+            Text("Einheiten (z.B. \"Scheibe\")", style = MaterialTheme.typography.titleSmall)
+            Text(
+                "Beim Eintragen ins Tagebuch oder in ein Rezept kann statt Gramm eine dieser " +
+                    "Einheiten gewählt werden.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            OutlinedTextField(
-                value = state.servingAmount,
-                onValueChange = viewModel::onServingAmountChange,
-                label = { Text("Menge in g") },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                modifier = Modifier.fillMaxWidth(),
-            )
+            state.units.forEachIndexed { index, unit ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    OutlinedTextField(
+                        value = unit.name,
+                        onValueChange = { viewModel.onUnitNameChange(index, it) },
+                        label = { Text("Bezeichnung", maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                        singleLine = true,
+                        modifier = Modifier.weight(1.2f),
+                    )
+                    OutlinedTextField(
+                        value = unit.amount,
+                        onValueChange = { viewModel.onUnitAmountChange(index, it) },
+                        label = { Text("Menge in g", maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        singleLine = true,
+                        modifier = Modifier.weight(1f),
+                    )
+                    IconButton(onClick = { viewModel.removeUnitRow(index) }) {
+                        Icon(Icons.Filled.Close, contentDescription = "Einheit entfernen")
+                    }
+                }
+            }
+            TextButton(onClick = viewModel::addUnitRow) {
+                Icon(Icons.Filled.Add, contentDescription = null)
+                Spacer(Modifier.width(4.dp))
+                Text("Einheit hinzufügen")
+            }
             Text("Flüssigkeit", style = MaterialTheme.typography.titleSmall)
             Text(
                 "Besteht dieses Lebensmittel aus einer Flüssigkeit, wird sie beim Eintragen ins " +

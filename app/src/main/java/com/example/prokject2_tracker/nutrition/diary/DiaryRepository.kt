@@ -21,6 +21,8 @@ import kotlinx.coroutines.flow.Flow
 data class DiaryRecipeIngredientDraft(
     val foodId: String,
     val amountBaseUnits: Double,
+    val unitName: String? = null,
+    val unitCount: Double? = null,
 )
 
 /**
@@ -70,9 +72,22 @@ class DiaryRepository @Inject constructor(
             emptyList()
         }
 
-    suspend fun logFood(epochDay: Long, foodId: String, amountBaseUnits: Double, mealType: MealType) {
+    /**
+     * [unitName]/[unitCount] record that the amount was entered as e.g. "2 × Scheibe";
+     * [amountBaseUnits] is the resolved weight either way and stays what everything computes on.
+     */
+    suspend fun logFood(
+        epochDay: Long,
+        foodId: String,
+        amountBaseUnits: Double,
+        mealType: MealType,
+        unitName: String? = null,
+        unitCount: Double? = null,
+    ) {
         val food = requireNotNull(foodDao.getById(foodId)) { "Food $foodId not found" }
-        val entry = foodEntry(IdGenerator.newId(), epochDay, Instant.now(), food, amountBaseUnits, mealType)
+        val entry = foodEntry(
+            IdGenerator.newId(), epochDay, Instant.now(), food, amountBaseUnits, mealType, unitName, unitCount,
+        )
         diaryDao.upsert(entry)
         syncFluidForFoodEntry(entry, food)
     }
@@ -121,14 +136,23 @@ class DiaryRepository @Inject constructor(
      * copy if it has one and from the source's *current* state otherwise. Does not touch other rows,
      * and keeps [DiaryEntry.createdAt] so correcting an amount doesn't reshuffle the day's order.
      */
-    suspend fun updateEntry(entry: DiaryEntry, newQuantity: Double, newMealType: MealType) {
+    suspend fun updateEntry(
+        entry: DiaryEntry,
+        newQuantity: Double,
+        newMealType: MealType,
+        newUnitName: String? = null,
+        newUnitCount: Double? = null,
+    ) {
         when (entry.sourceType) {
             DiarySourceType.FOOD -> {
                 val food = foodDao.getById(entry.sourceId)
                 if (food == null) {
-                    diaryDao.upsert(entry.scaledTo(newQuantity, newMealType))
+                    diaryDao.upsert(entry.scaledTo(newQuantity, newMealType, newUnitName, newUnitCount))
                 } else {
-                    val updated = foodEntry(entry.id, entry.epochDay, entry.createdAt, food, newQuantity, newMealType)
+                    val updated = foodEntry(
+                        entry.id, entry.epochDay, entry.createdAt, food, newQuantity, newMealType,
+                        newUnitName, newUnitCount,
+                    )
                     diaryDao.upsert(updated)
                     syncFluidForFoodEntry(updated, food)
                 }
@@ -163,7 +187,9 @@ class DiaryRepository @Inject constructor(
             recipeName = entry.sourceName,
             servings = servingsOf(entry),
             ingredients = ingredients.mapNotNull { draft ->
-                foodsById[draft.foodId]?.let { FoodAmount(it, draft.amountBaseUnits) }
+                foodsById[draft.foodId]?.let {
+                    FoodAmount(it, draft.amountBaseUnits, draft.unitName, draft.unitCount)
+                }
             },
         )
         saveRecipeEntry(entry, source, newQuantity, newMealType, asDayIngredients = true)
@@ -193,7 +219,12 @@ class DiaryRepository @Inject constructor(
     /** The entry's per-day recipe copy in the shape [restore] wants it back in. */
     suspend fun getRecipeIngredientDrafts(diaryEntryId: String): List<DiaryRecipeIngredientDraft> =
         diaryDao.getRecipeIngredients(diaryEntryId).map {
-            DiaryRecipeIngredientDraft(foodId = it.food.id, amountBaseUnits = it.ingredient.amountBaseUnits)
+            DiaryRecipeIngredientDraft(
+                foodId = it.food.id,
+                amountBaseUnits = it.ingredient.amountBaseUnits,
+                unitName = it.ingredient.unitName,
+                unitCount = it.ingredient.unitCount,
+            )
         }
 
     /**
@@ -210,6 +241,8 @@ class DiaryRepository @Inject constructor(
                     diaryEntryId = entry.id,
                     foodId = draft.foodId,
                     amountBaseUnits = draft.amountBaseUnits,
+                    unitName = draft.unitName,
+                    unitCount = draft.unitCount,
                     sortOrder = index,
                 )
             },
@@ -242,6 +275,8 @@ class DiaryRepository @Inject constructor(
                         diaryEntryId = updated.id,
                         foodId = item.food.id,
                         amountBaseUnits = item.amountBaseUnits,
+                        unitName = item.unitName,
+                        unitCount = item.unitCount,
                         sortOrder = index,
                     )
                 },
@@ -281,11 +316,18 @@ class DiaryRepository @Inject constructor(
      * than refuse the edit. Any mirrored fluid stays as it was, for the same reason — there is
      * nothing left to re-derive it from.
      */
-    private fun DiaryEntry.scaledTo(newQuantity: Double, newMealType: MealType): DiaryEntry {
+    private fun DiaryEntry.scaledTo(
+        newQuantity: Double,
+        newMealType: MealType,
+        newUnitName: String? = null,
+        newUnitCount: Double? = null,
+    ): DiaryEntry {
         val factor = if (quantity > 0.0) newQuantity / quantity else 0.0
         return copy(
             mealType = newMealType,
             quantity = newQuantity,
+            unitName = newUnitName,
+            unitCount = newUnitCount,
             kcal = kcal * factor,
             protein = protein * factor,
             carbs = carbs * factor,
@@ -342,6 +384,8 @@ class DiaryRepository @Inject constructor(
         food: FoodItem,
         amountBaseUnits: Double,
         mealType: MealType,
+        unitName: String?,
+        unitCount: Double?,
     ): DiaryEntry {
         val totals = NutritionMath.forFoodAmount(food, amountBaseUnits)
         return DiaryEntry(
@@ -354,6 +398,8 @@ class DiaryRepository @Inject constructor(
             sourceName = food.name,
             quantity = amountBaseUnits,
             quantityUnit = if (food.baseUnit == BaseUnit.G) "g" else "ml",
+            unitName = unitName,
+            unitCount = unitCount,
             kcal = totals.kcal,
             protein = totals.protein,
             carbs = totals.carbs,

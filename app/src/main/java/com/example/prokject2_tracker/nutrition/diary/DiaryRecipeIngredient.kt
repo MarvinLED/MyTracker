@@ -42,6 +42,9 @@ data class DiaryRecipeIngredient(
     val foodId: String,
     /** Amount in the referenced food's [com.example.prokject2_tracker.nutrition.food.BaseUnit]. */
     val amountBaseUnits: Double,
+    /** How the amount was entered, if by a named unit — see [DiaryEntry.unitName]. */
+    val unitName: String? = null,
+    val unitCount: Double? = null,
     val sortOrder: Int = 0,
 )
 
@@ -52,4 +55,11 @@ data class DiaryRecipeIngredientWithFood(
 )
 
 fun List<DiaryRecipeIngredientWithFood>.foodAmounts(): List<FoodAmount> =
-    map { FoodAmount(food = it.food, amountBaseUnits = it.ingredient.amountBaseUnits) }
+    map {
+        FoodAmount(
+            food = it.food,
+            amountBaseUnits = it.ingredient.amountBaseUnits,
+            unitName = it.ingredient.unitName,
+            unitCount = it.ingredient.unitCount,
+        )
+    }

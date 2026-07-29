@@ -4,11 +4,15 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.navigation.toRoute
+import com.example.prokject2_tracker.core.util.formatDecimal
 import com.example.prokject2_tracker.core.util.toLocaleDoubleOrNull
 import com.example.prokject2_tracker.fluid.FluidRepository
 import com.example.prokject2_tracker.nutrition.food.BaseUnit
 import com.example.prokject2_tracker.nutrition.food.FoodItem
 import com.example.prokject2_tracker.nutrition.food.FoodRepository
+import com.example.prokject2_tracker.nutrition.food.FoodUnit
+import com.example.prokject2_tracker.nutrition.food.amountInBaseUnits
+import com.example.prokject2_tracker.nutrition.food.convertAmountText
 import com.example.prokject2_tracker.nutrition.food.fluidMlOf
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -26,7 +30,11 @@ data class IngredientRow(
     val foodId: String,
     val foodName: String,
     val baseUnit: BaseUnit,
+    /** The number as typed — grams when [selectedUnitId] is null, otherwise a count of that unit. */
     val amountText: String,
+    /** The food's named units, so the row can offer "2 × Scheibe" instead of grams. */
+    val units: List<FoodUnit> = emptyList(),
+    val selectedUnitId: String? = null,
     /**
      * The ingredient's link into the Getränkearten library, copied from the Lebensmittel so the row
      * can show the fluid it brings along while the amount is still being typed.
@@ -34,8 +42,15 @@ data class IngredientRow(
     val fluidTypeId: String? = null,
     val fluidMlPer100: Double? = null,
 ) {
+    val selectedUnit: FoodUnit?
+        get() = units.firstOrNull { it.id == selectedUnitId }
+
+    /** What the row actually contributes, whichever way it was typed. Null while it isn't a number. */
+    val amountBaseUnits: Double?
+        get() = amountInBaseUnits(amountText, selectedUnit)
+
     val fluidMl: Double
-        get() = fluidMlOf(fluidTypeId, fluidMlPer100, amountText.toLocaleDoubleOrNull() ?: 0.0)
+        get() = fluidMlOf(fluidTypeId, fluidMlPer100, amountBaseUnits ?: 0.0)
 }
 
 data class RecipeEditState(
@@ -50,14 +65,20 @@ data class RecipeEditState(
         get() = name.isNotBlank() &&
             servings.toLocaleDoubleOrNull()?.let { it > 0.0 } == true &&
             ingredients.isNotEmpty() &&
-            ingredients.all { it.amountText.toLocaleDoubleOrNull() != null }
+            ingredients.all { it.amountBaseUnits != null }
 }
 
-private fun FoodItem.toIngredientRow(amountText: String) = IngredientRow(
+private fun FoodItem.toIngredientRow(
+    amountText: String,
+    units: List<FoodUnit> = emptyList(),
+    selectedUnitId: String? = null,
+) = IngredientRow(
     foodId = id,
     foodName = name,
     baseUnit = baseUnit,
     amountText = amountText,
+    units = units,
+    selectedUnitId = selectedUnitId,
     fluidTypeId = fluidTypeId,
     fluidMlPer100 = fluidMlPer100,
 )
@@ -99,8 +120,23 @@ class RecipeEditViewModel @Inject constructor(
                         name = recipeWithNutrition.recipe.name,
                         servings = recipeWithNutrition.recipe.servings.toString(),
                         instructions = recipeWithNutrition.recipe.instructions.orEmpty(),
-                        ingredients = recipeWithNutrition.ingredients.map {
-                            it.food.toIngredientRow(amountText = it.ingredient.amountBaseUnits.toString())
+                        ingredients = recipeWithNutrition.ingredients.map { withFood ->
+                            val units = foodRepository.getUnits(withFood.food.id)
+                            // The unit was snapshotted by name; match it back to a live one so the
+                            // row reopens in the mode it was saved in. A since-renamed or deleted
+                            // unit falls back to plain base units — the amount is the same either way.
+                            val unit = withFood.ingredient.unitName?.let { name ->
+                                units.firstOrNull { it.name == name }
+                            }
+                            withFood.food.toIngredientRow(
+                                amountText = if (unit != null && withFood.ingredient.unitCount != null) {
+                                    withFood.ingredient.unitCount.formatDecimal(3)
+                                } else {
+                                    withFood.ingredient.amountBaseUnits.formatDecimal(3)
+                                },
+                                units = units,
+                                selectedUnitId = unit?.id,
+                            )
                         },
                     )
                 }
@@ -118,12 +154,35 @@ class RecipeEditViewModel @Inject constructor(
         _state.value = _state.value.copy(
             ingredients = _state.value.ingredients + food.toIngredientRow(amountText = ""),
         )
+        // The row is added immediately (the screen focuses its amount field right away); the food's
+        // units arrive a moment later and only add chips below the field.
+        viewModelScope.launch {
+            val units = foodRepository.getUnits(food.id)
+            if (units.isNotEmpty()) {
+                updateIngredient(food.id) { it.copy(units = units) }
+            }
+        }
     }
 
     fun updateIngredientAmount(foodId: String, amountText: String) {
+        updateIngredient(foodId) { it.copy(amountText = amountText) }
+    }
+
+    /** Switches a row between base units (null) and one of the food's named units. */
+    fun selectIngredientUnit(foodId: String, unitId: String?) {
+        updateIngredient(foodId) { row ->
+            val to = row.units.firstOrNull { it.id == unitId }
+            row.copy(
+                selectedUnitId = unitId,
+                amountText = convertAmountText(row.amountText, row.selectedUnit, to),
+            )
+        }
+    }
+
+    private fun updateIngredient(foodId: String, transform: (IngredientRow) -> IngredientRow) {
         _state.value = _state.value.copy(
             ingredients = _state.value.ingredients.map {
-                if (it.foodId == foodId) it.copy(amountText = amountText) else it
+                if (it.foodId == foodId) transform(it) else it
             },
         )
     }
@@ -143,8 +202,13 @@ class RecipeEditViewModel @Inject constructor(
                 name = s.name,
                 servings = s.servings.toLocaleDoubleOrNull() ?: return@launch,
                 instructions = s.instructions.ifBlank { null },
-                ingredientDrafts = s.ingredients.map {
-                    RecipeIngredientDraft(foodId = it.foodId, amountBaseUnits = it.amountText.toLocaleDoubleOrNull() ?: 0.0)
+                ingredientDrafts = s.ingredients.map { row ->
+                    RecipeIngredientDraft(
+                        foodId = row.foodId,
+                        amountBaseUnits = row.amountBaseUnits ?: 0.0,
+                        unitName = row.selectedUnit?.name,
+                        unitCount = row.selectedUnit?.let { row.amountText.toLocaleDoubleOrNull() },
+                    )
                 },
             )
             _state.value = _state.value.copy(isSaved = true)

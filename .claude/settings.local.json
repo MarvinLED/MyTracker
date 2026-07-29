@@ -12,7 +12,9 @@
       "Bash(./gradlew :app:compileDebugKotlin --offline -q)",
       "Bash(grep -i \"sdk.dir\\\\|ndk.dir\" local.properties; ls ~/Android/Sdk/platform-tools/adb ~/Android/Sdk/emulator/emulator 2>&1 | head)",
       "Read(//home/user/Android/Sdk/platform-tools/**)",
-      "Bash(./gradlew :app:compileDebugKotlin --offline)"
+      "Bash(./gradlew :app:compileDebugKotlin --offline)",
+      "Bash(adb devices *)",
+      "Read(//home/user/Android/Sdk/emulator/**)"
     ]
   }
 }

@@ -56,8 +56,9 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.prokject2_tracker.core.ui.dismissingKeyboard
 import com.example.prokject2_tracker.core.util.formatCompact
-import com.example.prokject2_tracker.nutrition.food.BaseUnit
-import com.example.prokject2_tracker.nutrition.food.FoodItem
+import com.example.prokject2_tracker.nutrition.food.FoodAmountInput
+import com.example.prokject2_tracker.nutrition.food.FoodPickerDialog
+import com.example.prokject2_tracker.nutrition.food.label
 
 /**
  * Editing an existing Tagebuch entry: the amount, the meal it belongs to, and — for a Rezept — how
@@ -73,6 +74,8 @@ fun DiaryEditEntryScreen(
 ) {
     val state by viewModel.state.collectAsState()
     val fluidTypeNames by viewModel.fluidTypeNames.collectAsState()
+    val pickerQuery by viewModel.pickerQuery.collectAsState()
+    val pickerResults by viewModel.pickerResults.collectAsState()
     var showPicker by remember { mutableStateOf(false) }
 
     LaunchedEffect(state.isSaved) {
@@ -142,14 +145,27 @@ fun DiaryEditEntryScreen(
             }
 
             if (state.isQuantityEditable) {
-                OutlinedTextField(
-                    value = state.quantityText,
-                    onValueChange = viewModel::onQuantityChange,
-                    label = { Text(if (state.isRecipe) "Portionen" else "Menge (${entry.quantityUnit})") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                )
+                val food = state.sourceFood
+                if (food != null) {
+                    FoodAmountInput(
+                        amountText = state.quantityText,
+                        onAmountChange = viewModel::onQuantityChange,
+                        units = state.entryUnits,
+                        selectedUnitId = state.selectedUnitId,
+                        onUnitSelected = viewModel::onSelectUnit,
+                        baseUnit = food.baseUnit,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                } else {
+                    OutlinedTextField(
+                        value = state.quantityText,
+                        onValueChange = viewModel::onQuantityChange,
+                        label = { Text(if (state.isRecipe) "Portionen" else "Menge (${entry.quantityUnit})") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
             }
 
             Text("Mahlzeit", style = MaterialTheme.typography.titleSmall)
@@ -172,6 +188,7 @@ fun DiaryEditEntryScreen(
                     state = state,
                     fluidTypeNames = fluidTypeNames,
                     onAmountChange = viewModel::onIngredientAmountChange,
+                    onUnitSelected = viewModel::onSelectIngredientUnit,
                     onRemove = viewModel::removeIngredient,
                     onAdd = { showPicker = true },
                     onReset = viewModel::resetIngredientsToRecipe,
@@ -182,7 +199,9 @@ fun DiaryEditEntryScreen(
 
     if (showPicker) {
         FoodPickerDialog(
-            viewModel = viewModel,
+            query = pickerQuery,
+            results = pickerResults,
+            onQueryChange = viewModel::onPickerQueryChange,
             onDismiss = { showPicker = false },
             onPick = { food ->
                 viewModel.addIngredient(food)
@@ -198,6 +217,7 @@ private fun DayRecipeSection(
     state: DiaryEditEntryState,
     fluidTypeNames: Map<String, String>,
     onAmountChange: (String, String) -> Unit,
+    onUnitSelected: (String, String?) -> Unit,
     onRemove: (String) -> Unit,
     onAdd: () -> Unit,
     onReset: () -> Unit,
@@ -210,28 +230,42 @@ private fun DayRecipeSection(
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
     state.ingredients.forEach { row ->
-        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(row.foodName)
-                val fluidName = row.fluidTypeId?.let { fluidTypeNames[it] }
-                if (fluidName != null && row.fluidMl > 0.0) {
+        // Two lines like the Rezept editor's rows: name and delete on top, amount plus unit chips
+        // below, since a name, a number field and a chip per unit never fit across a phone's width.
+        Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(row.foodName)
+                    val fluidName = row.fluidTypeId?.let { fluidTypeNames[it] }
+                    if (fluidName != null && row.fluidMl > 0.0) {
+                        Text(
+                            "davon ${row.fluidMl.formatCompact()} ml $fluidName",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+                IconButton(onClick = { onRemove(row.foodId) }) {
+                    Icon(Icons.Filled.Close, contentDescription = "Zutat entfernen")
+                }
+            }
+            FoodAmountInput(
+                amountText = row.amountText,
+                onAmountChange = { onAmountChange(row.foodId, it) },
+                units = row.units,
+                selectedUnitId = row.selectedUnitId,
+                onUnitSelected = { onUnitSelected(row.foodId, it) },
+                baseUnit = row.baseUnit,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            row.selectedUnit?.let {
+                row.amountBaseUnits?.let { grams ->
                     Text(
-                        "davon ${row.fluidMl.formatCompact()} ml $fluidName",
+                        "= ${grams.formatCompact()} ${row.baseUnit.label()}",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-            }
-            OutlinedTextField(
-                value = row.amountText,
-                onValueChange = { onAmountChange(row.foodId, it) },
-                label = { Text(if (row.baseUnit == BaseUnit.G) "g" else "ml") },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                singleLine = true,
-                modifier = Modifier.width(110.dp),
-            )
-            IconButton(onClick = { onRemove(row.foodId) }) {
-                Icon(Icons.Filled.Close, contentDescription = "Zutat entfernen")
             }
         }
     }
@@ -251,39 +285,3 @@ private fun DayRecipeSection(
     }
 }
 
-@Composable
-private fun FoodPickerDialog(
-    viewModel: DiaryEditEntryViewModel,
-    onDismiss: () -> Unit,
-    onPick: (FoodItem) -> Unit,
-) {
-    val query by viewModel.pickerQuery.collectAsState()
-    val results by viewModel.pickerResults.collectAsState()
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        confirmButton = { TextButton(onClick = onDismiss) { Text("Fertig") } },
-        title = { Text("Lebensmittel wählen") },
-        text = {
-            Column(modifier = Modifier.fillMaxSize()) {
-                OutlinedTextField(
-                    value = query,
-                    onValueChange = viewModel::onPickerQueryChange,
-                    label = { Text("Suche") },
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                LazyColumn(modifier = Modifier.height(300.dp)) {
-                    items(results, key = { it.id }) { food ->
-                        Text(
-                            food.name,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { onPick(food) }
-                                .padding(vertical = 12.dp),
-                        )
-                    }
-                }
-            }
-        },
-    )
-}

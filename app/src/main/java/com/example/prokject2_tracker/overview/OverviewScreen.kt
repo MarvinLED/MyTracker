@@ -53,8 +53,9 @@ import com.example.prokject2_tracker.habit.HabitType
 import com.example.prokject2_tracker.habit.HabitValueDialog
 import com.example.prokject2_tracker.nutrition.diary.MealType
 import com.example.prokject2_tracker.nutrition.diary.label
-import com.example.prokject2_tracker.nutrition.food.BaseUnit
+import com.example.prokject2_tracker.nutrition.food.FoodAmountInput
 import com.example.prokject2_tracker.nutrition.food.FoodItem
+import com.example.prokject2_tracker.nutrition.food.FoodUnit
 import com.example.prokject2_tracker.ui.theme.AppDomain
 import com.example.prokject2_tracker.ui.theme.topAppBarColors
 
@@ -70,6 +71,8 @@ fun OverviewScreen(
     val foodResults by viewModel.foodResults.collectAsState()
     val selectedFood by viewModel.selectedFood.collectAsState()
     val amountText by viewModel.amountText.collectAsState()
+    val foodUnits by viewModel.foodUnits.collectAsState()
+    val selectedUnitId by viewModel.selectedUnitId.collectAsState()
     val mealType by viewModel.mealType.collectAsState()
 
     var valueDialogHabit by remember { mutableStateOf<Habit?>(null) }
@@ -137,10 +140,13 @@ fun OverviewScreen(
                 foodResults = foodResults,
                 selectedFood = selectedFood,
                 amountText = amountText,
+                foodUnits = foodUnits,
+                selectedUnitId = selectedUnitId,
                 mealType = mealType,
                 onFoodQueryChange = viewModel::onFoodQueryChange,
                 onSelectFood = viewModel::onSelectFood,
                 onAmountChange = viewModel::onAmountChange,
+                onSelectUnit = viewModel::onSelectUnit,
                 onMealTypeChange = viewModel::onMealTypeChange,
                 onConfirm = viewModel::confirmLogFood,
             )
@@ -259,10 +265,13 @@ private fun FoodSection(
     foodResults: List<FoodItem>,
     selectedFood: FoodItem?,
     amountText: String,
+    foodUnits: List<FoodUnit>,
+    selectedUnitId: String?,
     mealType: MealType,
     onFoodQueryChange: (String) -> Unit,
     onSelectFood: (FoodItem) -> Unit,
     onAmountChange: (String) -> Unit,
+    onSelectUnit: (String?) -> Unit,
     onMealTypeChange: (MealType) -> Unit,
     onConfirm: () -> Unit,
 ) {
@@ -286,11 +295,13 @@ private fun FoodSection(
         selectedFood?.let { food ->
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(food.name, style = MaterialTheme.typography.bodyMedium)
-                OutlinedTextField(
-                    value = amountText,
-                    onValueChange = onAmountChange,
-                    label = { Text(if (food.baseUnit == BaseUnit.G) "Menge (g)" else "Menge (ml)") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                FoodAmountInput(
+                    amountText = amountText,
+                    onAmountChange = onAmountChange,
+                    units = foodUnits,
+                    selectedUnitId = selectedUnitId,
+                    onUnitSelected = onSelectUnit,
+                    baseUnit = food.baseUnit,
                     modifier = Modifier.fillMaxWidth(),
                 )
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

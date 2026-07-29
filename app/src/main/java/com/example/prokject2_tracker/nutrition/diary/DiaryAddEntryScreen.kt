@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -63,8 +64,9 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.prokject2_tracker.core.ui.dismissingKeyboard
 import com.example.prokject2_tracker.core.util.formatCompact
 import com.example.prokject2_tracker.core.util.toLocaleDoubleOrNull
-import com.example.prokject2_tracker.nutrition.food.BaseUnit
+import com.example.prokject2_tracker.nutrition.food.FoodAmountInput
 import com.example.prokject2_tracker.nutrition.food.FoodItem
+import com.example.prokject2_tracker.nutrition.food.amountInBaseUnits
 import com.example.prokject2_tracker.nutrition.recipe.RecipeWithNutrition
 import com.example.prokject2_tracker.ui.theme.AppDomain
 
@@ -84,6 +86,8 @@ fun DiaryAddEntryScreen(
     val selectedFood by viewModel.selectedFood.collectAsState()
     val selectedRecipe by viewModel.selectedRecipe.collectAsState()
     val amountText by viewModel.amountText.collectAsState()
+    val foodUnits by viewModel.foodUnits.collectAsState()
+    val selectedUnitId by viewModel.selectedUnitId.collectAsState()
     val quick by viewModel.quick.collectAsState()
     val mealType by viewModel.mealType.collectAsState()
     val isValid by viewModel.isValid.collectAsState()
@@ -263,55 +267,62 @@ fun DiaryAddEntryScreen(
 
                 HorizontalDivider()
 
-                val amountLabel = when {
-                    selectedFood != null -> if (selectedFood?.baseUnit == BaseUnit.G) "Menge (g)" else "Menge (ml)"
-                    selectedRecipe != null -> "Portionen"
-                    else -> "Menge"
-                }
-                OutlinedTextField(
-                    value = amountText,
-                    onValueChange = viewModel::onAmountChange,
-                    label = { Text(amountLabel) },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Done),
-                    singleLine = true,
-                    enabled = selectedFood != null || selectedRecipe != null,
-                    modifier = Modifier.fillMaxWidth(),
-                )
+                val food = selectedFood
+                if (food != null) {
+                    FoodAmountInput(
+                        amountText = amountText,
+                        onAmountChange = viewModel::onAmountChange,
+                        units = foodUnits,
+                        selectedUnitId = selectedUnitId,
+                        onUnitSelected = viewModel::selectUnit,
+                        baseUnit = food.baseUnit,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
 
-                // Stepper buttons for the common case of nudging a weight, so the keyboard never has
-                // to open. Only for Lebensmittel: ±100 of a Portion isn't a thing.
-                if (selectedFood != null) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                        listOf(-100.0, -10.0, 10.0, 100.0).forEach { delta ->
-                            OutlinedButton(
-                                onClick = { viewModel.adjustAmount(delta) },
-                                contentPadding = PaddingValues(horizontal = 4.dp, vertical = 8.dp),
-                                modifier = Modifier.weight(1f),
-                            ) {
-                                Text(
-                                    if (delta > 0) "+${delta.formatCompact()}" else delta.formatCompact(),
-                                    style = MaterialTheme.typography.labelLarge,
-                                )
+                    // Stepper buttons for the common case of nudging a weight, so the keyboard never
+                    // has to open. Only in base-unit mode: ±100 Scheiben isn't a thing.
+                    if (selectedUnitId == null) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                            listOf(-100.0, -10.0, 10.0, 100.0).forEach { delta ->
+                                OutlinedButton(
+                                    onClick = { viewModel.adjustAmount(delta) },
+                                    contentPadding = PaddingValues(horizontal = 4.dp, vertical = 8.dp),
+                                    modifier = Modifier.weight(1f),
+                                ) {
+                                    Text(
+                                        if (delta > 0) "+${delta.formatCompact()}" else delta.formatCompact(),
+                                        style = MaterialTheme.typography.labelLarge,
+                                    )
+                                }
                             }
                         }
                     }
+                } else {
+                    OutlinedTextField(
+                        value = amountText,
+                        onValueChange = viewModel::onAmountChange,
+                        label = { Text(if (selectedRecipe != null) "Portionen" else "Menge") },
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Decimal,
+                            imeAction = ImeAction.Done,
+                        ),
+                        keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
+                        singleLine = true,
+                        enabled = selectedRecipe != null,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
                 }
 
-                selectedFood?.let { food ->
-                    food.servingAmount?.takeIf { it > 0.0 }?.let { serving ->
-                        AssistChip(
-                            onClick = { viewModel.onAmountChange(serving.formatCompact()) },
-                            label = {
-                                Text("1 ${food.servingName.orEmpty().ifBlank { "Portion" }} (${serving.formatCompact()} g)")
-                            },
-                        )
-                    }
+                // Both the preview and the saved entry are computed from the resolved base-unit
+                // amount, so picking "2 × Scheibe" and typing "50 g" can never disagree.
+                val amount = if (food != null) {
+                    amountInBaseUnits(amountText, foodUnits.firstOrNull { it.id == selectedUnitId })
+                } else {
+                    amountText.toLocaleDoubleOrNull()
                 }
-
-                val amount = amountText.toLocaleDoubleOrNull()
                 if (amount != null && amount > 0.0) {
                     val totals = when {
-                        selectedFood != null -> selectedFood!!.let { food ->
+                        food != null -> {
                             val factor = amount / 100.0
                             listOf(
                                 food.kcalPer100 * factor,

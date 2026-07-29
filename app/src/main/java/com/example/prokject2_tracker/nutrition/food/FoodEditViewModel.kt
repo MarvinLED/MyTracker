@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.navigation.toRoute
 import com.example.prokject2_tracker.core.util.IdGenerator
+import com.example.prokject2_tracker.core.util.formatDecimal
 import com.example.prokject2_tracker.core.util.toLocaleDoubleOrNull
 import com.example.prokject2_tracker.fluid.FluidRepository
 import com.example.prokject2_tracker.fluid.FluidType
@@ -24,6 +25,9 @@ private fun String.isBlankOrValidNumber(): Boolean = isBlank() || toLocaleDouble
 /** Blank defaults to 0.0; a non-blank, already-validated value is parsed as-is. */
 private fun String.toNutrientValue(): Double = toLocaleDoubleOrNull() ?: 0.0
 
+/** One editable row of the "Einheiten" section; [amount] is free text until save. */
+data class UnitRow(val name: String = "", val amount: String = "")
+
 data class FoodEditState(
     val id: String? = null,
     val name: String = "",
@@ -36,8 +40,7 @@ data class FoodEditState(
     val sugarPer100: String = "",
     val fiberPer100: String = "",
     val saltPer100: String = "",
-    val servingName: String = "",
-    val servingAmount: String = "",
+    val units: List<UnitRow> = emptyList(),
     /** null = this food isn't (partly) a drink; see [FoodItem.fluidTypeId]. */
     val fluidTypeId: String? = null,
     /** Blank means "consists entirely of it" and is saved as 100 ml per 100 g. */
@@ -56,8 +59,15 @@ data class FoodEditState(
             sugarPer100.isBlankOrValidNumber() &&
             fiberPer100.isBlankOrValidNumber() &&
             saltPer100.isBlankOrValidNumber() &&
+            units.all { it.isBlank || it.isComplete } &&
             (fluidTypeId == null || fluidMlPer100.isBlankOrValidNumber())
 }
+
+/** An untouched row is simply dropped on save; a half-filled one blocks it. */
+private val UnitRow.isBlank: Boolean get() = name.isBlank() && amount.isBlank()
+
+private val UnitRow.isComplete: Boolean
+    get() = name.isNotBlank() && amount.toLocaleDoubleOrNull()?.let { it > 0.0 } == true
 
 @HiltViewModel
 class FoodEditViewModel @Inject constructor(
@@ -99,8 +109,9 @@ class FoodEditViewModel @Inject constructor(
                         sugarPer100 = food.sugarPer100.toString(),
                         fiberPer100 = food.fiberPer100.toString(),
                         saltPer100 = food.saltPer100.toString(),
-                        servingName = food.servingName.orEmpty(),
-                        servingAmount = food.servingAmount?.toString().orEmpty(),
+                        units = foodRepository.getUnits(food.id).map {
+                            UnitRow(name = it.name, amount = it.amountBaseUnits.formatDecimal(3))
+                        },
                         fluidTypeId = food.fluidTypeId,
                         fluidMlPer100 = food.fluidMlPer100?.toString().orEmpty(),
                         tags = tagRepository.getTagsForFoodOnce(food.id),
@@ -151,9 +162,27 @@ class FoodEditViewModel @Inject constructor(
     fun onSugarChange(value: String) { _state.value = _state.value.copy(sugarPer100 = value) }
     fun onFiberChange(value: String) { _state.value = _state.value.copy(fiberPer100 = value) }
     fun onSaltChange(value: String) { _state.value = _state.value.copy(saltPer100 = value) }
-    fun onServingNameChange(value: String) { _state.value = _state.value.copy(servingName = value) }
-    fun onServingAmountChange(value: String) { _state.value = _state.value.copy(servingAmount = value) }
     fun onFluidMlPer100Change(value: String) { _state.value = _state.value.copy(fluidMlPer100 = value) }
+
+    fun addUnitRow() {
+        _state.value = _state.value.copy(units = _state.value.units + UnitRow())
+    }
+
+    fun onUnitNameChange(index: Int, value: String) = updateUnitRow(index) { it.copy(name = value) }
+
+    fun onUnitAmountChange(index: Int, value: String) = updateUnitRow(index) { it.copy(amount = value) }
+
+    fun removeUnitRow(index: Int) {
+        _state.value = _state.value.copy(
+            units = _state.value.units.filterIndexed { i, _ -> i != index },
+        )
+    }
+
+    private fun updateUnitRow(index: Int, transform: (UnitRow) -> UnitRow) {
+        _state.value = _state.value.copy(
+            units = _state.value.units.mapIndexed { i, row -> if (i == index) transform(row) else row },
+        )
+    }
 
     /** Picking a type pre-fills 100 ml/100 g ("besteht ganz daraus"); clearing it drops the amount too. */
     fun onFluidTypeChange(typeId: String?) {
@@ -170,8 +199,9 @@ class FoodEditViewModel @Inject constructor(
         if (!s.isValid) return
         viewModelScope.launch {
             val brand = s.brand.ifBlank { null }
-            val servingName = s.servingName.ifBlank { null }
-            val servingAmount = s.servingAmount.toLocaleDoubleOrNull()
+            val unitDrafts = s.units.filter { it.isComplete }.map {
+                FoodUnitDraft(name = it.name, amountBaseUnits = it.amount.toLocaleDoubleOrNull() ?: 0.0)
+            }
             // A picked type with a blank amount means "besteht ganz aus dieser Flüssigkeit" = 100 ml/100 g.
             val fluidMlPer100 = s.fluidTypeId?.let { s.fluidMlPer100.toLocaleDoubleOrNull() ?: 100.0 }
             val current = existing
@@ -189,8 +219,6 @@ class FoodEditViewModel @Inject constructor(
                     sugarPer100 = s.sugarPer100.toNutrientValue(),
                     fiberPer100 = s.fiberPer100.toNutrientValue(),
                     saltPer100 = s.saltPer100.toNutrientValue(),
-                    servingName = servingName,
-                    servingAmount = servingAmount,
                     fluidTypeId = s.fluidTypeId,
                     fluidMlPer100 = fluidMlPer100,
                 )
@@ -211,14 +239,13 @@ class FoodEditViewModel @Inject constructor(
                         sugarPer100 = s.sugarPer100.toNutrientValue(),
                         fiberPer100 = s.fiberPer100.toNutrientValue(),
                         saltPer100 = s.saltPer100.toNutrientValue(),
-                        servingName = servingName,
-                        servingAmount = servingAmount,
                         fluidTypeId = s.fluidTypeId,
                         fluidMlPer100 = fluidMlPer100,
                     ),
                 )
             }
             tagRepository.setFoodTagsByName(savedFoodId, s.tags.map { it.name })
+            foodRepository.setUnits(savedFoodId, unitDrafts)
             _state.value = _state.value.copy(isSaved = true)
         }
     }

@@ -9,7 +9,12 @@ import kotlinx.serialization.Serializable
 @Serializable
 enum class BaseUnit { G, ML }
 
-/** A user-created Lebensmittel. Macros are stored per 100 [baseUnit] (100 g or 100 ml). */
+/**
+ * A user-created Lebensmittel. Macros are stored per 100 [baseUnit] (100 g or 100 ml).
+ *
+ * Named servings ("Scheibe", "Stück") are not fields here — a food can have any number of them, see
+ * [FoodUnit].
+ */
 @Entity(tableName = "food_items", indices = [Index("name")])
 data class FoodItem(
     @PrimaryKey val id: String,
@@ -25,10 +30,6 @@ data class FoodItem(
     val sugarPer100: Double = 0.0,
     val fiberPer100: Double = 0.0,
     val saltPer100: Double = 0.0,
-    /** Optional named serving (e.g. "Scheibe") purely as a logging-UI convenience. */
-    val servingName: String? = null,
-    /** Amount of [baseUnit] that one [servingName] corresponds to. */
-    val servingAmount: Double? = null,
     /**
      * Optional link into the Getränkearten library: this food (partly) *consists of* that fluid,
      * so logging it to the diary also logs a fluid entry. Null means the food isn't a drink.

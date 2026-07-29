@@ -34,6 +34,8 @@ data class RecipeWithNutrition(
 data class RecipeIngredientDraft(
     val foodId: String,
     val amountBaseUnits: Double,
+    val unitName: String? = null,
+    val unitCount: Double? = null,
 )
 
 @Singleton
@@ -69,6 +71,8 @@ class RecipeRepository @Inject constructor(
                 recipeId = recipe.id,
                 foodId = draft.foodId,
                 amountBaseUnits = draft.amountBaseUnits,
+                unitName = draft.unitName,
+                unitCount = draft.unitCount,
                 sortOrder = index,
             )
         }

@@ -6,8 +6,16 @@ import com.example.prokject2_tracker.nutrition.food.FoodItem
 /**
  * A food and how much of it, in the food's own base unit — what both a Rezept's ingredient list and
  * a Tagebuch entry's per-day copy of one reduce to before any nutrition or fluid is computed.
+ *
+ * [unitName]/[unitCount] only record how the amount was *entered* ("2 × Scheibe"); nothing computes
+ * with them, so they carry along untouched.
  */
-data class FoodAmount(val food: FoodItem, val amountBaseUnits: Double)
+data class FoodAmount(
+    val food: FoodItem,
+    val amountBaseUnits: Double,
+    val unitName: String? = null,
+    val unitCount: Double? = null,
+)
 
 /**
  * Nutrition for some amount of food. Covers every [Nutrient] a goal can be set for, so a diary

@@ -40,6 +40,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.prokject2_tracker.core.util.DateUtils
 import com.example.prokject2_tracker.core.util.formatCompact
+import com.example.prokject2_tracker.nutrition.food.formatAmount
 import com.example.prokject2_tracker.ui.theme.AppDomain
 import com.example.prokject2_tracker.ui.theme.topAppBarColors
 import java.time.format.DateTimeFormatter
@@ -199,7 +200,13 @@ private fun DiaryEntryRow(entry: DiaryEntry, onEdit: () -> Unit, onDelete: () ->
                 val details = if (entry.sourceType == DiarySourceType.QUICK) {
                     "${entry.quantityUnit} · ${entry.kcal.formatCompact()} kcal"
                 } else {
-                    "${entry.quantity.formatCompact()} ${entry.quantityUnit} · ${entry.kcal.formatCompact()} kcal"
+                    val amount = formatAmount(
+                        amountBaseUnits = entry.quantity,
+                        unitName = entry.unitName,
+                        unitCount = entry.unitCount,
+                        baseUnitLabel = entry.quantityUnit,
+                    )
+                    "$amount · ${entry.kcal.formatCompact()} kcal"
                 }
                 Text(details)
             }

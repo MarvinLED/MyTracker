@@ -6,11 +6,35 @@ import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.flow.Flow
 
+/** A unit as edited in the UI, before it has an id — see [FoodRepository.setUnits]. */
+data class FoodUnitDraft(val name: String, val amountBaseUnits: Double)
+
 @Singleton
 class FoodRepository @Inject constructor(
     private val foodDao: FoodDao,
+    private val foodUnitDao: FoodUnitDao,
 ) {
     fun observeAll(): Flow<List<FoodItem>> = foodDao.observeAll()
+
+    fun observeUnits(foodId: String): Flow<List<FoodUnit>> = foodUnitDao.observeForFood(foodId)
+
+    suspend fun getUnits(foodId: String): List<FoodUnit> = foodUnitDao.getForFood(foodId)
+
+    /** Wholesale-replaces a food's units; blank names and non-positive amounts are dropped. */
+    suspend fun setUnits(foodId: String, drafts: List<FoodUnitDraft>) {
+        val units = drafts
+            .filter { it.name.isNotBlank() && it.amountBaseUnits > 0.0 }
+            .mapIndexed { index, draft ->
+                FoodUnit(
+                    id = IdGenerator.newId(),
+                    foodItemId = foodId,
+                    name = draft.name.trim(),
+                    amountBaseUnits = draft.amountBaseUnits,
+                    sortOrder = index,
+                )
+            }
+        foodUnitDao.replaceForFood(foodId, units)
+    }
 
     fun search(query: String): Flow<List<FoodItem>> = foodDao.search(query)
 
@@ -30,8 +54,6 @@ class FoodRepository @Inject constructor(
         sugarPer100: Double,
         fiberPer100: Double,
         saltPer100: Double,
-        servingName: String?,
-        servingAmount: Double?,
         fluidTypeId: String?,
         fluidMlPer100: Double?,
     ): FoodItem {
@@ -49,8 +71,6 @@ class FoodRepository @Inject constructor(
             sugarPer100 = sugarPer100,
             fiberPer100 = fiberPer100,
             saltPer100 = saltPer100,
-            servingName = servingName,
-            servingAmount = servingAmount,
             fluidTypeId = fluidTypeId,
             fluidMlPer100 = fluidMlPer100,
             createdAt = now,

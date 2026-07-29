@@ -36,6 +36,8 @@ import com.example.prokject2_tracker.nutrition.diary.DiaryRecipeIngredient
 import com.example.prokject2_tracker.nutrition.food.FoodDao
 import com.example.prokject2_tracker.nutrition.food.FoodItem
 import com.example.prokject2_tracker.nutrition.food.FoodItemTag
+import com.example.prokject2_tracker.nutrition.food.FoodUnit
+import com.example.prokject2_tracker.nutrition.food.FoodUnitDao
 import com.example.prokject2_tracker.nutrition.food.Tag
 import com.example.prokject2_tracker.nutrition.food.TagDao
 import com.example.prokject2_tracker.nutrition.recipe.Recipe
@@ -47,6 +49,7 @@ import com.example.prokject2_tracker.weight.BodyWeightEntry
 @Database(
     entities = [
         FoodItem::class,
+        FoodUnit::class,
         Recipe::class,
         RecipeIngredient::class,
         DiaryEntry::class,
@@ -69,12 +72,13 @@ import com.example.prokject2_tracker.weight.BodyWeightEntry
         BodyWeightEntry::class,
         FitnessGoal::class,
     ],
-    version = 13,
+    version = 14,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun foodDao(): FoodDao
+    abstract fun foodUnitDao(): FoodUnitDao
     abstract fun recipeDao(): RecipeDao
     abstract fun diaryDao(): DiaryDao
     abstract fun fluidDao(): FluidDao

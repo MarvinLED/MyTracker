@@ -1,17 +1,13 @@
 package com.example.prokject2_tracker.nutrition.recipe
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -19,7 +15,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -41,14 +36,17 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.prokject2_tracker.core.ui.dismissingKeyboard
 import com.example.prokject2_tracker.core.util.formatCompact
 import com.example.prokject2_tracker.core.util.toLocaleDoubleOrNull
-import com.example.prokject2_tracker.nutrition.food.BaseUnit
-import com.example.prokject2_tracker.nutrition.food.FoodItem
+import com.example.prokject2_tracker.nutrition.food.FoodAmountInput
+import com.example.prokject2_tracker.nutrition.food.FoodPickerDialog
+import com.example.prokject2_tracker.nutrition.food.label
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -59,14 +57,21 @@ fun RecipeEditScreen(
 ) {
     val state by viewModel.state.collectAsState()
     val fluidTypeNames by viewModel.fluidTypeNames.collectAsState()
+    val pickerQuery by viewModel.pickerQuery.collectAsState()
+    val pickerResults by viewModel.pickerResults.collectAsState()
     var showPicker by remember { mutableStateOf(false) }
+    // The ingredient whose amount field should take the cursor — set when one is just added, and
+    // cleared again by the row itself so a later recomposition can't steal the focus back.
+    var focusTargetFoodId by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(state.isSaved) {
         if (state.isSaved) onDone()
     }
 
     Scaffold(
-        modifier = modifier,
+        // imePadding lifts the frame above the keyboard, so the row that just took the cursor stays
+        // visible instead of sitting behind the number pad.
+        modifier = modifier.imePadding(),
         topBar = {
             TopAppBar(
                 title = { Text(if (state.id == null) "Rezept hinzufügen" else "Rezept bearbeiten") },
@@ -109,32 +114,15 @@ fun RecipeEditScreen(
             )
             Text("Zutaten", style = MaterialTheme.typography.titleSmall)
             state.ingredients.forEach { row ->
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(row.foodName)
-                        val fluidName = row.fluidTypeId?.let { fluidTypeNames[it] }
-                        if (fluidName != null && row.fluidMl > 0.0) {
-                            Text(
-                                "davon ${row.fluidMl.formatCompact()} ml $fluidName",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                    }
-                    OutlinedTextField(
-                        value = row.amountText,
-                        onValueChange = { viewModel.updateIngredientAmount(row.foodId, it) },
-                        label = { Text(if (row.baseUnit == BaseUnit.G) "g" else "ml") },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                        modifier = Modifier.width(100.dp),
-                    )
-                    IconButton(onClick = { viewModel.removeIngredient(row.foodId) }) {
-                        Icon(Icons.Filled.Close, contentDescription = "Entfernen")
-                    }
-                }
+                IngredientEditRow(
+                    row = row,
+                    fluidTypeNames = fluidTypeNames,
+                    requestFocus = focusTargetFoodId == row.foodId,
+                    onFocusHandled = { focusTargetFoodId = null },
+                    onAmountChange = { viewModel.updateIngredientAmount(row.foodId, it) },
+                    onUnitSelected = { viewModel.selectIngredientUnit(row.foodId, it) },
+                    onRemove = { viewModel.removeIngredient(row.foodId) },
+                )
             }
             Button(onClick = { showPicker = true }) {
                 Icon(Icons.Filled.Add, contentDescription = null)
@@ -151,13 +139,86 @@ fun RecipeEditScreen(
 
     if (showPicker) {
         FoodPickerDialog(
-            viewModel = viewModel,
+            query = pickerQuery,
+            results = pickerResults,
+            onQueryChange = viewModel::onPickerQueryChange,
             onDismiss = { showPicker = false },
             onPick = { food ->
                 viewModel.addIngredient(food)
+                focusTargetFoodId = food.id
                 showPicker = false
             },
         )
+    }
+}
+
+/**
+ * One ingredient: name and delete on top, amount plus unit chips below. Two lines rather than one,
+ * because a name, a number field and a chip per unit never fit across a phone's width.
+ */
+@Composable
+private fun IngredientEditRow(
+    row: IngredientRow,
+    fluidTypeNames: Map<String, String>,
+    requestFocus: Boolean,
+    onFocusHandled: () -> Unit,
+    onAmountChange: (String) -> Unit,
+    onUnitSelected: (String?) -> Unit,
+    onRemove: () -> Unit,
+) {
+    val focusRequester = remember { FocusRequester() }
+    val keyboardController = LocalSoftwareKeyboardController.current
+
+    // Adding an ingredient puts the cursor straight into its amount field and opens the number pad:
+    // typing the amount is always the next thing to do.
+    LaunchedEffect(requestFocus) {
+        if (requestFocus) {
+            focusRequester.requestFocus()
+            keyboardController?.show()
+            onFocusHandled()
+        }
+    }
+
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(row.foodName)
+                val fluidName = row.fluidTypeId?.let { fluidTypeNames[it] }
+                if (fluidName != null && row.fluidMl > 0.0) {
+                    Text(
+                        "davon ${row.fluidMl.formatCompact()} ml $fluidName",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+            IconButton(onClick = onRemove) {
+                Icon(Icons.Filled.Close, contentDescription = "Entfernen")
+            }
+        }
+        FoodAmountInput(
+            amountText = row.amountText,
+            onAmountChange = onAmountChange,
+            units = row.units,
+            selectedUnitId = row.selectedUnitId,
+            onUnitSelected = onUnitSelected,
+            baseUnit = row.baseUnit,
+            focusRequester = focusRequester,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        // What the row contributes in grams, once it was entered as a count of a unit.
+        row.selectedUnit?.let {
+            row.amountBaseUnits?.let { grams ->
+                Text(
+                    "= ${grams.formatCompact()} ${row.baseUnit.label()}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
     }
 }
 
@@ -205,39 +266,3 @@ private fun FluidSummaryCard(fluids: List<Pair<String, Double>>, servings: Doubl
     }
 }
 
-@Composable
-private fun FoodPickerDialog(
-    viewModel: RecipeEditViewModel,
-    onDismiss: () -> Unit,
-    onPick: (FoodItem) -> Unit,
-) {
-    val query by viewModel.pickerQuery.collectAsState()
-    val results by viewModel.pickerResults.collectAsState()
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        confirmButton = { TextButton(onClick = onDismiss) { Text("Fertig") } },
-        title = { Text("Lebensmittel wählen") },
-        text = {
-            Column(modifier = Modifier.fillMaxSize()) {
-                OutlinedTextField(
-                    value = query,
-                    onValueChange = viewModel::onPickerQueryChange,
-                    label = { Text("Suche") },
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                LazyColumn(modifier = Modifier.height(300.dp)) {
-                    items(results, key = { it.id }) { food ->
-                        Text(
-                            food.name,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { onPick(food) }
-                                .padding(vertical = 12.dp),
-                        )
-                    }
-                }
-            }
-        },
-    )
-}

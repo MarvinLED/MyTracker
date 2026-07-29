@@ -8,6 +8,9 @@ import com.example.prokject2_tracker.core.util.formatDecimal
 import com.example.prokject2_tracker.core.util.toLocaleDoubleOrNull
 import com.example.prokject2_tracker.nutrition.food.FoodItem
 import com.example.prokject2_tracker.nutrition.food.FoodRepository
+import com.example.prokject2_tracker.nutrition.food.FoodUnit
+import com.example.prokject2_tracker.nutrition.food.amountInBaseUnits
+import com.example.prokject2_tracker.nutrition.food.convertAmountText
 import com.example.prokject2_tracker.nutrition.recipe.RecipeRepository
 import com.example.prokject2_tracker.nutrition.recipe.RecipeWithNutrition
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -27,7 +30,7 @@ import kotlinx.coroutines.launch
 /** Blank is allowed (counts as 0); a non-blank value must parse as a number. */
 private fun String.isBlankOrValidNumber(): Boolean = isBlank() || toLocaleDoubleOrNull() != null
 
-/** Prefilled when a food has no named serving size — its values are given per 100 g/ml anyway. */
+/** Prefilled for a food: its values are given per 100 g/ml, so that's the natural starting point. */
 private const val DEFAULT_FOOD_AMOUNT = "100"
 
 /** Blank means "not specified" and contributes 0 to the entry. */
@@ -92,6 +95,18 @@ class DiaryAddEntryViewModel @Inject constructor(
     private val _amountText = MutableStateFlow("")
     val amountText: StateFlow<String> = _amountText.asStateFlow()
 
+    /** The selected food's named units, empty for recipes and Schnelleinträge. */
+    val foodUnits: StateFlow<List<FoodUnit>> = _selectedFood
+        .flatMapLatest { food -> food?.let { foodRepository.observeUnits(it.id) } ?: flowOf(emptyList()) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    /** null = the amount is being typed in the food's base unit (g/ml). */
+    private val _selectedUnitId = MutableStateFlow<String?>(null)
+    val selectedUnitId: StateFlow<String?> = _selectedUnitId.asStateFlow()
+
+    private val selectedUnit: FoodUnit?
+        get() = foodUnits.value.firstOrNull { it.id == _selectedUnitId.value }
+
     private val _quick = MutableStateFlow(QuickEntryState())
     val quick: StateFlow<QuickEntryState> = _quick.asStateFlow()
 
@@ -115,15 +130,24 @@ class DiaryAddEntryViewModel @Inject constructor(
         _selectedFood.value = null
         _selectedRecipe.value = null
         _amountText.value = ""
+        _selectedUnitId.value = null
     }
 
     fun onQueryChange(value: String) { _query.value = value }
 
     fun selectFood(food: FoodItem) {
         _selectedFood.value = food
-        // A named serving wins; otherwise 100 g/ml, since that's the unit the food's values are given
-        // in and by far the most common thing to log. Beats making the user type it every time.
-        _amountText.value = food.servingAmount?.toString() ?: DEFAULT_FOOD_AMOUNT
+        // 100 g/ml is the unit the food's values are given in and by far the most common thing to
+        // log; a named unit is one tap away from there.
+        _amountText.value = DEFAULT_FOOD_AMOUNT
+        _selectedUnitId.value = null
+    }
+
+    /** Switches between the base unit (null) and one of the food's named units, keeping the amount. */
+    fun selectUnit(unitId: String?) {
+        val from = selectedUnit
+        _selectedUnitId.value = unitId
+        _amountText.value = convertAmountText(_amountText.value, from, selectedUnit)
     }
 
     /** Steps the amount by [delta], clamped at 0 — the ± buttons next to the Menge field. */
@@ -135,12 +159,14 @@ class DiaryAddEntryViewModel @Inject constructor(
     fun selectRecipe(recipe: RecipeWithNutrition) {
         _selectedRecipe.value = recipe
         _amountText.value = "1"
+        _selectedUnitId.value = null
     }
 
     fun clearSelection() {
         _selectedFood.value = null
         _selectedRecipe.value = null
         _amountText.value = ""
+        _selectedUnitId.value = null
     }
 
     fun onAmountChange(value: String) { _amountText.value = value }
@@ -158,13 +184,22 @@ class DiaryAddEntryViewModel @Inject constructor(
             saveQuick()
             return
         }
-        val amount = _amountText.value.toLocaleDoubleOrNull() ?: return
+        val typed = _amountText.value.toLocaleDoubleOrNull() ?: return
+        val unit = selectedUnit
+        val amount = amountInBaseUnits(_amountText.value, unit) ?: return
         val food = _selectedFood.value
         val recipe = _selectedRecipe.value
         viewModelScope.launch {
             when {
-                food != null -> diaryRepository.logFood(epochDay, food.id, amount, _mealType.value)
-                recipe != null -> diaryRepository.logRecipe(epochDay, recipe.recipe.id, amount, _mealType.value)
+                food != null -> diaryRepository.logFood(
+                    epochDay = epochDay,
+                    foodId = food.id,
+                    amountBaseUnits = amount,
+                    mealType = _mealType.value,
+                    unitName = unit?.name,
+                    unitCount = unit?.let { typed },
+                )
+                recipe != null -> diaryRepository.logRecipe(epochDay, recipe.recipe.id, typed, _mealType.value)
                 else -> return@launch
             }
             _isSaved.value = true

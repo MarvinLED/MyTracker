@@ -568,3 +568,56 @@ object MIGRATION_12_13 : Migration(12, 13) {
         db.execSQL("ALTER TABLE `fitness_goals` ADD COLUMN `movementDirection` TEXT")
     }
 }
+
+object MIGRATION_13_14 : Migration(13, 14) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        // food_units: a food's named amounts ("Scheibe" = 25 g), replacing the single optional
+        // serving that lived on food_items as servingName/servingAmount.
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `food_units` (`id` TEXT NOT NULL, `foodItemId` TEXT NOT NULL, " +
+                "`name` TEXT NOT NULL, `amountBaseUnits` REAL NOT NULL, `sortOrder` INTEGER NOT NULL, " +
+                "PRIMARY KEY(`id`), " +
+                "FOREIGN KEY(`foodItemId`) REFERENCES `food_items`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        )
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_food_units_foodItemId` ON `food_units` (`foodItemId`)")
+
+        // Every food that had a serving keeps it as its first unit. The id is derived from the food's
+        // so it stays stable if this runs against a database that already imported such a backup.
+        db.execSQL(
+            "INSERT OR IGNORE INTO `food_units` (`id`, `foodItemId`, `name`, `amountBaseUnits`, `sortOrder`) " +
+                "SELECT `id` || '-serving', `id`, `servingName`, `servingAmount`, 0 FROM `food_items` " +
+                "WHERE `servingName` IS NOT NULL AND `servingName` != '' " +
+                "AND `servingAmount` IS NOT NULL AND `servingAmount` > 0",
+        )
+
+        // food_items: drop servingName/servingAmount now that they live in food_units. SQLite can't
+        // drop a column in place, so create-copy-drop-rename (as in MIGRATION_6_7/7_8).
+        db.execSQL(
+            "CREATE TABLE `food_items_new` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, `brand` TEXT, " +
+                "`baseUnit` TEXT NOT NULL, `kcalPer100` REAL NOT NULL, `proteinPer100` REAL NOT NULL, " +
+                "`carbsPer100` REAL NOT NULL, `fatPer100` REAL NOT NULL, `saturatedFatPer100` REAL NOT NULL, " +
+                "`sugarPer100` REAL NOT NULL, `fiberPer100` REAL NOT NULL, `saltPer100` REAL NOT NULL, " +
+                "`fluidTypeId` TEXT, `fluidMlPer100` REAL, `createdAt` INTEGER NOT NULL, " +
+                "`updatedAt` INTEGER NOT NULL, PRIMARY KEY(`id`))",
+        )
+        db.execSQL(
+            "INSERT INTO `food_items_new` (`id`, `name`, `brand`, `baseUnit`, `kcalPer100`, `proteinPer100`, " +
+                "`carbsPer100`, `fatPer100`, `saturatedFatPer100`, `sugarPer100`, `fiberPer100`, `saltPer100`, " +
+                "`fluidTypeId`, `fluidMlPer100`, `createdAt`, `updatedAt`) " +
+                "SELECT `id`, `name`, `brand`, `baseUnit`, `kcalPer100`, `proteinPer100`, `carbsPer100`, " +
+                "`fatPer100`, `saturatedFatPer100`, `sugarPer100`, `fiberPer100`, `saltPer100`, " +
+                "`fluidTypeId`, `fluidMlPer100`, `createdAt`, `updatedAt` FROM `food_items`",
+        )
+        db.execSQL("DROP TABLE `food_items`")
+        db.execSQL("ALTER TABLE `food_items_new` RENAME TO `food_items`")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_food_items_name` ON `food_items` (`name`)")
+
+        // The three places an amount is recorded gain the "entered as 2 × Scheibe" snapshot next to
+        // the base-unit amount they already store. Nullable: everything logged so far was typed in
+        // grams, and that is exactly what null means.
+        listOf("diary_entries", "recipe_ingredients", "diary_recipe_ingredients").forEach { table ->
+            db.execSQL("ALTER TABLE `$table` ADD COLUMN `unitName` TEXT")
+            db.execSQL("ALTER TABLE `$table` ADD COLUMN `unitCount` REAL")
+        }
+    }
+}
