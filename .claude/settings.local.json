@@ -14,7 +14,8 @@
       "Read(//home/user/Android/Sdk/platform-tools/**)",
       "Bash(./gradlew :app:compileDebugKotlin --offline)",
       "Bash(adb devices *)",
-      "Read(//home/user/Android/Sdk/emulator/**)"
+      "Read(//home/user/Android/Sdk/emulator/**)",
+      "Bash(./gradlew assembleDebug testDebugUnitTest)"
     ]
   }
 }

@@ -34,18 +34,25 @@ import com.example.prokject2_tracker.fluid.FluidSlice
 import com.example.prokject2_tracker.nutrition.NutritionTotals
 
 /**
- * Hues for the three macros, so the same nutrient is the same colour wherever it appears. Slots out
- * of the app's validated chart palette, chosen as a trio: all-pairs CVD ΔE 13.2 and normal-vision
- * ΔE 19.3 against each other, all ≥ 3:1 on the card surface.
+ * Hues per nutrient, so the same one is the same colour wherever it appears. Slots out of the app's
+ * validated chart palette. The macros were chosen as a trio (all-pairs CVD ΔE 13.2 and
+ * normal-vision ΔE 19.3, all ≥ 3:1 on the card surface); the second row takes three of the palette's
+ * remaining slots, and since the two rows sit above each other the six are all distinct as a set.
  */
-private val MacroColors = mapOf(
+private val NutrientColors = mapOf(
     Nutrient.PROTEIN to Color(0xFF3987E5), // blau
     Nutrient.CARBS to Color(0xFFC98500), // gelb
     Nutrient.FAT to Color(0xFFD55181), // magenta
+    Nutrient.SUGAR to Color(0xFFD95926), // orange
+    Nutrient.FIBER to Color(0xFF199E70), // aqua
+    Nutrient.SALT to Color(0xFF9085E9), // violett
 )
 
-/** The three macros in the order they are drawn, top to bottom. */
+/** The three macros, left to right — the row that is always visible. */
 private val MacroOrder = listOf(Nutrient.CARBS, Nutrient.PROTEIN, Nutrient.FAT)
+
+/** The second row, folded away until the macros are tapped. */
+private val MinorNutrientOrder = listOf(Nutrient.SUGAR, Nutrient.FIBER, Nutrient.SALT)
 
 private val BarShape = RoundedCornerShape(6.dp)
 private val BarHeight = 20.dp
@@ -88,18 +95,49 @@ fun fluidBarSegments(amountsMl: List<Double>, goalMl: Double): FluidBarWidths {
  *
  * Deliberately compact: the three together take about as much room as the single calorie bar below
  * them, which is the right weight for a supporting detail next to the day's headline number.
+ *
+ * Tapping them unfolds a second row — Zucker, Ballaststoffe, Salz. Those are the follow-up question
+ * to the macros, so they get the same shape but only on request.
  */
 @Composable
 fun MacroBars(totals: NutritionTotals, goals: Map<Nutrient, NutrientGoal>, modifier: Modifier = Modifier) {
     val consumed = totals.byNutrient()
-    // Only used when a macro has no goal of its own; see macroBarFraction.
-    val peerMax = MacroOrder.maxOf { consumed[it] ?: 0.0 }
+    var showMore by remember { mutableStateOf(false) }
 
-    Row(
-        modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .clickable(
+                // Spoken by the screen reader in place of "double tap to activate", so the folded
+                // row is discoverable without seeing the bars change.
+                onClickLabel = if (showMore) {
+                    "Zucker, Ballaststoffe und Salz ausblenden"
+                } else {
+                    "Zucker, Ballaststoffe und Salz anzeigen"
+                },
+            ) { showMore = !showMore },
+        verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        MacroOrder.forEach { nutrient ->
+        NutrientBarRow(nutrients = MacroOrder, consumed = consumed, goals = goals)
+        if (showMore) {
+            NutrientBarRow(nutrients = MinorNutrientOrder, consumed = consumed, goals = goals)
+        }
+    }
+}
+
+/** Three bars side by side, each a third of the width. */
+@Composable
+private fun NutrientBarRow(
+    nutrients: List<Nutrient>,
+    consumed: Map<Nutrient, Double>,
+    goals: Map<Nutrient, NutrientGoal>,
+) {
+    // Only used for the nutrients in this row that have no goal of their own; see macroBarFraction.
+    // Per row, not across both: 6 g of salt beside 250 g of carbs would never leave the floor.
+    val peerMax = nutrients.maxOf { consumed[it] ?: 0.0 }
+
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        nutrients.forEach { nutrient ->
             MacroBar(
                 nutrient = nutrient,
                 consumed = consumed[nutrient] ?: 0.0,
@@ -129,11 +167,12 @@ private fun MacroBar(
         )
         Bar(
             fraction = macroBarFraction(consumed, goal, peerMax),
-            color = MacroColors.getValue(nutrient),
+            color = NutrientColors.getValue(nutrient),
             height = MacroBarHeight,
         )
         Text(
-            // A third of the width has no room for spaces around the slash.
+            // A third of the width has no room for spaces around the slash. Without a goal there is
+            // no "/ 250" part at all — the missing target is what the plain "120 g" says.
             if (goal != null) {
                 "${consumed.formatCompact()}/${goal.formatCompact()} ${nutrient.unit}"
             } else {
@@ -143,15 +182,6 @@ private fun MacroBar(
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
-        // Without this the bar would look measured against a target that isn't set at all.
-        if (goal == null) {
-            Text(
-                "kein Ziel",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-            )
-        }
     }
 }
 
