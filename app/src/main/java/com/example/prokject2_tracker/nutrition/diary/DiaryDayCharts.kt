@@ -1,6 +1,7 @@
 package com.example.prokject2_tracker.nutrition.diary
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -9,17 +10,22 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.example.prokject2_tracker.core.datastore.Nutrient
 import com.example.prokject2_tracker.core.datastore.NutrientGoal
@@ -39,17 +45,18 @@ private val MacroColors = mapOf(
     Nutrient.FAT to Color(0xFFD55181), // magenta
 )
 
-/** The three macros in the order they are drawn, left to right. */
+/** The three macros in the order they are drawn, top to bottom. */
 private val MacroOrder = listOf(Nutrient.CARBS, Nutrient.PROTEIN, Nutrient.FAT)
 
 private val BarShape = RoundedCornerShape(6.dp)
+private val BarHeight = 14.dp
 
 /**
- * How full a macro's bar stands.
+ * How full a macro's bar runs.
  *
  * With a goal it is the share of that goal. Without one there is no target to measure against, so
  * the bar fills relative to the largest of the three macros instead — it then compares the macros
- * with each other, and the missing goal is spelled out in words underneath rather than implied.
+ * with each other, and the missing goal is spelled out in words beside it rather than implied.
  */
 fun macroBarFraction(consumed: Double, goal: Double?, peerMax: Double): Float {
     val reference = if (goal != null && goal > 0.0) goal else peerMax
@@ -76,8 +83,8 @@ fun fluidBarSegments(amountsMl: List<Double>, goalMl: Double): FluidBarWidths {
 }
 
 /**
- * The day's macros as three upright bars side by side: Kohlenhydrate, Protein, Fett. Grams, not
- * energy shares — the number underneath each bar is the one the goals are set in.
+ * The day's macros as three bars: Kohlenhydrate, Protein, Fett. Grams, not energy shares — the
+ * number beside each bar is the one the goals are set in.
  */
 @Composable
 fun MacroBars(totals: NutritionTotals, goals: Map<Nutrient, NutrientGoal>, modifier: Modifier = Modifier) {
@@ -85,83 +92,25 @@ fun MacroBars(totals: NutritionTotals, goals: Map<Nutrient, NutrientGoal>, modif
     // Only used when a macro has no goal of its own; see macroBarFraction.
     val peerMax = MacroOrder.maxOf { consumed[it] ?: 0.0 }
 
-    Row(
+    Column(
         modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         MacroOrder.forEach { nutrient ->
-            MacroBar(
-                nutrient = nutrient,
-                consumed = consumed[nutrient] ?: 0.0,
-                goal = goals[nutrient]?.value,
-                peerMax = peerMax,
-                modifier = Modifier.weight(1f),
-            )
-        }
-    }
-}
-
-@Composable
-private fun MacroBar(
-    nutrient: Nutrient,
-    consumed: Double,
-    goal: Double?,
-    peerMax: Double,
-    modifier: Modifier = Modifier,
-) {
-    val fraction = macroBarFraction(consumed, goal, peerMax)
-    val color = MacroColors.getValue(nutrient)
-
-    Column(
-        modifier = modifier,
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(6.dp),
-    ) {
-        Text(
-            nutrient.label,
-            style = MaterialTheme.typography.labelMedium,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            textAlign = TextAlign.Center,
-        )
-        // The track is the lowest surface step: against a lighter one the magenta fat fill drops
-        // below the 3:1 a filled bar needs for its own edge to be readable.
-        Box(
-            modifier = Modifier
-                .width(26.dp)
-                .height(110.dp)
-                .clip(BarShape)
-                .background(MaterialTheme.colorScheme.surfaceContainerLowest),
-            contentAlignment = Alignment.BottomCenter,
-        ) {
-            if (fraction > 0f) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .fillMaxHeight(fraction)
-                        .clip(BarShape)
-                        .background(color),
-                )
-            }
-        }
-        Text(
-            if (goal != null) {
-                "${consumed.formatCompact()} / ${goal.formatCompact()} ${nutrient.unit}"
-            } else {
-                "${consumed.formatCompact()} ${nutrient.unit}"
-            },
-            style = MaterialTheme.typography.bodySmall,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            textAlign = TextAlign.Center,
-        )
-        // Without this line the bar would look like it was measured against a goal that isn't set.
-        if (goal == null) {
-            Text(
-                "kein Ziel",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
+            val amount = consumed[nutrient] ?: 0.0
+            val goal = goals[nutrient]?.value
+            ValueBar(
+                label = nutrient.label,
+                // Without a goal there is no "/ 250 g" to show, and the note says why the bar is
+                // still filled — otherwise it would look measured against a target that isn't set.
+                value = if (goal != null) {
+                    "${amount.formatCompact()} / ${goal.formatCompact()} ${nutrient.unit}"
+                } else {
+                    "${amount.formatCompact()} ${nutrient.unit}"
+                },
+                note = if (goal == null) "kein Ziel" else null,
+                fraction = macroBarFraction(amount, goal, peerMax),
+                color = MacroColors.getValue(nutrient),
             )
         }
     }
@@ -170,20 +119,56 @@ private fun MacroBar(
 /** The day's energy against the calorie goal — the one goal that always has a value. */
 @Composable
 fun CalorieBar(consumedKcal: Double, goalKcal: Double, modifier: Modifier = Modifier) {
-    val fraction = if (goalKcal > 0.0) (consumedKcal / goalKcal).toFloat().coerceIn(0f, 1f) else 0f
+    ValueBar(
+        label = "Kalorien",
+        value = "${consumedKcal.formatCompact()} / ${goalKcal.formatCompact()} kcal",
+        fraction = if (goalKcal > 0.0) (consumedKcal / goalKcal).toFloat().coerceIn(0f, 1f) else 0f,
+        color = MaterialTheme.colorScheme.primary,
+        // Calories are the headline of the day, so this bar is drawn heavier than the macros above.
+        height = 20.dp,
+        modifier = modifier,
+    )
+}
 
-    Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+/**
+ * One labelled bar: name on the left, value on the right, the bar underneath. The shared shape for
+ * everything on this screen that is "x out of y", so the macros and the calories read as one family.
+ */
+@Composable
+private fun ValueBar(
+    label: String,
+    value: String,
+    fraction: Float,
+    color: Color,
+    modifier: Modifier = Modifier,
+    note: String? = null,
+    height: Dp = BarHeight,
+) {
+    Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("Kalorien", style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
             Text(
-                "${consumedKcal.formatCompact()} / ${goalKcal.formatCompact()} kcal",
+                label,
                 style = MaterialTheme.typography.titleSmall,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
             )
+            note?.let {
+                Text(
+                    it,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.width(6.dp))
+            }
+            Text(value, style = MaterialTheme.typography.titleSmall)
         }
+        // The track is the lowest surface step: against a lighter one the magenta fat fill drops
+        // below the 3:1 a filled bar needs for its own edge to be readable.
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(20.dp)
+                .height(height)
                 .clip(BarShape)
                 .background(MaterialTheme.colorScheme.surfaceContainerLowest),
         ) {
@@ -193,7 +178,7 @@ fun CalorieBar(consumedKcal: Double, goalKcal: Double, modifier: Modifier = Modi
                         .fillMaxWidth(fraction)
                         .fillMaxHeight()
                         .clip(BarShape)
-                        .background(MaterialTheme.colorScheme.primary),
+                        .background(color),
                 )
             }
         }
@@ -204,6 +189,9 @@ fun CalorieBar(consumedKcal: Double, goalKcal: Double, modifier: Modifier = Modi
  * The two Flüssigkeiten rings folded into one bar: the width is the daily goal, the filled part is
  * what was drunk, and that part carries the drink types' own colours in their proportions. One bar
  * answers "how far along am I" and "out of what" at once, which two rings side by side did not.
+ *
+ * Which drink is which colour is a follow-up question, not the headline, so the legend stays folded
+ * away until the bar is tapped.
  */
 @Composable
 fun FluidBalanceBar(
@@ -214,8 +202,9 @@ fun FluidBalanceBar(
     val totalMl = slices.sumOf { it.value }
     val widths = fluidBarSegments(slices.map { it.value }, goalMl)
     val percent = if (goalMl > 0.0) Math.round(totalMl / goalMl * 100.0) else 0L
+    var showLegend by remember { mutableStateOf(false) }
 
-    Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("Flüssigkeit", style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
             Text(
@@ -232,7 +221,13 @@ fun FluidBalanceBar(
                 .fillMaxWidth()
                 .height(20.dp)
                 .clip(BarShape)
-                .background(MaterialTheme.colorScheme.surfaceContainerLowest),
+                .background(MaterialTheme.colorScheme.surfaceContainerLowest)
+                .clickable(
+                    enabled = slices.isNotEmpty(),
+                    // Spoken by the screen reader in place of "double tap to activate", so the
+                    // hidden legend is discoverable without seeing the bar change.
+                    onClickLabel = if (showLegend) "Getränke ausblenden" else "Getränke anzeigen",
+                ) { showLegend = !showLegend },
         ) {
             slices.forEachIndexed { index, slice ->
                 val width = widths.segments.getOrElse(index) { 0f }
@@ -247,15 +242,18 @@ fun FluidBalanceBar(
             }
             if (widths.open > 0f) Spacer(Modifier.weight(widths.open))
         }
-        if (slices.isEmpty()) {
-            Text(
+        when {
+            slices.isEmpty() -> Text(
                 "Noch nichts getrunken.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-        } else {
-            // Identity by label, never by colour alone.
-            FluidChartLegend(slices = slices, valueLabel = { "${it.value.formatCompact()} ml" })
+            // Identity by label, never by colour alone — which is exactly what the legend is for.
+            showLegend -> FluidChartLegend(
+                slices = slices,
+                valueLabel = { "${it.value.formatCompact()} ml" },
+                modifier = Modifier.padding(top = 4.dp),
+            )
         }
     }
 }

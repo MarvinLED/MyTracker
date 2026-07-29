@@ -23,6 +23,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -128,19 +129,17 @@ fun DiaryScreen(
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            item(key = "macros") {
+            // Macros, calories and fluid are one block, not three: they are all "how is the day
+            // going", and page colour between them would split one answer into three.
+            item(key = "day-bars") {
                 DiaryCard {
-                    MacroBars(totals = uiState.totals, goals = uiState.nutrientGoals)
-                }
-            }
-            item(key = "calories") {
-                DiaryCard {
-                    CalorieBar(consumedKcal = uiState.totalKcal, goalKcal = uiState.calorieGoalKcal)
-                }
-            }
-            item(key = "fluid") {
-                DiaryCard {
-                    FluidBalanceBar(slices = fluidSlices, goalMl = uiState.fluidGoalMl)
+                    Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                        MacroBars(totals = uiState.totals, goals = uiState.nutrientGoals)
+                        HorizontalDivider(color = MaterialTheme.colorScheme.surfaceContainerHighest)
+                        CalorieBar(consumedKcal = uiState.totalKcal, goalKcal = uiState.calorieGoalKcal)
+                        HorizontalDivider(color = MaterialTheme.colorScheme.surfaceContainerHighest)
+                        FluidBalanceBar(slices = fluidSlices, goalMl = uiState.fluidGoalMl)
+                    }
                 }
             }
             item(key = "add") {
@@ -153,16 +152,21 @@ fun DiaryScreen(
                     Text("Lebensmittel hinzufügen")
                 }
             }
-            // All four blocks, always — the day has a fixed shape, and an empty one is what tells
-            // you that you still haven't logged breakfast.
-            items(MealType.entries.size, key = { MealType.entries[it].name }) { index ->
-                val mealType = MealType.entries[index]
-                MealCard(
-                    mealType = mealType,
-                    entries = uiState.entriesByMeal[mealType].orEmpty(),
-                    onEditEntry = onEditEntry,
-                    onDeleteEntry = viewModel::deleteEntry,
-                )
+            // All four blocks, always, and all in one card: the day has a fixed shape, and an empty
+            // block is what tells you that you still haven't logged breakfast.
+            item(key = "meals") {
+                DiaryCard {
+                    Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                        MealType.entries.forEach { mealType ->
+                            MealBlock(
+                                mealType = mealType,
+                                entries = uiState.entriesByMeal[mealType].orEmpty(),
+                                onEditEntry = onEditEntry,
+                                onDeleteEntry = viewModel::deleteEntry,
+                            )
+                        }
+                    }
+                }
             }
         }
     }
@@ -180,40 +184,38 @@ private fun DiaryCard(content: @Composable () -> Unit) {
 }
 
 @Composable
-private fun MealCard(
+private fun MealBlock(
     mealType: MealType,
     entries: List<DiaryEntry>,
     onEditEntry: (String) -> Unit,
     onDeleteEntry: (DiaryEntry) -> Unit,
 ) {
-    DiaryCard {
-        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    mealType.label(),
-                    style = MaterialTheme.typography.titleSmall,
-                    modifier = Modifier.weight(1f),
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                mealType.label(),
+                style = MaterialTheme.typography.titleSmall,
+                modifier = Modifier.weight(1f),
+            )
+            Text(
+                "${entries.sumOf { it.kcal }.formatCompact()} kcal",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        if (entries.isEmpty()) {
+            Text(
+                "Nichts eingetragen.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        } else {
+            entries.forEach { entry ->
+                DiaryEntryRow(
+                    entry = entry,
+                    onEdit = { onEditEntry(entry.id) },
+                    onDelete = { onDeleteEntry(entry) },
                 )
-                Text(
-                    "${entries.sumOf { it.kcal }.formatCompact()} kcal",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            if (entries.isEmpty()) {
-                Text(
-                    "Nichts eingetragen.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            } else {
-                entries.forEach { entry ->
-                    DiaryEntryRow(
-                        entry = entry,
-                        onEdit = { onEditEntry(entry.id) },
-                        onDelete = { onDeleteEntry(entry) },
-                    )
-                }
             }
         }
     }
