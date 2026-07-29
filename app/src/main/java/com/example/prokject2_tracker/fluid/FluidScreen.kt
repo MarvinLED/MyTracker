@@ -124,7 +124,7 @@ fun FluidScreen(
             )
         },
     ) { padding ->
-        val distributionSlices = uiState.entries.distributionSlices(types)
+        val distributionSlices = fluidDistributionSlices(uiState.entries, types)
         val goalSlices = goalSlices(consumedMl = uiState.totalMl, goalMl = uiState.goalMl)
 
         LazyColumn(
@@ -412,32 +412,6 @@ private fun AddFluidRow(types: List<FluidType>, units: List<FluidUnit>, onAdd: (
             Icon(Icons.Filled.Add, contentDescription = "Getränk hinzufügen")
         }
     }
-}
-
-/**
- * One slice per drink type consumed today, ordered by the library's own order so a type keeps its
- * colour across days. Types past the palette's eight slots (or logged under a type that has since
- * been deleted from the library) fold into one "Sonstige" slice rather than repeating a hue.
- */
-@Composable
-private fun List<FluidEntry>.distributionSlices(types: List<FluidType>): List<FluidSlice> {
-    val palette = fluidPalette()
-    val otherColor = MaterialTheme.colorScheme.onSurfaceVariant
-    val totalsByType = groupBy { it.fluidTypeId }.mapValues { (_, entries) -> entries.sumOf { it.amountMl } }
-
-    val named = mutableListOf<Pair<Int, FluidSlice>>()
-    var otherTotal = 0.0
-    totalsByType.forEach { (typeId, total) ->
-        val index = types.indexOfFirst { it.id == typeId }
-        val type = types.getOrNull(index)
-        if (type == null || index >= palette.size) {
-            otherTotal += total
-        } else {
-            named += index to FluidSlice(label = type.name, value = total, color = type.chartColor(index))
-        }
-    }
-    val ordered = named.sortedBy { (index, _) -> index }.map { (_, slice) -> slice }
-    return if (otherTotal > 0.0) ordered + FluidSlice("Sonstige", otherTotal, otherColor) else ordered
 }
 
 /** Drunk vs. still open against the daily goal; once the goal is reached the ring is simply full. */

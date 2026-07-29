@@ -3,7 +3,6 @@ package com.example.prokject2_tracker.core.navigation
 import androidx.annotation.StringRes
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.FitnessCenter
-import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.LocalDrink
 import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -11,13 +10,12 @@ import com.example.prokject2_tracker.R
 import com.example.prokject2_tracker.fitness.FitnessRoute
 import com.example.prokject2_tracker.fluid.FluidRoute
 import com.example.prokject2_tracker.nutrition.diary.DiaryRoute
-import com.example.prokject2_tracker.overview.OverviewRoute
 import com.example.prokject2_tracker.ui.theme.AppDomain
 
 /**
  * Bottom-nav destinations. Kept to a max of 4 (Material3 guidance). Bibliothek/Analyse/Habits
  * moved to the [DrawerDestination] navigation drawer instead, freeing slots for Flüssigkeiten.
- * Übersicht is the app's home/start destination, so it goes first.
+ * Tagebuch is the app's home/start destination, so it goes first.
  */
 enum class TopLevelDestination(
     val route: Any,
@@ -26,13 +24,6 @@ enum class TopLevelDestination(
     val icon: ImageVector,
     val domain: AppDomain,
 ) {
-    OVERVIEW(
-        route = OverviewRoute,
-        routeQualifiedName = OverviewRoute::class.qualifiedName!!,
-        labelRes = R.string.nav_overview,
-        icon = Icons.Filled.Home,
-        domain = AppDomain.OVERVIEW,
-    ),
     DIARY(
         route = DiaryRoute,
         routeQualifiedName = DiaryRoute::class.qualifiedName!!,

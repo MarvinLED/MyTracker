@@ -48,8 +48,6 @@ import com.example.prokject2_tracker.nutrition.library.LibraryRoute
 import com.example.prokject2_tracker.nutrition.library.LibraryScreen
 import com.example.prokject2_tracker.nutrition.recipe.RecipeEditRoute
 import com.example.prokject2_tracker.nutrition.recipe.RecipeEditScreen
-import com.example.prokject2_tracker.overview.OverviewRoute
-import com.example.prokject2_tracker.overview.OverviewScreen
 import com.example.prokject2_tracker.weight.WeightRoute
 import com.example.prokject2_tracker.weight.WeightScreen
 
@@ -61,12 +59,9 @@ fun AppNavHost(
 ) {
     NavHost(
         navController = navController,
-        startDestination = OverviewRoute,
+        startDestination = DiaryRoute,
         modifier = modifier,
     ) {
-        composable<OverviewRoute> {
-            OverviewScreen(onOpenDrawer = onOpenDrawer)
-        }
         composable<DiaryRoute> {
             DiaryScreen(
                 onAddEntry = { epochDay -> navController.navigate(DiaryAddEntryRoute(epochDay)) },

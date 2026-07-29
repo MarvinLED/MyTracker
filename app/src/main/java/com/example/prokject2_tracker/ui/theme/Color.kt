@@ -20,6 +20,16 @@ val DarkBlueSurfaceHigh = Color(0xFF223252)
 val DarkBlueSurfaceHighest = Color(0xFF293B5E)
 val DarkBlueSurfaceVariant = Color(0xFF2A3B5E)
 
+/**
+ * The Tagebuch page's own background — deliberately *not* a step of the ladder above, and not
+ * validated as one: it is far brighter than every surface in it, so the relationship is inverted
+ * there (dark cards on a bright page instead of light cards on a dark page).
+ *
+ * White ink reaches only 3.6:1 on it, which is enough for large/bold text and icons but not for
+ * body text. Anything smaller than the page title therefore sits on a card, never on this colour.
+ */
+val DiaryBlue = Color(0xFF4876FF)
+
 val DarkBlueOnBackground = Color(0xFFE6EAF5)
 val DarkBlueOnSurfaceVariant = Color(0xFFBFC9DE)
 val DarkBlueOutline = Color(0xFF93A0BC)

@@ -36,7 +36,7 @@ data class UserPreferences(
     val dailyCalorieGoalKcal: Double
         get() = nutrientGoals[Nutrient.KCAL]?.value ?: DEFAULT_CALORIE_GOAL_KCAL
 
-    /** Goals that are set and not yet met, in [Nutrient] order — the Übersicht's "offen" list. */
+    /** Goals that are set and not yet met, in [Nutrient] order — everything still open today. */
     fun unmetGoals(consumed: Map<Nutrient, Double>): List<Triple<Nutrient, NutrientGoal, Double>> =
         Nutrient.entries.mapNotNull { nutrient ->
             val goal = nutrientGoals[nutrient] ?: return@mapNotNull null

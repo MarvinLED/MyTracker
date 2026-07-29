@@ -24,7 +24,6 @@ import androidx.compose.ui.graphics.luminance
  * that isn't there — and red, the only slot left, reads as an error state.
  */
 enum class AppDomain(private val accent: Color?) {
-    OVERVIEW(Color(0xFF9085E9)), // violett
     DIARY(Color(0xFF199E70)), // aqua
     FLUID(Color(0xFF3987E5)), // blau
     FITNESS(Color(0xFFD95926)), // orange

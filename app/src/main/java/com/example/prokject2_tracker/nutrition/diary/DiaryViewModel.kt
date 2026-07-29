@@ -6,6 +6,9 @@ import com.example.prokject2_tracker.core.datastore.Nutrient
 import com.example.prokject2_tracker.core.datastore.NutrientGoal
 import com.example.prokject2_tracker.core.datastore.UserPreferencesRepository
 import com.example.prokject2_tracker.core.util.DateUtils
+import com.example.prokject2_tracker.fluid.FluidEntry
+import com.example.prokject2_tracker.fluid.FluidRepository
+import com.example.prokject2_tracker.fluid.FluidType
 import com.example.prokject2_tracker.nutrition.NutritionTotals
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -29,8 +32,16 @@ data class DiaryDayUiState(
     val epochDay: Long,
     val entriesByMeal: Map<MealType, List<DiaryEntry>>,
     val totals: NutritionTotals = NutritionTotals.ZERO,
-    /** Only the nutrients with a goal set — those are the ones the day gets a bar for. */
+    /** Only the nutrients with a goal set — the macros without one get no target in their bar. */
     val nutrientGoals: Map<Nutrient, NutrientGoal> = emptyMap(),
+    /**
+     * The day's drinks, shown here as one bar rather than sending the user to Flüssigkeiten to see
+     * whether they are on track. [fluidTypes] comes along because the bar's segments are coloured by
+     * the type's position in the library, so the same drink keeps its colour on both screens.
+     */
+    val fluidEntries: List<FluidEntry> = emptyList(),
+    val fluidTypes: List<FluidType> = emptyList(),
+    val fluidGoalMl: Double = 2000.0,
 ) {
     val totalKcal: Double get() = totals.kcal
     val calorieGoalKcal: Double get() = nutrientGoals[Nutrient.KCAL]?.value ?: 2000.0
@@ -40,6 +51,7 @@ data class DiaryDayUiState(
 @HiltViewModel
 class DiaryViewModel @Inject constructor(
     private val diaryRepository: DiaryRepository,
+    private val fluidRepository: FluidRepository,
     userPreferencesRepository: UserPreferencesRepository,
 ) : ViewModel() {
     private val _selectedEpochDay = MutableStateFlow(DateUtils.todayEpochDay())
@@ -51,12 +63,17 @@ class DiaryViewModel @Inject constructor(
                 diaryRepository.observeForDay(epochDay),
                 diaryRepository.observeDayNutritionTotals(epochDay),
                 userPreferencesRepository.userPreferences,
-            ) { entries, totals, prefs ->
+                fluidRepository.observeForDay(epochDay),
+                fluidRepository.observeTypes(),
+            ) { entries, totals, prefs, fluidEntries, fluidTypes ->
                 DiaryDayUiState(
                     epochDay = epochDay,
                     entriesByMeal = entries.groupBy { it.mealType },
                     totals = totals,
                     nutrientGoals = prefs.nutrientGoals,
+                    fluidEntries = fluidEntries,
+                    fluidTypes = fluidTypes,
+                    fluidGoalMl = prefs.dailyWaterGoalMl,
                 )
             }
         }

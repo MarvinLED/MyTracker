@@ -18,8 +18,8 @@ import com.example.prokject2_tracker.core.util.toLocaleDoubleOrNull
 
 /**
  * Dialog for logging today's value on a COUNT/DURATION habit. A blank field un-logs/clears the
- * day's entry. Extracted from [HabitScreen] so a later Overview screen phase can reuse it without
- * importing all of HabitScreen.kt.
+ * day's entry. Kept out of HabitScreen.kt so another screen can reuse it without importing the
+ * whole screen.
  */
 @Composable
 fun HabitValueDialog(

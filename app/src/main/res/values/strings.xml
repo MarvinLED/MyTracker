@@ -1,6 +1,5 @@
 <resources>
     <string name="app_name">MyTracker</string>
-    <string name="nav_overview">Übersicht</string>
     <string name="nav_diary">Tagebuch</string>
     <string name="nav_fluid">Flüssigkeiten</string>
     <string name="nav_library">Bibliothek</string>
