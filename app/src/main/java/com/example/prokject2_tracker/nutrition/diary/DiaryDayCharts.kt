@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -49,7 +48,8 @@ private val MacroColors = mapOf(
 private val MacroOrder = listOf(Nutrient.CARBS, Nutrient.PROTEIN, Nutrient.FAT)
 
 private val BarShape = RoundedCornerShape(6.dp)
-private val BarHeight = 14.dp
+private val BarHeight = 20.dp
+private val MacroBarHeight = 8.dp
 
 /**
  * How full a macro's bar runs.
@@ -83,8 +83,11 @@ fun fluidBarSegments(amountsMl: List<Double>, goalMl: Double): FluidBarWidths {
 }
 
 /**
- * The day's macros as three bars: Kohlenhydrate, Protein, Fett. Grams, not energy shares — the
- * number beside each bar is the one the goals are set in.
+ * The day's macros as three small bars side by side: Kohlenhydrate, Protein, Fett. Grams, not energy
+ * shares — the number under each bar is the one the goals are set in.
+ *
+ * Deliberately compact: the three together take about as much room as the single calorie bar below
+ * them, which is the right weight for a supporting detail next to the day's headline number.
  */
 @Composable
 fun MacroBars(totals: NutritionTotals, goals: Map<Nutrient, NutrientGoal>, modifier: Modifier = Modifier) {
@@ -92,25 +95,61 @@ fun MacroBars(totals: NutritionTotals, goals: Map<Nutrient, NutrientGoal>, modif
     // Only used when a macro has no goal of its own; see macroBarFraction.
     val peerMax = MacroOrder.maxOf { consumed[it] ?: 0.0 }
 
-    Column(
+    Row(
         modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         MacroOrder.forEach { nutrient ->
-            val amount = consumed[nutrient] ?: 0.0
-            val goal = goals[nutrient]?.value
-            ValueBar(
-                label = nutrient.label,
-                // Without a goal there is no "/ 250 g" to show, and the note says why the bar is
-                // still filled — otherwise it would look measured against a target that isn't set.
-                value = if (goal != null) {
-                    "${amount.formatCompact()} / ${goal.formatCompact()} ${nutrient.unit}"
-                } else {
-                    "${amount.formatCompact()} ${nutrient.unit}"
-                },
-                note = if (goal == null) "kein Ziel" else null,
-                fraction = macroBarFraction(amount, goal, peerMax),
-                color = MacroColors.getValue(nutrient),
+            MacroBar(
+                nutrient = nutrient,
+                consumed = consumed[nutrient] ?: 0.0,
+                goal = goals[nutrient]?.value,
+                peerMax = peerMax,
+                modifier = Modifier.weight(1f),
+            )
+        }
+    }
+}
+
+@Composable
+private fun MacroBar(
+    nutrient: Nutrient,
+    consumed: Double,
+    goal: Double?,
+    peerMax: Double,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(3.dp)) {
+        Text(
+            nutrient.label,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Bar(
+            fraction = macroBarFraction(consumed, goal, peerMax),
+            color = MacroColors.getValue(nutrient),
+            height = MacroBarHeight,
+        )
+        Text(
+            // A third of the width has no room for spaces around the slash.
+            if (goal != null) {
+                "${consumed.formatCompact()}/${goal.formatCompact()} ${nutrient.unit}"
+            } else {
+                "${consumed.formatCompact()} ${nutrient.unit}"
+            },
+            style = MaterialTheme.typography.labelMedium,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        // Without this the bar would look measured against a target that isn't set at all.
+        if (goal == null) {
+            Text(
+                "kein Ziel",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
             )
         }
     }
@@ -124,16 +163,11 @@ fun CalorieBar(consumedKcal: Double, goalKcal: Double, modifier: Modifier = Modi
         value = "${consumedKcal.formatCompact()} / ${goalKcal.formatCompact()} kcal",
         fraction = if (goalKcal > 0.0) (consumedKcal / goalKcal).toFloat().coerceIn(0f, 1f) else 0f,
         color = MaterialTheme.colorScheme.primary,
-        // Calories are the headline of the day, so this bar is drawn heavier than the macros above.
-        height = 20.dp,
         modifier = modifier,
     )
 }
 
-/**
- * One labelled bar: name on the left, value on the right, the bar underneath. The shared shape for
- * everything on this screen that is "x out of y", so the macros and the calories read as one family.
- */
+/** One labelled bar: name on the left, value on the right, the bar underneath. */
 @Composable
 private fun ValueBar(
     label: String,
@@ -141,7 +175,6 @@ private fun ValueBar(
     fraction: Float,
     color: Color,
     modifier: Modifier = Modifier,
-    note: String? = null,
     height: Dp = BarHeight,
 ) {
     Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -153,34 +186,33 @@ private fun ValueBar(
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f),
             )
-            note?.let {
-                Text(
-                    it,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Spacer(Modifier.width(6.dp))
-            }
             Text(value, style = MaterialTheme.typography.titleSmall)
         }
-        // The track is the lowest surface step: against a lighter one the magenta fat fill drops
-        // below the 3:1 a filled bar needs for its own edge to be readable.
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(height)
-                .clip(BarShape)
-                .background(MaterialTheme.colorScheme.surfaceContainerLowest),
-        ) {
-            if (fraction > 0f) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth(fraction)
-                        .fillMaxHeight()
-                        .clip(BarShape)
-                        .background(color),
-                )
-            }
+        Bar(fraction = fraction, color = color, height = height)
+    }
+}
+
+/**
+ * The plain bar itself. The track is the lowest surface step: against a lighter one the magenta fat
+ * fill drops below the 3:1 a filled bar needs for its own edge to be readable.
+ */
+@Composable
+private fun Bar(fraction: Float, color: Color, height: Dp, modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(height)
+            .clip(BarShape)
+            .background(MaterialTheme.colorScheme.surfaceContainerLowest),
+    ) {
+        if (fraction > 0f) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(fraction)
+                    .fillMaxHeight()
+                    .clip(BarShape)
+                    .background(color),
+            )
         }
     }
 }
@@ -219,7 +251,7 @@ fun FluidBalanceBar(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(20.dp)
+                .height(BarHeight)
                 .clip(BarShape)
                 .background(MaterialTheme.colorScheme.surfaceContainerLowest)
                 .clickable(

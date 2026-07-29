@@ -203,19 +203,23 @@ private fun MealBlock(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        if (entries.isEmpty()) {
-            Text(
-                "Nichts eingetragen.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        } else {
-            entries.forEach { entry ->
-                DiaryEntryRow(
-                    entry = entry,
-                    onEdit = { onEditEntry(entry.id) },
-                    onDelete = { onDeleteEntry(entry) },
+        // Indented under their heading: the entries and the meal names are otherwise two stacks of
+        // similar-looking lines, and nothing says which belongs to which.
+        Column(modifier = Modifier.padding(start = 16.dp)) {
+            if (entries.isEmpty()) {
+                Text(
+                    "Nichts eingetragen.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+            } else {
+                entries.forEach { entry ->
+                    DiaryEntryRow(
+                        entry = entry,
+                        onEdit = { onEditEntry(entry.id) },
+                        onDelete = { onDeleteEntry(entry) },
+                    )
+                }
             }
         }
     }
@@ -228,7 +232,9 @@ private fun DiaryEntryRow(entry: DiaryEntry, onEdit: () -> Unit, onDelete: () ->
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(modifier = Modifier.weight(1f).clickable(onClick = onEdit)) {
-            Text(entry.sourceName)
+            // Smaller than the meal heading above it — it used to be the larger of the two, which
+            // made the entries read as the headings.
+            Text(entry.sourceName, style = MaterialTheme.typography.bodyMedium)
             // A Schnelleintrag has no meaningful quantity — its "1 Schnelleintrag" would just be noise.
             val details = if (entry.sourceType == DiarySourceType.QUICK) {
                 "${entry.quantityUnit} · ${entry.kcal.formatCompact()} kcal"
