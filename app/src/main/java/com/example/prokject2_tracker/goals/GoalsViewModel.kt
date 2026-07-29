@@ -4,7 +4,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.prokject2_tracker.core.datastore.Nutrient
 import com.example.prokject2_tracker.core.datastore.NutrientGoal
-import com.example.prokject2_tracker.core.datastore.NutrientGoalType
 import com.example.prokject2_tracker.core.datastore.UserPreferencesRepository
 import com.example.prokject2_tracker.core.util.GoalPeriod
 import com.example.prokject2_tracker.core.util.toLocaleDoubleOrNull
@@ -42,11 +41,11 @@ data class FitnessGoalRow(
     val targetText: String,
 )
 
-/** One nutrient's goal row: the value as typed, plus how that value is meant to be read. */
+/** One nutrient's goal row: the two bounds as typed. Either may be blank, or both. */
 data class NutrientGoalInput(
     val nutrient: Nutrient,
-    val valueText: String,
-    val type: NutrientGoalType,
+    val minText: String,
+    val maxText: String,
 )
 
 data class GoalsUiState(
@@ -83,8 +82,8 @@ class GoalsViewModel @Inject constructor(
                     val goal = prefs.nutrientGoals[nutrient]
                     NutrientGoalInput(
                         nutrient = nutrient,
-                        valueText = goal?.value?.toString().orEmpty(),
-                        type = goal?.type ?: NutrientGoalType.EXACT,
+                        minText = goal?.min?.toString().orEmpty(),
+                        maxText = goal?.max?.toString().orEmpty(),
                     )
                 },
                 fluidTypeGoals = types.map { type ->
@@ -112,12 +111,12 @@ class GoalsViewModel @Inject constructor(
 
     fun onWaterGoalChange(value: String) { _state.value = _state.value.copy(waterGoal = value) }
 
-    fun onNutrientGoalValueChange(nutrient: Nutrient, value: String) {
-        updateNutrient(nutrient) { it.copy(valueText = value) }
+    fun onNutrientGoalMinChange(nutrient: Nutrient, value: String) {
+        updateNutrient(nutrient) { it.copy(minText = value) }
     }
 
-    fun onNutrientGoalTypeChange(nutrient: Nutrient, type: NutrientGoalType) {
-        updateNutrient(nutrient) { it.copy(type = type) }
+    fun onNutrientGoalMaxChange(nutrient: Nutrient, value: String) {
+        updateNutrient(nutrient) { it.copy(maxText = value) }
     }
 
     private fun updateNutrient(nutrient: Nutrient, transform: (NutrientGoalInput) -> NutrientGoalInput) {
@@ -183,12 +182,14 @@ class GoalsViewModel @Inject constructor(
         viewModelScope.launch {
             s.waterGoal.toLocaleDoubleOrNull()?.let { userPreferencesRepository.setDailyWaterGoal(it) }
             s.nutrientGoals.forEach { row ->
-                // A blank or unparseable value clears the goal — including its type, so re-entering
-                // a value later doesn't silently inherit a "höchstens" from a goal long deleted.
-                val value = row.valueText.toLocaleDoubleOrNull()?.takeIf { it > 0.0 }
+                // Blank or unparseable clears that bound; both blank clears the goal outright.
+                val goal = NutrientGoal(
+                    min = row.minText.toLocaleDoubleOrNull()?.takeIf { it > 0.0 },
+                    max = row.maxText.toLocaleDoubleOrNull()?.takeIf { it > 0.0 },
+                )
                 userPreferencesRepository.setNutrientGoal(
                     nutrient = row.nutrient,
-                    goal = value?.let { NutrientGoal(value = it, type = row.type) },
+                    goal = goal.takeUnless { it.isEmpty },
                 )
             }
             s.fluidTypeGoals.forEach { row ->

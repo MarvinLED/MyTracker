@@ -34,7 +34,7 @@ data class UserPreferences(
      * repeat the fallback.
      */
     val dailyCalorieGoalKcal: Double
-        get() = nutrientGoals[Nutrient.KCAL]?.value ?: DEFAULT_CALORIE_GOAL_KCAL
+        get() = nutrientGoals[Nutrient.KCAL]?.barTarget ?: DEFAULT_CALORIE_GOAL_KCAL
 
     /** Goals that are set and not yet met, in [Nutrient] order — everything still open today. */
     fun unmetGoals(consumed: Map<Nutrient, Double>): List<Triple<Nutrient, NutrientGoal, Double>> =
@@ -54,9 +54,9 @@ class UserPreferencesRepository @Inject constructor(
         val WEIGHT_UNIT = stringPreferencesKey("weight_unit")
 
         /**
-         * The historical per-nutrient value keys, kept verbatim so goals set before goal *types*
-         * existed are still read back. The matching `_type` key is new and absent for those, which
-         * reads as [NutrientGoalType.EXACT] — the behaviour those goals already had.
+         * The per-nutrient key stems. The stem itself is the *legacy* single-value key from before
+         * goals had two bounds; the bounds live under `_min`/`_max` beside it. Both are still read,
+         * because a goal saved by an older build only ever wrote the legacy pair.
          */
         private val VALUE_KEY_NAMES = mapOf(
             Nutrient.KCAL to "daily_calorie_goal_kcal",
@@ -69,8 +69,22 @@ class UserPreferencesRepository @Inject constructor(
             Nutrient.SALT to "daily_salt_goal_g",
         )
 
-        fun value(nutrient: Nutrient) = doublePreferencesKey(VALUE_KEY_NAMES.getValue(nutrient))
-        fun type(nutrient: Nutrient) = stringPreferencesKey("${VALUE_KEY_NAMES.getValue(nutrient)}_type")
+        fun min(nutrient: Nutrient) = doublePreferencesKey("${VALUE_KEY_NAMES.getValue(nutrient)}_min")
+        fun max(nutrient: Nutrient) = doublePreferencesKey("${VALUE_KEY_NAMES.getValue(nutrient)}_max")
+
+        fun legacyValue(nutrient: Nutrient) = doublePreferencesKey(VALUE_KEY_NAMES.getValue(nutrient))
+        fun legacyType(nutrient: Nutrient) = stringPreferencesKey("${VALUE_KEY_NAMES.getValue(nutrient)}_type")
+    }
+
+    /**
+     * A goal written before bounds existed: one value plus a direction. "mindestens"/"höchstens"
+     * become the matching single bound; everything else was "genau", which becomes both bounds on
+     * the same number.
+     */
+    private fun legacyGoal(value: Double, type: String?): NutrientGoal = when (type) {
+        "MIN" -> NutrientGoal(min = value)
+        "MAX" -> NutrientGoal(max = value)
+        else -> NutrientGoal(min = value, max = value)
     }
 
     val userPreferences: Flow<UserPreferences> = context.userPreferencesDataStore.data.map { prefs ->
@@ -78,11 +92,16 @@ class UserPreferencesRepository @Inject constructor(
             dailyWaterGoalMl = prefs[Keys.WATER_GOAL] ?: 2000.0,
             weightUnit = prefs[Keys.WEIGHT_UNIT]?.let { WeightUnit.valueOf(it) } ?: WeightUnit.KG,
             nutrientGoals = Nutrient.entries.mapNotNull { nutrient ->
-                val value = prefs[Keys.value(nutrient)] ?: return@mapNotNull null
-                val type = prefs[Keys.type(nutrient)]
-                    ?.let { runCatching { NutrientGoalType.valueOf(it) }.getOrNull() }
-                    ?: NutrientGoalType.EXACT
-                nutrient to NutrientGoal(value = value, type = type)
+                val min = prefs[Keys.min(nutrient)]
+                val max = prefs[Keys.max(nutrient)]
+                val goal = if (min != null || max != null) {
+                    NutrientGoal(min = min, max = max)
+                } else {
+                    // Nothing under the new keys, so fall back to what an older build wrote.
+                    val legacy = prefs[Keys.legacyValue(nutrient)] ?: return@mapNotNull null
+                    legacyGoal(legacy, prefs[Keys.legacyType(nutrient)])
+                }
+                nutrient to goal
             }.toMap(),
         )
     }
@@ -95,16 +114,18 @@ class UserPreferencesRepository @Inject constructor(
         context.userPreferencesDataStore.edit { it[Keys.WEIGHT_UNIT] = unit.name }
     }
 
-    /** A null [goal] clears the nutrient's goal entirely, value and type together. */
+    /** A null or empty [goal] clears the nutrient's goal entirely, both bounds together. */
     suspend fun setNutrientGoal(nutrient: Nutrient, goal: NutrientGoal?) {
         context.userPreferencesDataStore.edit { prefs ->
-            if (goal == null) {
-                prefs.remove(Keys.value(nutrient))
-                prefs.remove(Keys.type(nutrient))
-            } else {
-                prefs[Keys.value(nutrient)] = goal.value
-                prefs[Keys.type(nutrient)] = goal.type.name
-            }
+            // The legacy pair goes either way: leaving it behind would let a long-replaced value
+            // reappear as soon as both new bounds are cleared again.
+            prefs.remove(Keys.legacyValue(nutrient))
+            prefs.remove(Keys.legacyType(nutrient))
+
+            val min = goal?.min
+            val max = goal?.max
+            if (min != null) prefs[Keys.min(nutrient)] = min else prefs.remove(Keys.min(nutrient))
+            if (max != null) prefs[Keys.max(nutrient)] = max else prefs.remove(Keys.max(nutrient))
         }
     }
 }

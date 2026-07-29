@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -57,6 +58,7 @@ private val MinorNutrientOrder = listOf(Nutrient.SUGAR, Nutrient.FIBER, Nutrient
 private val BarShape = RoundedCornerShape(6.dp)
 private val BarHeight = 20.dp
 private val MacroBarHeight = 8.dp
+private val MarkerWidth = 2.dp
 
 /**
  * How full a macro's bar runs.
@@ -69,6 +71,18 @@ fun macroBarFraction(consumed: Double, goal: Double?, peerMax: Double): Float {
     val reference = if (goal != null && goal > 0.0) goal else peerMax
     if (reference <= 0.0) return 0f
     return (consumed / reference).toFloat().coerceIn(0f, 1f)
+}
+
+/**
+ * The target half of a bar's label: `"150"` for an upper bound alone, `"≥100"` for a lower bound
+ * alone, `"100–150"` for both. Null when there is no goal, and the label then shows the plain
+ * amount without a target at all.
+ */
+fun goalTargetLabel(min: Double?, max: Double?): String? = when {
+    min != null && max != null -> "${min.formatCompact()}–${max.formatCompact()}"
+    max != null -> max.formatCompact()
+    min != null -> "≥${min.formatCompact()}"
+    else -> null
 }
 
 /** Widths of a fluid bar as fractions of its full width; [segments] plus [open] always make 1. */
@@ -141,7 +155,7 @@ private fun NutrientBarRow(
             MacroBar(
                 nutrient = nutrient,
                 consumed = consumed[nutrient] ?: 0.0,
-                goal = goals[nutrient]?.value,
+                goal = goals[nutrient],
                 peerMax = peerMax,
                 modifier = Modifier.weight(1f),
             )
@@ -153,10 +167,12 @@ private fun NutrientBarRow(
 private fun MacroBar(
     nutrient: Nutrient,
     consumed: Double,
-    goal: Double?,
+    goal: NutrientGoal?,
     peerMax: Double,
     modifier: Modifier = Modifier,
 ) {
+    val target = goalTargetLabel(goal?.min, goal?.max)
+
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(3.dp)) {
         Text(
             nutrient.label,
@@ -166,15 +182,16 @@ private fun MacroBar(
             overflow = TextOverflow.Ellipsis,
         )
         Bar(
-            fraction = macroBarFraction(consumed, goal, peerMax),
+            fraction = macroBarFraction(consumed, goal?.barTarget, peerMax),
             color = NutrientColors.getValue(nutrient),
             height = MacroBarHeight,
+            markerFraction = goal?.minMarkerFraction,
         )
         Text(
             // A third of the width has no room for spaces around the slash. Without a goal there is
             // no "/ 250" part at all — the missing target is what the plain "120 g" says.
-            if (goal != null) {
-                "${consumed.formatCompact()}/${goal.formatCompact()} ${nutrient.unit}"
+            if (target != null) {
+                "${consumed.formatCompact()}/$target ${nutrient.unit}"
             } else {
                 "${consumed.formatCompact()} ${nutrient.unit}"
             },
@@ -187,12 +204,19 @@ private fun MacroBar(
 
 /** The day's energy against the calorie goal — the one goal that always has a value. */
 @Composable
-fun CalorieBar(consumedKcal: Double, goalKcal: Double, modifier: Modifier = Modifier) {
+fun CalorieBar(consumedKcal: Double, goal: NutrientGoal, modifier: Modifier = Modifier) {
+    val target = goalTargetLabel(goal.min, goal.max)
+
     ValueBar(
         label = "Kalorien",
-        value = "${consumedKcal.formatCompact()} / ${goalKcal.formatCompact()} kcal",
-        fraction = if (goalKcal > 0.0) (consumedKcal / goalKcal).toFloat().coerceIn(0f, 1f) else 0f,
+        value = if (target != null) {
+            "${consumedKcal.formatCompact()} / $target kcal"
+        } else {
+            "${consumedKcal.formatCompact()} kcal"
+        },
+        fraction = goal.fractionOf(consumedKcal),
         color = MaterialTheme.colorScheme.primary,
+        markerFraction = goal.minMarkerFraction,
         modifier = modifier,
     )
 }
@@ -205,6 +229,7 @@ private fun ValueBar(
     fraction: Float,
     color: Color,
     modifier: Modifier = Modifier,
+    markerFraction: Float? = null,
     height: Dp = BarHeight,
 ) {
     Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -218,16 +243,25 @@ private fun ValueBar(
             )
             Text(value, style = MaterialTheme.typography.titleSmall)
         }
-        Bar(fraction = fraction, color = color, height = height)
+        Bar(fraction = fraction, color = color, height = height, markerFraction = markerFraction)
     }
 }
 
 /**
  * The plain bar itself. The track is the lowest surface step: against a lighter one the magenta fat
  * fill drops below the 3:1 a filled bar needs for its own edge to be readable.
+ *
+ * [markerFraction] draws a line across the bar where the goal's lower bound sits, so a goal with
+ * both bounds shows at a glance whether the day is under, inside or over its range.
  */
 @Composable
-private fun Bar(fraction: Float, color: Color, height: Dp, modifier: Modifier = Modifier) {
+private fun Bar(
+    fraction: Float,
+    color: Color,
+    height: Dp,
+    modifier: Modifier = Modifier,
+    markerFraction: Float? = null,
+) {
     Box(
         modifier = modifier
             .fillMaxWidth()
@@ -243,6 +277,18 @@ private fun Bar(fraction: Float, color: Color, height: Dp, modifier: Modifier = 
                     .clip(BarShape)
                     .background(color),
             )
+        }
+        markerFraction?.let { marker ->
+            // Drawn as a gap in the bar rather than a coloured tick: a tick would be one more hue
+            // to tell apart, and the notch reads the same whichever fill it lands on.
+            Box(modifier = Modifier.fillMaxWidth(marker), contentAlignment = Alignment.CenterEnd) {
+                Box(
+                    modifier = Modifier
+                        .width(MarkerWidth)
+                        .fillMaxHeight()
+                        .background(MaterialTheme.colorScheme.surface),
+                )
+            }
         }
     }
 }

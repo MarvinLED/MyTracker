@@ -1,6 +1,7 @@
 package com.example.prokject2_tracker.nutrition.diary
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Test
 
 class DiaryDayChartsTest {
@@ -30,6 +31,15 @@ class DiaryDayChartsTest {
     fun macroBarFraction_withAZeroGoal_fallsBackToThePeerComparison() {
         // A goal of 0 is no target to measure against, so it must not divide by zero either.
         assertEquals(0.5f, macroBarFraction(consumed = 50.0, goal = 0.0, peerMax = 100.0), 0.0001f)
+    }
+
+    @Test
+    fun goalTargetLabel_saysWhichKindOfBoundItIs() {
+        // A range and a ceiling must not read the same — "100–150" vs a bare "150".
+        assertEquals("100–150", goalTargetLabel(min = 100.0, max = 150.0))
+        assertEquals("150", goalTargetLabel(min = null, max = 150.0))
+        assertEquals("≥100", goalTargetLabel(min = 100.0, max = null))
+        assertNull(goalTargetLabel(min = null, max = null))
     }
 
     @Test

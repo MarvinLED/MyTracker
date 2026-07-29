@@ -137,7 +137,7 @@ fun DiaryScreen(
                     Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
                         MacroBars(totals = uiState.totals, goals = uiState.nutrientGoals)
                         HorizontalDivider(color = MaterialTheme.colorScheme.surfaceContainerHighest)
-                        CalorieBar(consumedKcal = uiState.totalKcal, goalKcal = uiState.calorieGoalKcal)
+                        CalorieBar(consumedKcal = uiState.totalKcal, goal = uiState.calorieGoal)
                         HorizontalDivider(color = MaterialTheme.colorScheme.surfaceContainerHighest)
                         FluidBalanceBar(slices = fluidSlices, goalMl = uiState.fluidGoalMl)
                     }

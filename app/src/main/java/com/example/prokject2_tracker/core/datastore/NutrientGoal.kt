@@ -1,43 +1,52 @@
 package com.example.prokject2_tracker.core.datastore
 
 /**
- * What a nutrition goal's number means. The distinction is the point: "120 g Protein" and "50 g
- * Zucker" are both goals, but hitting the first is success and hitting the second is failure, so a
- * progress bar has to know which way it is being read.
+ * A configured nutrition goal: a lower bound, an upper bound, or both at once — the same shape the
+ * Getränkearten already use. Absence of one (a null [NutrientGoal]) means "not tracked", and so does
+ * a goal with neither bound set.
+ *
+ * Both bounds together is the case worth having: "100 bis 150 g Protein" is a real target, and
+ * expressing it as a single number plus a direction never could.
  */
-enum class NutrientGoalType {
-    /** Aim for the value; over and under are both off-target. */
-    EXACT,
-
-    /** Reach at least the value; more is fine. */
-    MIN,
-
-    /** Stay at or below the value; going over is the failure case. */
-    MAX,
-}
-
-/** A configured nutrition goal. Absence of one (a null [NutrientGoal]) means "not tracked". */
 data class NutrientGoal(
-    val value: Double,
-    val type: NutrientGoalType = NutrientGoalType.EXACT,
+    val min: Double? = null,
+    val max: Double? = null,
 ) {
+    /** True once neither bound is set — such a goal is indistinguishable from having none. */
+    val isEmpty: Boolean get() = min == null && max == null
+
     /**
-     * Whether [consumed] has met this goal. A [NutrientGoalType.MAX] goal counts as met while you're
-     * still under it; [NutrientGoalType.EXACT] allows a 5 % band either side, since hitting a
-     * nutrient target to the gram is not a thing that happens.
+     * The number a bar runs to. The upper bound when there is one, because that is where the bar
+     * ends; with only a lower bound, reaching it is what fills the bar.
      */
-    fun isMetBy(consumed: Double): Boolean = when (type) {
-        NutrientGoalType.MIN -> consumed >= value
-        NutrientGoalType.MAX -> consumed <= value
-        NutrientGoalType.EXACT -> value > 0.0 && consumed >= value * 0.95 && consumed <= value * 1.05
+    val barTarget: Double? get() = max ?: min
+
+    /**
+     * Where the lower bound sits on a bar that runs to [barTarget], as a fraction of the bar's
+     * width. Null when there is nothing to mark — no lower bound, or no upper bound for it to sit
+     * inside of.
+     */
+    val minMarkerFraction: Float?
+        get() {
+            val lower = min ?: return null
+            val upper = max ?: return null
+            if (upper <= 0.0) return null
+            return (lower / upper).toFloat().coerceIn(0f, 1f)
+        }
+
+    /** Whether [consumed] is within both bounds. An unset bound is one that cannot be missed. */
+    fun isMetBy(consumed: Double): Boolean =
+        !isEmpty && (min == null || consumed >= min) && (max == null || consumed <= max)
+
+    /** True only when the upper bound has been blown — the one "bad" state. */
+    fun isExceededBy(consumed: Double): Boolean = max != null && consumed > max
+
+    /** Progress toward [barTarget], clamped to 0..1 for a bar's fill. */
+    fun fractionOf(consumed: Double): Float {
+        val target = barTarget ?: return 0f
+        if (target <= 0.0) return 0f
+        return (consumed / target).toFloat().coerceIn(0f, 1f)
     }
-
-    /** True only for a [NutrientGoalType.MAX] goal that has been blown — the one "bad" state. */
-    fun isExceededBy(consumed: Double): Boolean = type == NutrientGoalType.MAX && consumed > value
-
-    /** Progress toward the value, clamped to 0..1 for a bar's fill. */
-    fun fractionOf(consumed: Double): Float =
-        if (value <= 0.0) 0f else (consumed / value).toFloat().coerceIn(0f, 1f)
 }
 
 /** The nutrients a daily goal can be set for. Order is the order they're shown in. */
@@ -50,11 +59,4 @@ enum class Nutrient(val label: String, val unit: String) {
     SUGAR("Zucker", "g"),
     FIBER("Ballaststoffe", "g"),
     SALT("Salz", "g"),
-}
-
-/** Label for a goal type as shown in the Ziele screen's selector. */
-fun NutrientGoalType.label(): String = when (this) {
-    NutrientGoalType.EXACT -> "genau"
-    NutrientGoalType.MIN -> "mindestens"
-    NutrientGoalType.MAX -> "höchstens"
 }

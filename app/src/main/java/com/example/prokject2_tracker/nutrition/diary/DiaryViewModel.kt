@@ -44,7 +44,9 @@ data class DiaryDayUiState(
     val fluidGoalMl: Double = 2000.0,
 ) {
     val totalKcal: Double get() = totals.kcal
-    val calorieGoalKcal: Double get() = nutrientGoals[Nutrient.KCAL]?.value ?: 2000.0
+
+    /** Falls back to a plain 2000 kcal ceiling when the user has never set a calorie goal. */
+    val calorieGoal: NutrientGoal get() = nutrientGoals[Nutrient.KCAL] ?: NutrientGoal(max = 2000.0)
 }
 
 @OptIn(ExperimentalCoroutinesApi::class)

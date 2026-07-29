@@ -23,9 +23,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Snackbar
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -44,8 +41,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.example.prokject2_tracker.core.datastore.NutrientGoalType
-import com.example.prokject2_tracker.core.datastore.label
 import com.example.prokject2_tracker.core.ui.dismissingKeyboard
 import com.example.prokject2_tracker.core.util.GoalPeriod
 import com.example.prokject2_tracker.core.util.label
@@ -99,16 +94,16 @@ fun GoalsScreen(
         ) {
             Text("Ernährung", style = MaterialTheme.typography.titleMedium)
             Text(
-                "Leer lassen heißt \"kein Ziel\". Ob ein Wert erreicht oder eingehalten werden soll, " +
-                    "legt die Auswahl darunter fest — das Tagebuch zeigt die Balken entsprechend.",
+                "Minimum, Maximum oder beides — leer lassen heißt \"kein Ziel\". Der Balken im " +
+                    "Tagebuch läuft bis zum Maximum und markiert das Minimum darin.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             state.nutrientGoals.forEach { row ->
                 NutrientGoalRow(
                     row = row,
-                    onValueChange = { viewModel.onNutrientGoalValueChange(row.nutrient, it) },
-                    onTypeChange = { viewModel.onNutrientGoalTypeChange(row.nutrient, it) },
+                    onMinChange = { viewModel.onNutrientGoalMinChange(row.nutrient, it) },
+                    onMaxChange = { viewModel.onNutrientGoalMaxChange(row.nutrient, it) },
                 )
             }
 
@@ -301,35 +296,48 @@ private fun AddFitnessGoalRow(
 }
 
 /**
- * One nutrient's goal: the value, plus what that value means. The type selector is only enabled once
- * a value is there — picking "höchstens" for a nutrient you aren't tracking has no meaning.
+ * One nutrient's goal: a lower and an upper bound, either of which may stay blank. Same two-field
+ * shape as the Getränkearten below, so both kinds of goal are entered the same way.
  */
 @Composable
 private fun NutrientGoalRow(
     row: NutrientGoalInput,
-    onValueChange: (String) -> Unit,
-    onTypeChange: (NutrientGoalType) -> Unit,
+    onMinChange: (String) -> Unit,
+    onMaxChange: (String) -> Unit,
 ) {
-    val hasValue = row.valueText.toLocaleDoubleOrNull()?.let { it > 0.0 } == true
+    val min = row.minText.toLocaleDoubleOrNull()
+    val max = row.maxText.toLocaleDoubleOrNull()
+
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        OutlinedTextField(
-            value = row.valueText,
-            onValueChange = onValueChange,
-            label = { Text("${row.nutrient.label} (${row.nutrient.unit})") },
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth(),
-        )
-        SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-            NutrientGoalType.entries.forEachIndexed { index, type ->
-                SegmentedButton(
-                    selected = row.type == type,
-                    onClick = { onTypeChange(type) },
-                    enabled = hasValue,
-                    shape = SegmentedButtonDefaults.itemShape(index = index, count = NutrientGoalType.entries.size),
-                    label = { Text(type.label(), style = MaterialTheme.typography.labelMedium) },
-                )
-            }
+        Text("${row.nutrient.label} (${row.nutrient.unit})", style = MaterialTheme.typography.bodyMedium)
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            OutlinedTextField(
+                value = row.minText,
+                onValueChange = onMinChange,
+                label = { Text("Minimum") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                singleLine = true,
+                modifier = Modifier.weight(1f),
+            )
+            OutlinedTextField(
+                value = row.maxText,
+                onValueChange = onMaxChange,
+                label = { Text("Maximum") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                singleLine = true,
+                modifier = Modifier.weight(1f),
+            )
+        }
+        // Such a goal can never be met, and nothing else in the app would say so.
+        if (min != null && max != null && min > max) {
+            Text(
+                "Minimum liegt über dem Maximum — dieses Ziel ist nicht erreichbar.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error,
+            )
         }
     }
 }
