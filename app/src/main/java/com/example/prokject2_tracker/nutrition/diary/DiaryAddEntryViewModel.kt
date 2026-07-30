@@ -10,7 +10,7 @@ import com.example.prokject2_tracker.nutrition.food.FoodItem
 import com.example.prokject2_tracker.nutrition.food.FoodRepository
 import com.example.prokject2_tracker.nutrition.food.FoodUnit
 import com.example.prokject2_tracker.nutrition.food.amountInBaseUnits
-import com.example.prokject2_tracker.nutrition.food.convertAmountText
+import com.example.prokject2_tracker.nutrition.food.defaultAmountText
 import com.example.prokject2_tracker.nutrition.recipe.RecipeRepository
 import com.example.prokject2_tracker.nutrition.recipe.RecipeWithNutrition
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -29,9 +29,6 @@ import kotlinx.coroutines.launch
 
 /** Blank is allowed (counts as 0); a non-blank value must parse as a number. */
 private fun String.isBlankOrValidNumber(): Boolean = isBlank() || toLocaleDoubleOrNull() != null
-
-/** Prefilled for a food: its values are given per 100 g/ml, so that's the natural starting point. */
-private const val DEFAULT_FOOD_AMOUNT = "100"
 
 /** Blank means "not specified" and contributes 0 to the entry. */
 private fun String.toOptionalNutrient(): Double = toLocaleDoubleOrNull() ?: 0.0
@@ -139,15 +136,19 @@ class DiaryAddEntryViewModel @Inject constructor(
         _selectedFood.value = food
         // 100 g/ml is the unit the food's values are given in and by far the most common thing to
         // log; a named unit is one tap away from there.
-        _amountText.value = DEFAULT_FOOD_AMOUNT
+        _amountText.value = defaultAmountText(null)
         _selectedUnitId.value = null
     }
 
-    /** Switches between the base unit (null) and one of the food's named units, keeping the amount. */
+    /**
+     * Switches between the base unit (null) and one of the food's named units, prefilling the usual
+     * amount for the new mode. Re-tapping the selected chip does nothing — the chips fire on every
+     * tap, and resetting a just-typed amount for a mode that didn't change would be a trap.
+     */
     fun selectUnit(unitId: String?) {
-        val from = selectedUnit
+        if (unitId == _selectedUnitId.value) return
         _selectedUnitId.value = unitId
-        _amountText.value = convertAmountText(_amountText.value, from, selectedUnit)
+        _amountText.value = defaultAmountText(selectedUnit)
     }
 
     /** Steps the amount by [delta], clamped at 0 — the ± buttons next to the Menge field. */

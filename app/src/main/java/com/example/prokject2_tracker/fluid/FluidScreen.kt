@@ -44,6 +44,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -327,10 +328,21 @@ private fun FluidEntryRow(
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
+/**
+ * The selection survives the add: a second Glas Wasser is then one tap on "+", which is how drinks
+ * actually get logged.
+ *
+ * Held by id rather than by the picked object, precisely because it now lives that much longer — a
+ * type renamed or deleted in the Getränkearten library in the meantime would otherwise stay in the
+ * field and keep logging its stale snapshot. Resolving against the current lists means a rename
+ * follows and a deleted entry falls back to "nichts ausgewählt", which disables "+".
+ */
 @Composable
 private fun AddFluidRow(types: List<FluidType>, units: List<FluidUnit>, onAdd: (FluidType, FluidUnit) -> Unit) {
-    var selectedType by remember { mutableStateOf<FluidType?>(null) }
-    var selectedUnit by remember { mutableStateOf<FluidUnit?>(null) }
+    var selectedTypeId by rememberSaveable { mutableStateOf<String?>(null) }
+    var selectedUnitId by rememberSaveable { mutableStateOf<String?>(null) }
+    val selectedType = types.firstOrNull { it.id == selectedTypeId }
+    val selectedUnit = units.firstOrNull { it.id == selectedUnitId }
     var typeMenuExpanded by remember { mutableStateOf(false) }
     var unitMenuExpanded by remember { mutableStateOf(false) }
 
@@ -360,7 +372,7 @@ private fun AddFluidRow(types: List<FluidType>, units: List<FluidUnit>, onAdd: (
                     DropdownMenuItem(
                         text = { Text(type.name) },
                         onClick = {
-                            selectedType = type
+                            selectedTypeId = type.id
                             typeMenuExpanded = false
                         },
                     )
@@ -389,7 +401,7 @@ private fun AddFluidRow(types: List<FluidType>, units: List<FluidUnit>, onAdd: (
                     DropdownMenuItem(
                         text = { Text(unit.name) },
                         onClick = {
-                            selectedUnit = unit
+                            selectedUnitId = unit.id
                             unitMenuExpanded = false
                         },
                     )
@@ -398,13 +410,13 @@ private fun AddFluidRow(types: List<FluidType>, units: List<FluidUnit>, onAdd: (
         }
 
         IconButton(
+            // Deliberately no reset afterwards: the same drink and the same size stay selected so
+            // the next one is a single tap.
             onClick = {
                 val type = selectedType
                 val unit = selectedUnit
                 if (type != null && unit != null) {
                     onAdd(type, unit)
-                    selectedType = null
-                    selectedUnit = null
                 }
             },
             enabled = selectedType != null && selectedUnit != null,

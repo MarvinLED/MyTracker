@@ -359,4 +359,106 @@ class MigrationTest {
         }
         db.close()
     }
+
+    @Test
+    fun migrate14To15_addsEmptyBodySiteAndMeasurementTables() {
+        val v14 = helper.createDatabase(dbName, 14)
+        v14.execSQL(
+            "INSERT INTO body_weight_entries (id, epochDay, weightKg, createdAt) " +
+                "VALUES ('weight-20000', 20000, 78.5, 1700000000000)",
+        )
+        v14.close()
+
+        val db = helper.runMigrationsAndValidate(dbName, 15, true, MIGRATION_14_15)
+
+        // Körperstellen are user-created, so the library starts empty rather than seeded.
+        db.query("SELECT COUNT(*) FROM body_sites").use { cursor ->
+            cursor.moveToFirst()
+            assertEquals(0, cursor.getInt(0))
+        }
+        // The unrelated tracked data is untouched.
+        db.query("SELECT weightKg FROM body_weight_entries WHERE id = 'weight-20000'").use { cursor ->
+            cursor.moveToFirst()
+            assertEquals(78.5, cursor.getDouble(0), 0.0001)
+        }
+
+        db.execSQL("PRAGMA foreign_keys = ON")
+        db.execSQL(
+            "INSERT INTO body_sites (id, name, measuringHint, sortOrder, createdAt) " +
+                "VALUES ('site-1', 'Oberarm links', 'angespannt, dickste Stelle', 0, 1700000000000)",
+        )
+        db.execSQL(
+            "INSERT INTO body_measurements (id, bodySiteId, epochDay, valueCm, createdAt) " +
+                "VALUES ('measurement-site-1-20000', 'site-1', 20000, 35.5, 1700000000000)",
+        )
+        // One value per site and day: the same day re-measured replaces its row instead of adding one.
+        db.execSQL(
+            "INSERT OR REPLACE INTO body_measurements (id, bodySiteId, epochDay, valueCm, createdAt) " +
+                "VALUES ('measurement-site-1-20000', 'site-1', 20000, 36.0, 1700000000000)",
+        )
+        db.query("SELECT COUNT(*), MAX(valueCm) FROM body_measurements").use { cursor ->
+            cursor.moveToFirst()
+            assertEquals(1, cursor.getInt(0))
+            assertEquals(36.0, cursor.getDouble(1), 0.0001)
+        }
+        // Deleting a site takes its measurements with it.
+        db.execSQL("DELETE FROM body_sites WHERE id = 'site-1'")
+        db.query("SELECT COUNT(*) FROM body_measurements").use { cursor ->
+            cursor.moveToFirst()
+            assertEquals(0, cursor.getInt(0))
+        }
+        db.close()
+    }
+
+    @Test
+    fun migrate15To16_addsBloodPressureKeyedByDayAndTimeOfDay() {
+        val v15 = helper.createDatabase(dbName, 15)
+        v15.execSQL(
+            "INSERT INTO body_sites (id, name, measuringHint, sortOrder, createdAt) " +
+                "VALUES ('site-1', 'Taille', NULL, 0, 1700000000000)",
+        )
+        v15.close()
+
+        val db = helper.runMigrationsAndValidate(dbName, 16, true, MIGRATION_15_16)
+
+        db.query("SELECT COUNT(*) FROM blood_pressure_entries").use { cursor ->
+            cursor.moveToFirst()
+            assertEquals(0, cursor.getInt(0))
+        }
+        // The Maße tables from the previous step are untouched.
+        db.query("SELECT name FROM body_sites WHERE id = 'site-1'").use { cursor ->
+            cursor.moveToFirst()
+            assertEquals("Taille", cursor.getString(0))
+        }
+
+        db.execSQL(
+            "INSERT INTO blood_pressure_entries (id, epochDay, timeOfDay, systolic, diastolic, comment, createdAt) " +
+                "VALUES ('bloodpressure-20000-MORNING', 20000, 'MORNING', 128.0, 84.0, 'schlecht geschlafen', 1700000000000)",
+        )
+        // Morning and evening of the same day coexist...
+        db.execSQL(
+            "INSERT INTO blood_pressure_entries (id, epochDay, timeOfDay, systolic, diastolic, comment, createdAt) " +
+                "VALUES ('bloodpressure-20000-EVENING', 20000, 'EVENING', 134.0, 88.0, NULL, 1700000000000)",
+        )
+        // ...while re-entering the same half of the same day corrects that row.
+        db.execSQL(
+            "INSERT OR REPLACE INTO blood_pressure_entries " +
+                "(id, epochDay, timeOfDay, systolic, diastolic, comment, createdAt) " +
+                "VALUES ('bloodpressure-20000-MORNING', 20000, 'MORNING', 126.0, 82.0, NULL, 1700000000000)",
+        )
+        db.query("SELECT COUNT(*) FROM blood_pressure_entries").use { cursor ->
+            cursor.moveToFirst()
+            assertEquals(2, cursor.getInt(0))
+        }
+        db.query(
+            "SELECT systolic, diastolic, comment FROM blood_pressure_entries " +
+                "WHERE id = 'bloodpressure-20000-MORNING'",
+        ).use { cursor ->
+            cursor.moveToFirst()
+            assertEquals(126.0, cursor.getDouble(0), 0.0001)
+            assertEquals(82.0, cursor.getDouble(1), 0.0001)
+            assertEquals(true, cursor.isNull(2))
+        }
+        db.close()
+    }
 }

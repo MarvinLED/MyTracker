@@ -29,6 +29,10 @@ enum class AppDomain(private val accent: Color?) {
     FITNESS(Color(0xFFD95926)), // orange
     WEIGHT(Color(0xFFD55181)), // magenta
     HABIT(Color(0xFFC98500)), // gelb
+    MEASUREMENT(Color(0xFF9085E9)), // violett
+    // Rot is the slot the cross-cutting views below deliberately avoid, because on a neutral view it
+    // would read as an error state. On a vitals screen it reads as what it is, so Blutdruck takes it.
+    BLOOD_PRESSURE(Color(0xFFE66767)), // rot
     ANALYSE(null),
     GOALS(null),
     LIBRARY(null),

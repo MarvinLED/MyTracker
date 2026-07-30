@@ -3,6 +3,8 @@ package com.example.prokject2_tracker.core.database
 import androidx.room.Database
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
+import com.example.prokject2_tracker.bloodpressure.BloodPressureDao
+import com.example.prokject2_tracker.bloodpressure.BloodPressureEntry
 import com.example.prokject2_tracker.fitness.FitnessGoal
 import com.example.prokject2_tracker.fitness.FitnessGoalDao
 import com.example.prokject2_tracker.fitness.cardio.CardioActivityType
@@ -30,6 +32,10 @@ import com.example.prokject2_tracker.habit.HabitCheckInDao
 import com.example.prokject2_tracker.habit.HabitDao
 import com.example.prokject2_tracker.habit.HabitGoal
 import com.example.prokject2_tracker.habit.HabitGoalDao
+import com.example.prokject2_tracker.measurement.BodyMeasurement
+import com.example.prokject2_tracker.measurement.BodyMeasurementDao
+import com.example.prokject2_tracker.measurement.BodySite
+import com.example.prokject2_tracker.measurement.BodySiteDao
 import com.example.prokject2_tracker.nutrition.diary.DiaryDao
 import com.example.prokject2_tracker.nutrition.diary.DiaryEntry
 import com.example.prokject2_tracker.nutrition.diary.DiaryRecipeIngredient
@@ -71,8 +77,11 @@ import com.example.prokject2_tracker.weight.BodyWeightEntry
         FoodItemTag::class,
         BodyWeightEntry::class,
         FitnessGoal::class,
+        BodySite::class,
+        BodyMeasurement::class,
+        BloodPressureEntry::class,
     ],
-    version = 14,
+    version = 16,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -96,4 +105,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun tagDao(): TagDao
     abstract fun bodyWeightDao(): BodyWeightDao
     abstract fun fitnessGoalDao(): FitnessGoalDao
+    abstract fun bodySiteDao(): BodySiteDao
+    abstract fun bodyMeasurementDao(): BodyMeasurementDao
+    abstract fun bloodPressureDao(): BloodPressureDao
 }

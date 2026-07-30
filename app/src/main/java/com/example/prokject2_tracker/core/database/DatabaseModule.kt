@@ -2,6 +2,7 @@ package com.example.prokject2_tracker.core.database
 
 import android.content.Context
 import androidx.room.Room
+import com.example.prokject2_tracker.bloodpressure.BloodPressureDao
 import com.example.prokject2_tracker.fitness.FitnessGoalDao
 import com.example.prokject2_tracker.fitness.cardio.CardioActivityTypeDao
 import com.example.prokject2_tracker.fitness.cardio.CardioDao
@@ -15,6 +16,8 @@ import com.example.prokject2_tracker.fluid.FluidUnitDao
 import com.example.prokject2_tracker.habit.HabitCheckInDao
 import com.example.prokject2_tracker.habit.HabitDao
 import com.example.prokject2_tracker.habit.HabitGoalDao
+import com.example.prokject2_tracker.measurement.BodyMeasurementDao
+import com.example.prokject2_tracker.measurement.BodySiteDao
 import com.example.prokject2_tracker.nutrition.diary.DiaryDao
 import com.example.prokject2_tracker.nutrition.food.FoodDao
 import com.example.prokject2_tracker.nutrition.food.FoodUnitDao
@@ -49,6 +52,8 @@ object DatabaseModule {
                 MIGRATION_11_12,
                 MIGRATION_12_13,
                 MIGRATION_13_14,
+                MIGRATION_14_15,
+                MIGRATION_15_16,
             )
             // Upgrades now always go through a real, data-preserving Migration above — a missing
             // migration crashes loudly in development instead of silently wiping a real user's
@@ -113,4 +118,13 @@ object DatabaseModule {
 
     @Provides
     fun provideFitnessGoalDao(database: AppDatabase): FitnessGoalDao = database.fitnessGoalDao()
+
+    @Provides
+    fun provideBodySiteDao(database: AppDatabase): BodySiteDao = database.bodySiteDao()
+
+    @Provides
+    fun provideBodyMeasurementDao(database: AppDatabase): BodyMeasurementDao = database.bodyMeasurementDao()
+
+    @Provides
+    fun provideBloodPressureDao(database: AppDatabase): BloodPressureDao = database.bloodPressureDao()
 }

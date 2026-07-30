@@ -12,7 +12,7 @@ import com.example.prokject2_tracker.nutrition.food.FoodItem
 import com.example.prokject2_tracker.nutrition.food.FoodRepository
 import com.example.prokject2_tracker.nutrition.food.FoodUnit
 import com.example.prokject2_tracker.nutrition.food.amountInBaseUnits
-import com.example.prokject2_tracker.nutrition.food.convertAmountText
+import com.example.prokject2_tracker.nutrition.food.defaultAmountText
 import com.example.prokject2_tracker.nutrition.food.fluidMlOf
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -168,14 +168,20 @@ class RecipeEditViewModel @Inject constructor(
         updateIngredient(foodId) { it.copy(amountText = amountText) }
     }
 
-    /** Switches a row between base units (null) and one of the food's named units. */
+    /**
+     * Switches a row between base units (null) and one of the food's named units, prefilling the
+     * usual amount for the new mode. Re-tapping the selected chip does nothing.
+     */
     fun selectIngredientUnit(foodId: String, unitId: String?) {
         updateIngredient(foodId) { row ->
-            val to = row.units.firstOrNull { it.id == unitId }
-            row.copy(
-                selectedUnitId = unitId,
-                amountText = convertAmountText(row.amountText, row.selectedUnit, to),
-            )
+            if (unitId == row.selectedUnitId) {
+                row
+            } else {
+                row.copy(
+                    selectedUnitId = unitId,
+                    amountText = defaultAmountText(row.units.firstOrNull { it.id == unitId }),
+                )
+            }
         }
     }
 

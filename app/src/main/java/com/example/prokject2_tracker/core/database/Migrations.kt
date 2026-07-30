@@ -621,3 +621,52 @@ object MIGRATION_13_14 : Migration(13, 14) {
         }
     }
 }
+
+object MIGRATION_14_15 : Migration(14, 15) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        // body_sites: the Körperstellen library ("Oberarm links") plus the note on how that spot is
+        // measured. Deliberately not seeded — unlike muscle groups or cardio types, which spots
+        // someone tracks is personal, so the screen starts empty and every row is user-created.
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `body_sites` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, " +
+                "`measuringHint` TEXT, `sortOrder` INTEGER NOT NULL, `createdAt` INTEGER NOT NULL, " +
+                "PRIMARY KEY(`id`))",
+        )
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_body_sites_name` ON `body_sites` (`name`)")
+
+        // body_measurements: one value per site and day, in cm. The unique (site, day) index backs
+        // the deterministic id "measurement-<site>-<day>", so re-measuring a day corrects that row
+        // instead of adding a second point.
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `body_measurements` (`id` TEXT NOT NULL, `bodySiteId` TEXT NOT NULL, " +
+                "`epochDay` INTEGER NOT NULL, `valueCm` REAL NOT NULL, `createdAt` INTEGER NOT NULL, " +
+                "PRIMARY KEY(`id`), " +
+                "FOREIGN KEY(`bodySiteId`) REFERENCES `body_sites`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        )
+        db.execSQL(
+            "CREATE UNIQUE INDEX IF NOT EXISTS `index_body_measurements_bodySiteId_epochDay` " +
+                "ON `body_measurements` (`bodySiteId`, `epochDay`)",
+        )
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS `index_body_measurements_epochDay` ON `body_measurements` (`epochDay`)",
+        )
+    }
+}
+
+object MIGRATION_15_16 : Migration(15, 16) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        // blood_pressure_entries: systolisch/diastolisch are fixed columns rather than rows of a
+        // user-managed library — unlike body_sites, a cuff measures exactly these two values. The
+        // unique (day, timeOfDay) index backs the deterministic id, so re-entering this morning's
+        // reading corrects it instead of adding a second point.
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `blood_pressure_entries` (`id` TEXT NOT NULL, " +
+                "`epochDay` INTEGER NOT NULL, `timeOfDay` TEXT NOT NULL, `systolic` REAL NOT NULL, " +
+                "`diastolic` REAL NOT NULL, `comment` TEXT, `createdAt` INTEGER NOT NULL, PRIMARY KEY(`id`))",
+        )
+        db.execSQL(
+            "CREATE UNIQUE INDEX IF NOT EXISTS `index_blood_pressure_entries_epochDay_timeOfDay` " +
+                "ON `blood_pressure_entries` (`epochDay`, `timeOfDay`)",
+        )
+    }
+}

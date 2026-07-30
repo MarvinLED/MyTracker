@@ -7,6 +7,8 @@ import androidx.navigation.compose.composable
 import androidx.compose.ui.Modifier
 import com.example.prokject2_tracker.analyse.AnalyseRoute
 import com.example.prokject2_tracker.analyse.AnalyseScreen
+import com.example.prokject2_tracker.bloodpressure.BloodPressureRoute
+import com.example.prokject2_tracker.bloodpressure.BloodPressureScreen
 import com.example.prokject2_tracker.core.util.DateUtils
 import com.example.prokject2_tracker.fitness.FitnessRoute
 import com.example.prokject2_tracker.fitness.FitnessScreen
@@ -34,6 +36,10 @@ import com.example.prokject2_tracker.goals.GoalsRoute
 import com.example.prokject2_tracker.goals.GoalsScreen
 import com.example.prokject2_tracker.habit.HabitRoute
 import com.example.prokject2_tracker.habit.HabitScreen
+import com.example.prokject2_tracker.measurement.BodySiteManageRoute
+import com.example.prokject2_tracker.measurement.BodySiteManageScreen
+import com.example.prokject2_tracker.measurement.MeasurementRoute
+import com.example.prokject2_tracker.measurement.MeasurementScreen
 import com.example.prokject2_tracker.nutrition.diary.DiaryAddEntryRoute
 import com.example.prokject2_tracker.nutrition.diary.DiaryAddEntryScreen
 import com.example.prokject2_tracker.nutrition.diary.DiaryEditEntryRoute
@@ -87,6 +93,18 @@ fun AppNavHost(
         }
         composable<WeightRoute> {
             WeightScreen(onOpenDrawer = onOpenDrawer)
+        }
+        composable<MeasurementRoute> {
+            MeasurementScreen(
+                onOpenDrawer = onOpenDrawer,
+                onOpenSiteManagement = { navController.navigate(BodySiteManageRoute) },
+            )
+        }
+        composable<BloodPressureRoute> {
+            BloodPressureScreen(onOpenDrawer = onOpenDrawer)
+        }
+        composable<BodySiteManageRoute> {
+            BodySiteManageScreen(onBack = { navController.popBackStack() })
         }
         composable<DiaryAddEntryRoute> {
             DiaryAddEntryScreen(

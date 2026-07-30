@@ -52,8 +52,9 @@ fun formatAmount(amountBaseUnits: Double, unitName: String?, unitCount: Double?,
  * Tagebuch, Tagebuch-Bearbeiten, Rezept-Zutaten — so all three behave identically.
  *
  * [amountText] always means "the number in the currently selected mode": grams when
- * [selectedUnitId] is null, otherwise a count of that unit. Converting is the caller's job via
- * [amountInBaseUnits], because only the caller knows what to do with the result.
+ * [selectedUnitId] is null, otherwise a count of that unit. Converting to base units is the caller's
+ * job via [amountInBaseUnits], because only the caller knows what to do with the result; on a mode
+ * switch the caller prefills the field via [defaultAmountText].
  */
 @Composable
 fun FoodAmountInput(
@@ -126,12 +127,16 @@ fun FoodAmountInput(
     }
 }
 
+/** Prefilled for the base unit: a food's values are given per 100 g/ml. */
+const val DEFAULT_BASE_AMOUNT = "100"
+
+/** Prefilled for a named unit: tapping "Scheibe" almost always means one of them. */
+const val DEFAULT_UNIT_COUNT = "1"
+
 /**
- * The amount text to show after switching modes: keep the *same real amount*, re-expressed. Typing
- * 50 g and then tapping "Scheibe" (25 g) leaves "2", not "50".
+ * The amount text to show after switching modes: not the old amount re-expressed, but the usual
+ * starting value of the new mode — 100 g/ml, or 1 × the named unit. Only prefilled, so it stays a
+ * single tap away from confirming and can be typed over.
  */
-fun convertAmountText(amountText: String, from: FoodUnit?, to: FoodUnit?): String {
-    val base = amountInBaseUnits(amountText, from) ?: return amountText
-    val converted = if (to == null) base else base / to.amountBaseUnits
-    return converted.formatDecimal(3)
-}
+fun defaultAmountText(unit: FoodUnit?): String =
+    if (unit == null) DEFAULT_BASE_AMOUNT else DEFAULT_UNIT_COUNT

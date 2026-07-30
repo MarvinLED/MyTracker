@@ -12,7 +12,7 @@ import com.example.prokject2_tracker.nutrition.food.FoodItem
 import com.example.prokject2_tracker.nutrition.food.FoodRepository
 import com.example.prokject2_tracker.nutrition.food.FoodUnit
 import com.example.prokject2_tracker.nutrition.food.amountInBaseUnits
-import com.example.prokject2_tracker.nutrition.food.convertAmountText
+import com.example.prokject2_tracker.nutrition.food.defaultAmountText
 import com.example.prokject2_tracker.nutrition.food.fluidMlOf
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -153,13 +153,17 @@ class DiaryEditEntryViewModel @Inject constructor(
     fun onMealTypeChange(value: MealType) { _state.value = _state.value.copy(mealType = value) }
     fun onPickerQueryChange(value: String) { _pickerQuery.value = value }
 
-    /** Switches the entry's amount between base units (null) and one of the food's named units. */
+    /**
+     * Switches the entry's amount between base units (null) and one of the food's named units,
+     * prefilling the usual amount for the new mode. Re-tapping the selected chip does nothing.
+     */
     fun onSelectUnit(unitId: String?) {
         val current = _state.value
+        if (unitId == current.selectedUnitId) return
         val to = current.entryUnits.firstOrNull { it.id == unitId }
         _state.value = current.copy(
             selectedUnitId = unitId,
-            quantityText = convertAmountText(current.quantityText, current.selectedUnit, to),
+            quantityText = defaultAmountText(to),
         )
     }
 
@@ -172,13 +176,13 @@ class DiaryEditEntryViewModel @Inject constructor(
     fun onSelectIngredientUnit(foodId: String, unitId: String?) {
         updateIngredients(
             _state.value.ingredients.map { row ->
-                if (row.foodId != foodId) {
+                if (row.foodId != foodId || unitId == row.selectedUnitId) {
                     row
                 } else {
                     val to = row.units.firstOrNull { it.id == unitId }
                     row.copy(
                         selectedUnitId = unitId,
-                        amountText = convertAmountText(row.amountText, row.selectedUnit, to),
+                        amountText = defaultAmountText(to),
                     )
                 }
             },

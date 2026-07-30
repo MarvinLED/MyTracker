@@ -15,7 +15,10 @@
       "Bash(./gradlew :app:compileDebugKotlin --offline)",
       "Bash(adb devices *)",
       "Read(//home/user/Android/Sdk/emulator/**)",
-      "Bash(./gradlew assembleDebug testDebugUnitTest)"
+      "Bash(./gradlew assembleDebug testDebugUnitTest)",
+      "Bash(python3 -)",
+      "Bash(./gradlew assembleDebug)",
+      "Bash(./gradlew testDebugUnitTest --tests \"*MeasurementViewModelTest*\")"
     ]
   }
 }
