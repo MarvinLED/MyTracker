@@ -29,6 +29,7 @@ class FluidRepository @Inject constructor(
     private val fluidDao: FluidDao,
     private val fluidTypeDao: FluidTypeDao,
     private val fluidUnitDao: FluidUnitDao,
+    private val fluidQuickAddDao: FluidQuickAddDao,
 ) {
     fun observeForDay(epochDay: Long): Flow<List<FluidEntry>> = fluidDao.observeForDay(epochDay)
 
@@ -126,20 +127,77 @@ class FluidRepository @Inject constructor(
         fluidUnitDao.delete(unit)
     }
 
-    suspend fun logFluid(epochDay: Long, type: FluidType, amountMl: Double, unit: FluidUnit? = null) {
-        fluidDao.upsert(
-            FluidEntry(
+    /** Returns the row it wrote, so a caller that offers an undo has something to take back. */
+    suspend fun logFluid(
+        epochDay: Long,
+        type: FluidType,
+        amountMl: Double,
+        unit: FluidUnit? = null,
+    ): FluidEntry {
+        val entry = FluidEntry(
+            id = IdGenerator.newId(),
+            epochDay = epochDay,
+            createdAt = Instant.now(),
+            fluidTypeId = type.id,
+            fluidTypeName = type.name,
+            amountMl = amountMl,
+            fluidUnitId = unit?.id,
+            fluidUnitName = unit?.name,
+        )
+        fluidDao.upsert(entry)
+        return entry
+    }
+
+    fun observeQuickAdds(): Flow<List<FluidQuickAdd>> = fluidQuickAddDao.observeAll()
+
+    /**
+     * Logs what one Schnellauswahl button stands for. Returns null when its drink type is gone —
+     * the cascade normally takes the button with it, so this only covers the race where the type
+     * was deleted between the screen reading the buttons and the tap.
+     */
+    suspend fun logQuickAdd(epochDay: Long, quickAdd: FluidQuickAdd): FluidEntry? {
+        val type = fluidTypeDao.getById(quickAdd.fluidTypeId) ?: return null
+        return logFluid(epochDay, type, quickAdd.amountMl)
+    }
+
+    /** Silently a no-op past [FluidQuickAddLimit] — two rows is all the Tagebuch area draws. */
+    suspend fun createQuickAdd(fluidTypeId: String, symbol: FluidQuickAddSymbol, amountMl: Double) {
+        val existing = fluidQuickAddDao.getAllOnce()
+        if (existing.size >= FluidQuickAddLimit) return
+        fluidQuickAddDao.upsert(
+            FluidQuickAdd(
                 id = IdGenerator.newId(),
-                epochDay = epochDay,
+                fluidTypeId = fluidTypeId,
+                symbol = symbol,
+                amountMl = quickAddAmountFor(symbol, amountMl),
+                sortOrder = (existing.maxOfOrNull { it.sortOrder } ?: -1) + 1,
                 createdAt = Instant.now(),
-                fluidTypeId = type.id,
-                fluidTypeName = type.name,
-                amountMl = amountMl,
-                fluidUnitId = unit?.id,
-                fluidUnitName = unit?.name,
             ),
         )
     }
+
+    suspend fun updateQuickAdd(
+        existing: FluidQuickAdd,
+        fluidTypeId: String,
+        symbol: FluidQuickAddSymbol,
+        amountMl: Double,
+    ) {
+        fluidQuickAddDao.upsert(
+            existing.copy(
+                fluidTypeId = fluidTypeId,
+                symbol = symbol,
+                amountMl = quickAddAmountFor(symbol, amountMl),
+            ),
+        )
+    }
+
+    suspend fun deleteQuickAdd(quickAdd: FluidQuickAdd) {
+        fluidQuickAddDao.delete(quickAdd)
+    }
+
+    /** A "100" button logs 100 ml whatever else it is handed; the symbol says so on the button. */
+    private fun quickAddAmountFor(symbol: FluidQuickAddSymbol, amountMl: Double): Double =
+        if (symbol == FluidQuickAddSymbol.ML_100) FluidQuickAdd100Ml else amountMl
 
     /** Corrects a mistyped amount; the type and the Maßeinheit it was logged with stay as they were. */
     suspend fun updateEntryAmount(entry: FluidEntry, amountMl: Double) {

@@ -461,4 +461,43 @@ class MigrationTest {
         }
         db.close()
     }
+
+    @Test
+    fun migrate16To17_addsFluidQuickAddsCascadingWithTheirType() {
+        val v16 = helper.createDatabase(dbName, 16)
+        v16.execSQL(
+            "INSERT INTO fluid_types (id, name, defaultQuickAddMl, sortOrder, createdAt) " +
+                "VALUES ('type-1', 'Wasser', 250.0, 0, 1700000000000)",
+        )
+        v16.close()
+
+        val db = helper.runMigrationsAndValidate(dbName, 17, true, MIGRATION_16_17)
+
+        // Nothing is seeded: the Schnellauswahl starts empty and is filled by the user.
+        db.query("SELECT COUNT(*) FROM fluid_quick_adds").use { cursor ->
+            cursor.moveToFirst()
+            assertEquals(0, cursor.getInt(0))
+        }
+        db.execSQL(
+            "INSERT INTO fluid_quick_adds (id, fluidTypeId, symbol, amountMl, sortOrder, createdAt) " +
+                "VALUES ('quick-1', 'type-1', 'GLASS', 250.0, 0, 1700000000000)",
+        )
+        db.execSQL(
+            "INSERT INTO fluid_quick_adds (id, fluidTypeId, symbol, amountMl, sortOrder, createdAt) " +
+                "VALUES ('quick-2', 'type-1', 'ML_100', 100.0, 1, 1700000000000)",
+        )
+        db.query("SELECT symbol, amountMl FROM fluid_quick_adds WHERE id = 'quick-2'").use { cursor ->
+            cursor.moveToFirst()
+            assertEquals("ML_100", cursor.getString(0))
+            assertEquals(100.0, cursor.getDouble(1), 0.0001)
+        }
+        // A button is only ever a shortcut to a drink type, so deleting the type takes it along.
+        db.execSQL("PRAGMA foreign_keys = ON")
+        db.execSQL("DELETE FROM fluid_types WHERE id = 'type-1'")
+        db.query("SELECT COUNT(*) FROM fluid_quick_adds").use { cursor ->
+            cursor.moveToFirst()
+            assertEquals(0, cursor.getInt(0))
+        }
+        db.close()
+    }
 }

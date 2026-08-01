@@ -17,6 +17,7 @@ import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Kitchen
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Undo
 import androidx.compose.material3.Button
@@ -45,9 +46,12 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.prokject2_tracker.core.util.DateUtils
 import com.example.prokject2_tracker.core.util.formatCompact
+import com.example.prokject2_tracker.fluid.FluidQuickAddArea
 import com.example.prokject2_tracker.fluid.fluidDistributionSlices
+import com.example.prokject2_tracker.fluid.fluidQuickAddItems
 import com.example.prokject2_tracker.nutrition.food.formatAmount
 import com.example.prokject2_tracker.ui.theme.DiaryBlue
+import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
@@ -58,14 +62,18 @@ import java.util.Locale
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DiaryScreen(
-    onAddEntry: (Long) -> Unit,
+    onAddEntry: (Long, MealType) -> Unit,
     onEditEntry: (String) -> Unit,
+    onOpenLibrary: () -> Unit,
+    onManageFluidQuickAdds: () -> Unit,
     onOpenDrawer: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: DiaryViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val undoableDelete by viewModel.undoableDelete.collectAsState()
+    val quickAdds by viewModel.fluidQuickAdds.collectAsState()
+    val undoableFluidAdd by viewModel.undoableFluidAdd.collectAsState()
     val dateFormatter = remember { DateTimeFormatter.ofPattern("EEEE, d. MMMM", Locale.GERMAN) }
 
     Scaffold(
@@ -139,38 +147,73 @@ fun DiaryScreen(
                         HorizontalDivider(color = MaterialTheme.colorScheme.surfaceContainerHighest)
                         CalorieBar(consumedKcal = uiState.totalKcal, goal = uiState.calorieGoal)
                         HorizontalDivider(color = MaterialTheme.colorScheme.surfaceContainerHighest)
-                        FluidBalanceBar(slices = fluidSlices, goalMl = uiState.fluidGoalMl)
+                        FluidBalanceBar(
+                            slices = fluidSlices,
+                            goalMl = uiState.fluidGoalMl,
+                            // Unfolds with the legend: the legend says which drink is which colour,
+                            // and these buttons are those same colours.
+                            expandedContent = {
+                                FluidQuickAddArea(
+                                    items = fluidQuickAddItems(quickAdds, uiState.fluidTypes),
+                                    onQuickAdd = viewModel::quickAddFluid,
+                                    onUndo = viewModel::undoFluidAdd,
+                                    canUndo = undoableFluidAdd != null,
+                                    onManage = onManageFluidQuickAdds,
+                                )
+                            },
+                        )
                     }
                 }
             }
             item(key = "add") {
-                Button(
-                    onClick = { onAddEntry(uiState.epochDay) },
-                    // The cards' own surface, so the button sits in the same family as the blocks
-                    // above and below it instead of being a third colour on the page.
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                        contentColor = MaterialTheme.colorScheme.onSurface,
-                    ),
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Icon(Icons.Filled.Add, contentDescription = null)
-                    Spacer(Modifier.width(8.dp))
-                    Text("Lebensmittel hinzufügen")
+                // The cards' own surface, so the buttons sit in the same family as the blocks
+                // above and below them instead of being a third colour on the page.
+                val buttonColors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                    contentColor = MaterialTheme.colorScheme.onSurface,
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Button(
+                        // Read at tap time, not at composition: the screen can sit open across the
+                        // boundary between two meals.
+                        onClick = { onAddEntry(uiState.epochDay, defaultMealType(LocalTime.now())) },
+                        colors = buttonColors,
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        Icon(Icons.Filled.Add, contentDescription = null)
+                        Spacer(Modifier.width(8.dp))
+                        // Half the width no longer fits the full "Lebensmittel hinzufügen"; the
+                        // plus carries the "add" half of the meaning.
+                        Text("Lebensmittel")
+                    }
+                    Button(
+                        onClick = onOpenLibrary,
+                        colors = buttonColors,
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        Icon(Icons.Filled.Kitchen, contentDescription = null)
+                        Spacer(Modifier.width(8.dp))
+                        Text("Bibliothek")
+                    }
                 }
             }
-            // All four blocks, always, and all in one card: the day has a fixed shape, and an empty
-            // block is what tells you that you still haven't logged breakfast.
-            item(key = "meals") {
-                DiaryCard {
-                    Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                        MealType.entries.forEach { mealType ->
-                            MealBlock(
-                                mealType = mealType,
-                                entries = uiState.entriesByMeal[mealType].orEmpty(),
-                                onEditEntry = onEditEntry,
-                                onDeleteEntry = viewModel::deleteEntry,
-                            )
+            // Only the meals that hold something, all in one card: an empty block says nothing the
+            // missing block doesn't, and four of them on a fresh day are four rows of "Nichts
+            // eingetragen." above the first real entry.
+            val loggedMeals = MealType.entries.filter { !uiState.entriesByMeal[it].isNullOrEmpty() }
+            if (loggedMeals.isNotEmpty()) {
+                item(key = "meals") {
+                    DiaryCard {
+                        Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                            loggedMeals.forEach { mealType ->
+                                MealBlock(
+                                    mealType = mealType,
+                                    entries = uiState.entriesByMeal[mealType].orEmpty(),
+                                    onAddEntry = { onAddEntry(uiState.epochDay, mealType) },
+                                    onEditEntry = onEditEntry,
+                                    onDeleteEntry = viewModel::deleteEntry,
+                                )
+                            }
                         }
                     }
                 }
@@ -194,11 +237,17 @@ private fun DiaryCard(content: @Composable () -> Unit) {
 private fun MealBlock(
     mealType: MealType,
     entries: List<DiaryEntry>,
+    onAddEntry: () -> Unit,
     onEditEntry: (String) -> Unit,
     onDeleteEntry: (DiaryEntry) -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        // The heading is the shortcut for logging into this meal — it is the one place on the page
+        // that already names the meal, so nothing else has to ask which one you meant.
+        Row(
+            modifier = Modifier.fillMaxWidth().clickable(onClick = onAddEntry).padding(vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
             Text(
                 mealType.label(),
                 style = MaterialTheme.typography.titleSmall,
@@ -209,24 +258,22 @@ private fun MealBlock(
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            Spacer(Modifier.width(8.dp))
+            Icon(
+                Icons.Filled.Add,
+                contentDescription = "Lebensmittel zu ${mealType.label()} hinzufügen",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
         // Indented under their heading: the entries and the meal names are otherwise two stacks of
         // similar-looking lines, and nothing says which belongs to which.
         Column(modifier = Modifier.padding(start = 16.dp)) {
-            if (entries.isEmpty()) {
-                Text(
-                    "Nichts eingetragen.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+            entries.forEach { entry ->
+                DiaryEntryRow(
+                    entry = entry,
+                    onEdit = { onEditEntry(entry.id) },
+                    onDelete = { onDeleteEntry(entry) },
                 )
-            } else {
-                entries.forEach { entry ->
-                    DiaryEntryRow(
-                        entry = entry,
-                        onEdit = { onEditEntry(entry.id) },
-                        onDelete = { onDeleteEntry(entry) },
-                    )
-                }
             }
         }
     }

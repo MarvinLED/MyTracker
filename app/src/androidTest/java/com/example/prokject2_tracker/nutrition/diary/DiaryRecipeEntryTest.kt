@@ -43,7 +43,8 @@ class DiaryRecipeEntryTest {
     fun setUp() = runBlocking {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         db = Room.inMemoryDatabaseBuilder(context, AppDatabase::class.java).build()
-        fluidRepository = FluidRepository(db.fluidDao(), db.fluidTypeDao(), db.fluidUnitDao())
+        fluidRepository =
+            FluidRepository(db.fluidDao(), db.fluidTypeDao(), db.fluidUnitDao(), db.fluidQuickAddDao())
         diaryRepository = DiaryRepository(db.diaryDao(), db.foodDao(), db.recipeDao(), fluidRepository)
         recipeRepository = RecipeRepository(db.recipeDao(), TagRepository(db.tagDao()), db.fluidTypeDao())
 

@@ -107,7 +107,9 @@ class DiaryAddEntryViewModel @Inject constructor(
     private val _quick = MutableStateFlow(QuickEntryState())
     val quick: StateFlow<QuickEntryState> = _quick.asStateFlow()
 
-    private val _mealType = MutableStateFlow(MealType.BREAKFAST)
+    // Preselected by whoever opened the form: the tapped meal, or the one that fits the current
+    // time when the user came in through the add button.
+    private val _mealType = MutableStateFlow(route.mealType)
     val mealType: StateFlow<MealType> = _mealType.asStateFlow()
 
     private val _isSaved = MutableStateFlow(false)

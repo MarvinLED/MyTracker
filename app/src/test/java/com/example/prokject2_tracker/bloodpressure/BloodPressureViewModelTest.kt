@@ -101,6 +101,81 @@ class BloodPressureViewModelTest {
     }
 
     @Test
+    fun prefill_neverOffersAReadingFromAfterTheSelectedDay() = runTest(dispatcher) {
+        dao.entries.value = listOf(
+            entry(today - 10, BloodPressureTimeOfDay.MORNING, 140.0, 92.0),
+            entry(today - 1, BloodPressureTimeOfDay.MORNING, 120.0, 78.0),
+        )
+        val viewModel = BloodPressureViewModel(repository)
+        backgroundScope.launch { viewModel.uiState.collect {} }
+        viewModel.onTimeOfDayChange(BloodPressureTimeOfDay.MORNING)
+        viewModel.onDateChange(today - 5)
+        advanceUntilIdle()
+
+        // Logging a forgotten day offers the last reading *before* it, not the newer one.
+        assertEquals("140", viewModel.uiState.value.systolicDraft)
+        assertFalse(viewModel.uiState.value.isEditingExisting)
+    }
+
+    @Test
+    fun prefill_showsTheStoredReadingWhenTheSelectedSlotIsAlreadyTaken() = runTest(dispatcher) {
+        dao.entries.value = listOf(
+            entry(today - 5, BloodPressureTimeOfDay.MORNING, 140.0, 92.0, comment = "Kaffee vorher"),
+            entry(today - 1, BloodPressureTimeOfDay.MORNING, 120.0, 78.0),
+        )
+        val viewModel = BloodPressureViewModel(repository)
+        backgroundScope.launch { viewModel.uiState.collect {} }
+        viewModel.onTimeOfDayChange(BloodPressureTimeOfDay.MORNING)
+        viewModel.onDateChange(today - 5)
+        advanceUntilIdle()
+
+        // Opening a filled slot shows what is stored there — comment included, so saving can't
+        // silently drop it — and flags that saving overwrites.
+        val state = viewModel.uiState.value
+        assertEquals("140", state.systolicDraft)
+        assertEquals("92", state.diastolicDraft)
+        assertEquals("Kaffee vorher", state.commentDraft)
+        assertTrue(state.isEditingExisting)
+    }
+
+    @Test
+    fun save_writesToThePickedDayAndThenReturnsToToday() = runTest(dispatcher) {
+        val viewModel = BloodPressureViewModel(repository)
+        backgroundScope.launch { viewModel.uiState.collect {} }
+        viewModel.onDateChange(today - 3)
+        advanceUntilIdle()
+
+        viewModel.onSystolicChange("122")
+        viewModel.onDiastolicChange("79")
+        viewModel.save()
+        advanceUntilIdle()
+
+        assertEquals(today - 3, dao.entries.value.single().epochDay)
+        // The form goes back to today: a date left on last week would quietly file the next reading there.
+        assertEquals(today, viewModel.uiState.value.epochDay)
+    }
+
+    @Test
+    fun save_correctsTheReadingOfThePickedDayInsteadOfAddingOne() = runTest(dispatcher) {
+        dao.entries.value = listOf(entry(today - 3, BloodPressureTimeOfDay.MORNING, 140.0, 92.0))
+        val viewModel = BloodPressureViewModel(repository)
+        backgroundScope.launch { viewModel.uiState.collect {} }
+        viewModel.onTimeOfDayChange(BloodPressureTimeOfDay.MORNING)
+        viewModel.onDateChange(today - 3)
+        advanceUntilIdle()
+
+        viewModel.onSystolicChange("138")
+        viewModel.save()
+        advanceUntilIdle()
+
+        val saved = dao.entries.value.single()
+        assertEquals(today - 3, saved.epochDay)
+        assertEquals(138.0, saved.systolic, 0.0001)
+        // The untouched field kept the stored value rather than falling back to empty.
+        assertEquals(92.0, saved.diastolic, 0.0001)
+    }
+
+    @Test
     fun save_writesBothValuesTheCommentAndTheSelectedTimeOfDay() = runTest(dispatcher) {
         val viewModel = BloodPressureViewModel(repository)
         backgroundScope.launch { viewModel.uiState.collect {} }

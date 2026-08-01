@@ -61,12 +61,19 @@ data class BloodPressureHistoryRow(val entry: BloodPressureEntry) {
 
 data class BloodPressureUiState(
     val isAddExpanded: Boolean = false,
+    /** The day being logged. Defaults to today; freely pickable, so readings can be entered later. */
+    val epochDay: Long = DateUtils.todayEpochDay(),
     val timeOfDay: BloodPressureTimeOfDay = BloodPressureTimeOfDay.MORNING,
     val systolicDraft: String = "",
     val diastolicDraft: String = "",
     val commentDraft: String = "",
     /** The reading the drafts were prefilled from, so the panel can say where the numbers came from. */
     val prefilledFrom: BloodPressureEntry? = null,
+    /**
+     * True when [prefilledFrom] *is* the reading of the selected day and time of day — saving then
+     * corrects that entry rather than adding one, and the panel has to say so before it happens.
+     */
+    val isEditingExisting: Boolean = false,
     val chartRange: ChartRange = ChartRange.MONTH,
     val hiddenSeriesKeys: Set<String> = emptySet(),
     /** Only the visible series, already windowed to [chartRange]. */
@@ -94,6 +101,7 @@ class BloodPressureViewModel @Inject constructor(
     private val bloodPressureRepository: BloodPressureRepository,
 ) : ViewModel() {
     private val _isAddExpanded = MutableStateFlow(false)
+    private val _epochDay = MutableStateFlow(DateUtils.todayEpochDay())
     private val _timeOfDay = MutableStateFlow(defaultTimeOfDay(LocalTime.now().hour))
     private val _chartRange = MutableStateFlow(ChartRange.MONTH)
     private val _hiddenSeriesKeys = MutableStateFlow(emptySet<String>())
@@ -101,20 +109,25 @@ class BloodPressureViewModel @Inject constructor(
     /** null = "not typed yet", which is what makes the field fall back to the prefilled last value. */
     private val _systolicDraft = MutableStateFlow<String?>(null)
     private val _diastolicDraft = MutableStateFlow<String?>(null)
-
-    /** The comment is per reading and never prefilled, so it needs no null-means-prefill dance. */
-    private val _commentDraft = MutableStateFlow("")
+    private val _commentDraft = MutableStateFlow<String?>(null)
 
     val uiState: StateFlow<BloodPressureUiState> = combine(
         bloodPressureRepository.observeAll(),
         combine(_systolicDraft, _diastolicDraft, _commentDraft) { sys, dia, comment -> Triple(sys, dia, comment) },
-        combine(_isAddExpanded, _timeOfDay) { expanded, timeOfDay -> expanded to timeOfDay },
+        combine(_isAddExpanded, _epochDay, _timeOfDay) { expanded, epochDay, timeOfDay ->
+            Triple(expanded, epochDay, timeOfDay)
+        },
         _chartRange,
         _hiddenSeriesKeys,
-    ) { entries, (sysDraft, diaDraft, comment), (expanded, timeOfDay), range, hidden ->
-        // Prefill follows the selected time of day: switching to "Abends" offers the last evening
-        // reading, not the last reading of any kind.
-        val last = entries.filter { it.timeOfDay == timeOfDay }.maxByOrNull { it.epochDay }
+    ) { entries, (sysDraft, diaDraft, commentDraft), (expanded, epochDay, timeOfDay), range, hidden ->
+        // Prefill follows both pickers: the newest reading of the selected time of day that is not
+        // *after* the selected day. Picking a past date must not offer numbers from a later one, and
+        // when that day already holds a reading this resolves to exactly it — so opening a filled
+        // slot shows what is stored there instead of silently overwriting it with another day's values.
+        val last = entries
+            .filter { it.timeOfDay == timeOfDay && it.epochDay <= epochDay }
+            .maxByOrNull { it.epochDay }
+        val isEditingExisting = last?.epochDay == epochDay
 
         // The window ends at the last reading rather than today, so a chart still shows the last
         // month that was actually measured after a break. Same rule as the Maße screen.
@@ -145,11 +158,15 @@ class BloodPressureViewModel @Inject constructor(
 
         BloodPressureUiState(
             isAddExpanded = expanded,
+            epochDay = epochDay,
             timeOfDay = timeOfDay,
             systolicDraft = sysDraft ?: last?.systolic?.formatCompact().orEmpty(),
             diastolicDraft = diaDraft ?: last?.diastolic?.formatCompact().orEmpty(),
-            commentDraft = comment,
+            // A comment belongs to its reading and is never carried over to a new one — but when the
+            // selected slot *is* that reading, hiding its comment would quietly drop it on save.
+            commentDraft = commentDraft ?: last?.comment.takeIf { isEditingExisting }.orEmpty(),
             prefilledFrom = last.takeIf { sysDraft == null && diaDraft == null },
+            isEditingExisting = isEditingExisting,
             chartRange = range,
             hiddenSeriesKeys = hidden,
             series = allSeries.filter { it.key !in hidden && it.points.isNotEmpty() },
@@ -173,6 +190,13 @@ class BloodPressureViewModel @Inject constructor(
         clearDrafts()
     }
 
+    /** Same as [onTimeOfDayChange]: a new day means a new slot, so the prefill is re-derived for it. */
+    fun onDateChange(epochDay: Long) {
+        if (epochDay == _epochDay.value) return
+        _epochDay.value = epochDay
+        clearDrafts()
+    }
+
     fun onSystolicChange(value: String) { _systolicDraft.value = value }
     fun onDiastolicChange(value: String) { _diastolicDraft.value = value }
     fun onCommentChange(value: String) { _commentDraft.value = value }
@@ -187,7 +211,7 @@ class BloodPressureViewModel @Inject constructor(
     }
 
     /**
-     * Logs today's reading for the selected time of day. The drafts are read directly rather than
+     * Logs the reading for the selected day and time of day. The drafts are read directly rather than
      * through [uiState], which is derived and would still hold the previous value for anything typed
      * in the same frame; [uiState] only supplies the prefill for fields left untouched.
      */
@@ -196,17 +220,21 @@ class BloodPressureViewModel @Inject constructor(
         val systolic = (_systolicDraft.value ?: state.systolicDraft).toLocaleDoubleOrNull()?.takeIf { it > 0.0 }
         val diastolic = (_diastolicDraft.value ?: state.diastolicDraft).toLocaleDoubleOrNull()?.takeIf { it > 0.0 }
         if (systolic == null || diastolic == null) return
-        val comment = _commentDraft.value
+        val comment = _commentDraft.value ?: state.commentDraft
         val timeOfDay = _timeOfDay.value
+        val epochDay = _epochDay.value
         viewModelScope.launch {
             bloodPressureRepository.logEntry(
-                epochDay = DateUtils.todayEpochDay(),
+                epochDay = epochDay,
                 timeOfDay = timeOfDay,
                 systolic = systolic,
                 diastolic = diastolic,
                 comment = comment,
             )
             clearDrafts()
+            // Back to today: the form is done, and a date left on last Tuesday would quietly file
+            // tomorrow's reading there. Picking a past day again is two taps.
+            _epochDay.value = DateUtils.todayEpochDay()
             _isAddExpanded.value = false
         }
     }
@@ -218,6 +246,6 @@ class BloodPressureViewModel @Inject constructor(
     private fun clearDrafts() {
         _systolicDraft.value = null
         _diastolicDraft.value = null
-        _commentDraft.value = ""
+        _commentDraft.value = null
     }
 }

@@ -6,7 +6,7 @@ import kotlinx.serialization.Serializable
 data object DiaryRoute
 
 @Serializable
-data class DiaryAddEntryRoute(val epochDay: Long)
+data class DiaryAddEntryRoute(val epochDay: Long, val mealType: MealType)
 
 @Serializable
 data class DiaryEditEntryRoute(val entryId: String)

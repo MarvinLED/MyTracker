@@ -26,6 +26,8 @@ import com.example.prokject2_tracker.fitness.strength.StrengthExerciseEditRoute
 import com.example.prokject2_tracker.fitness.strength.StrengthExerciseEditScreen
 import com.example.prokject2_tracker.fitness.strength.StrengthExerciseLibraryRoute
 import com.example.prokject2_tracker.fitness.strength.StrengthExerciseLibraryScreen
+import com.example.prokject2_tracker.fluid.FluidQuickAddManageRoute
+import com.example.prokject2_tracker.fluid.FluidQuickAddManageScreen
 import com.example.prokject2_tracker.fluid.FluidRoute
 import com.example.prokject2_tracker.fluid.FluidScreen
 import com.example.prokject2_tracker.fluid.FluidTypeManageRoute
@@ -70,8 +72,12 @@ fun AppNavHost(
     ) {
         composable<DiaryRoute> {
             DiaryScreen(
-                onAddEntry = { epochDay -> navController.navigate(DiaryAddEntryRoute(epochDay)) },
+                onAddEntry = { epochDay, mealType ->
+                    navController.navigate(DiaryAddEntryRoute(epochDay, mealType))
+                },
                 onEditEntry = { entryId -> navController.navigate(DiaryEditEntryRoute(entryId)) },
+                onOpenLibrary = { navController.navigate(LibraryRoute) },
+                onManageFluidQuickAdds = { navController.navigate(FluidQuickAddManageRoute) },
                 onOpenDrawer = onOpenDrawer,
             )
         }
@@ -80,7 +86,11 @@ fun AppNavHost(
                 onOpenDrawer = onOpenDrawer,
                 onOpenTypeManagement = { navController.navigate(FluidTypeManageRoute) },
                 onOpenUnitManagement = { navController.navigate(FluidUnitManageRoute) },
+                onOpenQuickAddManagement = { navController.navigate(FluidQuickAddManageRoute) },
             )
+        }
+        composable<FluidQuickAddManageRoute> {
+            FluidQuickAddManageScreen(onBack = { navController.popBackStack() })
         }
         composable<FluidTypeManageRoute> {
             FluidTypeManageScreen(onBack = { navController.popBackStack() })

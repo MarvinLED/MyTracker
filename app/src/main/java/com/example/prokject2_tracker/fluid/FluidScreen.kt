@@ -66,6 +66,7 @@ fun FluidScreen(
     onOpenDrawer: () -> Unit,
     onOpenTypeManagement: () -> Unit,
     onOpenUnitManagement: () -> Unit,
+    onOpenQuickAddManagement: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: FluidViewModel = hiltViewModel(),
 ) {
@@ -118,6 +119,13 @@ fun FluidScreen(
                             onClick = {
                                 showMenu = false
                                 onOpenUnitManagement()
+                            },
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Schnellauswahl verwalten") },
+                            onClick = {
+                                showMenu = false
+                                onOpenQuickAddManagement()
                             },
                         )
                     }

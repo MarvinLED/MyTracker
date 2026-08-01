@@ -13,29 +13,38 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SelectableDates
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.ImeAction
@@ -50,6 +59,9 @@ import com.example.prokject2_tracker.core.util.DateUtils
 import com.example.prokject2_tracker.fluid.fluidPalette
 import com.example.prokject2_tracker.ui.theme.AppDomain
 import com.example.prokject2_tracker.ui.theme.topAppBarColors
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
@@ -101,6 +113,7 @@ fun BloodPressureScreen(
             AnimatedVisibility(visible = uiState.isAddExpanded) {
                 AddPanel(
                     uiState = uiState,
+                    onDateChange = viewModel::onDateChange,
                     onTimeOfDayChange = viewModel::onTimeOfDayChange,
                     onSystolicChange = viewModel::onSystolicChange,
                     onDiastolicChange = viewModel::onDiastolicChange,
@@ -121,13 +134,16 @@ fun BloodPressureScreen(
 }
 
 /**
- * The logging form: time of day, the two fixed values, and a comment. Both value fields open on the
- * last reading *of the selected time of day*, so switching to "Abends" offers last evening's numbers
- * rather than this morning's.
+ * The logging form: day, time of day, the two fixed values, and a comment. Both value fields open on
+ * the last reading *at or before* the selected day and matching its time of day — so switching to
+ * "Abends" offers last evening's numbers, and picking a day that already holds a reading shows that
+ * reading instead of another day's.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun AddPanel(
     uiState: BloodPressureUiState,
+    onDateChange: (Long) -> Unit,
     onTimeOfDayChange: (BloodPressureTimeOfDay) -> Unit,
     onSystolicChange: (String) -> Unit,
     onDiastolicChange: (String) -> Unit,
@@ -135,12 +151,25 @@ private fun AddPanel(
     onSave: () -> Unit,
 ) {
     val dateFormatter = remember { DateTimeFormatter.ofPattern("d. MMM", Locale.GERMAN) }
+    val fullDateFormatter = remember { DateTimeFormatter.ofPattern("EEE, d. MMMM yyyy", Locale.GERMAN) }
+    var showDatePicker by remember { mutableStateOf(false) }
 
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(
             modifier = Modifier.padding(12.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
+            OutlinedButton(
+                onClick = { showDatePicker = true },
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Icon(Icons.Filled.CalendarMonth, contentDescription = null)
+                Text(
+                    DateUtils.localDateOfEpochDay(uiState.epochDay).format(fullDateFormatter),
+                    modifier = Modifier.padding(start = 8.dp),
+                )
+            }
+
             SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
                 BloodPressureTimeOfDay.entries.forEachIndexed { index, timeOfDay ->
                     SegmentedButton(
@@ -157,11 +186,20 @@ private fun AddPanel(
 
             uiState.prefilledFrom?.let { source ->
                 Text(
-                    "Vorbelegt mit der Messung vom " +
-                        "${DateUtils.localDateOfEpochDay(source.epochDay).format(dateFormatter)} " +
-                        "(${source.timeOfDay.label().lowercase()}).",
+                    if (uiState.isEditingExisting) {
+                        "Für diesen Zeitpunkt ist bereits eine Messung gespeichert. " +
+                            "Speichern überschreibt sie."
+                    } else {
+                        "Vorbelegt mit der Messung vom " +
+                            "${DateUtils.localDateOfEpochDay(source.epochDay).format(dateFormatter)} " +
+                            "(${source.timeOfDay.label().lowercase()})."
+                    },
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = if (uiState.isEditingExisting) {
+                        MaterialTheme.colorScheme.error
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
                 )
             }
 
@@ -212,7 +250,62 @@ private fun AddPanel(
             ) { Text("Speichern") }
         }
     }
+
+    if (showDatePicker) {
+        LogDatePickerDialog(
+            epochDay = uiState.epochDay,
+            onPick = {
+                onDateChange(it)
+                showDatePicker = false
+            },
+            onDismiss = { showDatePicker = false },
+        )
+    }
 }
+
+/**
+ * The calendar for the logged day. Future days are not selectable — a blood-pressure reading is
+ * something that was measured, so a date after today can only be a slip.
+ *
+ * [DatePickerState] works in UTC midnights while the app stores local epoch days, so both ends are
+ * converted explicitly rather than by dividing millis.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun LogDatePickerDialog(epochDay: Long, onPick: (Long) -> Unit, onDismiss: () -> Unit) {
+    val today = DateUtils.todayEpochDay()
+    val state = rememberDatePickerState(
+        initialSelectedDateMillis = epochDay.epochDayToUtcMillis(),
+        selectableDates = remember(today) {
+            object : SelectableDates {
+                override fun isSelectableDate(utcTimeMillis: Long): Boolean =
+                    utcTimeMillis.utcMillisToEpochDay() <= today
+
+                override fun isSelectableYear(year: Int): Boolean =
+                    year <= DateUtils.localDateOfEpochDay(today).year
+            }
+        },
+    )
+
+    DatePickerDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(
+                onClick = { state.selectedDateMillis?.let { onPick(it.utcMillisToEpochDay()) } },
+                enabled = state.selectedDateMillis != null,
+            ) { Text("Übernehmen") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Abbrechen") } },
+    ) {
+        DatePicker(state = state)
+    }
+}
+
+private fun Long.epochDayToUtcMillis(): Long =
+    LocalDate.ofEpochDay(this).atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
+
+private fun Long.utcMillisToEpochDay(): Long =
+    Instant.ofEpochMilli(this).atZone(ZoneOffset.UTC).toLocalDate().toEpochDay()
 
 /**
  * All four series in one plot area, each on its own scale, with chips to hide the ones you're not

@@ -75,7 +75,11 @@ fun LibraryBackupScreen(
             modifier = Modifier.padding(padding).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Text("Exportiert oder importiert nur Lebensmittel und Rezepte (keine Tagebuch-Einträge).")
+            Text(
+                "Exportiert oder importiert nur Bibliotheksdaten — Lebensmittel, Rezepte, " +
+                    "Getränkearten, Maßeinheiten, Schnellauswahl, Übungen und Muskelgruppen. " +
+                    "Keine Tagebuch-Einträge und keine geloggten Werte.",
+            )
             Button(
                 onClick = { createDocumentLauncher.launch("bibliothek-export.json") },
                 modifier = Modifier.fillMaxWidth(),

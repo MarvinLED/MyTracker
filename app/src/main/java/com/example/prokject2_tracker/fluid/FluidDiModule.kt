@@ -22,4 +22,8 @@ interface FluidDiModule {
     @Binds
     @IntoSet
     fun bindFluidUnitLibraryExportProvider(impl: FluidUnitLibraryExportProvider): LibraryExportProvider
+
+    @Binds
+    @IntoSet
+    fun bindFluidQuickAddLibraryExportProvider(impl: FluidQuickAddLibraryExportProvider): LibraryExportProvider
 }

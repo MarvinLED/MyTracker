@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -299,13 +300,15 @@ private fun Bar(
  * answers "how far along am I" and "out of what" at once, which two rings side by side did not.
  *
  * Which drink is which colour is a follow-up question, not the headline, so the legend stays folded
- * away until the bar is tapped.
+ * away until the bar is tapped — together with [expandedContent], which is where the caller puts
+ * what one does about the answer (the Schnellauswahl for logging a drink).
  */
 @Composable
 fun FluidBalanceBar(
     slices: List<FluidSlice>,
     goalMl: Double,
     modifier: Modifier = Modifier,
+    expandedContent: @Composable () -> Unit = {},
 ) {
     val totalMl = slices.sumOf { it.value }
     val widths = fluidBarSegments(slices.map { it.value }, goalMl)
@@ -331,9 +334,12 @@ fun FluidBalanceBar(
                 .clip(BarShape)
                 .background(MaterialTheme.colorScheme.surfaceContainerLowest)
                 .clickable(
-                    enabled = slices.isNotEmpty(),
-                    // Spoken by the screen reader in place of "double tap to activate", so the
-                    // hidden legend is discoverable without seeing the bar change.
+                    // Tappable even with an empty bar: what unfolds is not only the legend but the
+                    // Schnellauswahl, and a day one hasn't drunk anything on is exactly when that
+                    // is wanted.
+                    // The label is spoken by the screen reader in place of "double tap to
+                    // activate", so the folded-away section is discoverable without seeing the bar
+                    // change.
                     onClickLabel = if (showLegend) "Getränke ausblenden" else "Getränke anzeigen",
                 ) { showLegend = !showLegend },
         ) {
@@ -362,6 +368,13 @@ fun FluidBalanceBar(
                 valueLabel = { "${it.value.formatCompact()} ml" },
                 modifier = Modifier.padding(top = 4.dp),
             )
+        }
+        if (showLegend) {
+            HorizontalDivider(
+                color = MaterialTheme.colorScheme.surfaceContainerHighest,
+                modifier = Modifier.padding(vertical = 4.dp),
+            )
+            expandedContent()
         }
     }
 }

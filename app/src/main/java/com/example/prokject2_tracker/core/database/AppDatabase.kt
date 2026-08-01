@@ -22,6 +22,8 @@ import com.example.prokject2_tracker.fitness.strength.StrengthSet
 import com.example.prokject2_tracker.fitness.strength.StrengthSetDao
 import com.example.prokject2_tracker.fluid.FluidDao
 import com.example.prokject2_tracker.fluid.FluidEntry
+import com.example.prokject2_tracker.fluid.FluidQuickAdd
+import com.example.prokject2_tracker.fluid.FluidQuickAddDao
 import com.example.prokject2_tracker.fluid.FluidType
 import com.example.prokject2_tracker.fluid.FluidTypeDao
 import com.example.prokject2_tracker.fluid.FluidUnit
@@ -63,6 +65,7 @@ import com.example.prokject2_tracker.weight.BodyWeightEntry
         FluidEntry::class,
         FluidType::class,
         FluidUnit::class,
+        FluidQuickAdd::class,
         CardioSession::class,
         CardioActivityType::class,
         StrengthExercise::class,
@@ -81,7 +84,7 @@ import com.example.prokject2_tracker.weight.BodyWeightEntry
         BodyMeasurement::class,
         BloodPressureEntry::class,
     ],
-    version = 16,
+    version = 17,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -93,6 +96,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun fluidDao(): FluidDao
     abstract fun fluidTypeDao(): FluidTypeDao
     abstract fun fluidUnitDao(): FluidUnitDao
+    abstract fun fluidQuickAddDao(): FluidQuickAddDao
     abstract fun cardioDao(): CardioDao
     abstract fun cardioActivityTypeDao(): CardioActivityTypeDao
     abstract fun strengthExerciseDao(): StrengthExerciseDao

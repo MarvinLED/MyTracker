@@ -670,3 +670,24 @@ object MIGRATION_15_16 : Migration(15, 16) {
         )
     }
 }
+
+object MIGRATION_16_17 : Migration(16, 17) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        // fluid_quick_adds: the Tagebuch's Schnellauswahl — which drink is offered with which
+        // symbol, and how much one tap logs. A row is only ever a shortcut to a fluid_types row, so
+        // it cascades with it: a button pointing at a deleted drink type has nothing left to log.
+        // Not seeded — which drinks are worth a one-tap button is personal, and an unasked-for row
+        // of buttons in the Tagebuch is worse than an empty area that says how to fill it.
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `fluid_quick_adds` (`id` TEXT NOT NULL, " +
+                "`fluidTypeId` TEXT NOT NULL, `symbol` TEXT NOT NULL, `amountMl` REAL NOT NULL, " +
+                "`sortOrder` INTEGER NOT NULL, `createdAt` INTEGER NOT NULL, PRIMARY KEY(`id`), " +
+                "FOREIGN KEY(`fluidTypeId`) REFERENCES `fluid_types`(`id`) " +
+                "ON UPDATE NO ACTION ON DELETE CASCADE )",
+        )
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS `index_fluid_quick_adds_fluidTypeId` " +
+                "ON `fluid_quick_adds` (`fluidTypeId`)",
+        )
+    }
+}

@@ -12,6 +12,7 @@ import com.example.prokject2_tracker.fitness.strength.StrengthLogDao
 import com.example.prokject2_tracker.fitness.strength.StrengthSetDao
 import com.example.prokject2_tracker.fluid.FluidDao
 import com.example.prokject2_tracker.fluid.FluidTypeDao
+import com.example.prokject2_tracker.fluid.FluidQuickAddDao
 import com.example.prokject2_tracker.fluid.FluidUnitDao
 import com.example.prokject2_tracker.habit.HabitCheckInDao
 import com.example.prokject2_tracker.habit.HabitDao
@@ -54,6 +55,7 @@ object DatabaseModule {
                 MIGRATION_13_14,
                 MIGRATION_14_15,
                 MIGRATION_15_16,
+                MIGRATION_16_17,
             )
             // Upgrades now always go through a real, data-preserving Migration above — a missing
             // migration crashes loudly in development instead of silently wiping a real user's
@@ -82,6 +84,9 @@ object DatabaseModule {
 
     @Provides
     fun provideFluidUnitDao(database: AppDatabase): FluidUnitDao = database.fluidUnitDao()
+
+    @Provides
+    fun provideFluidQuickAddDao(database: AppDatabase): FluidQuickAddDao = database.fluidQuickAddDao()
 
     @Provides
     fun provideTagDao(database: AppDatabase): TagDao = database.tagDao()

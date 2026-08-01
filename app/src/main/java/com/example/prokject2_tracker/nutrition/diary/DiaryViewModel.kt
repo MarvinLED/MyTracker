@@ -7,6 +7,7 @@ import com.example.prokject2_tracker.core.datastore.NutrientGoal
 import com.example.prokject2_tracker.core.datastore.UserPreferencesRepository
 import com.example.prokject2_tracker.core.util.DateUtils
 import com.example.prokject2_tracker.fluid.FluidEntry
+import com.example.prokject2_tracker.fluid.FluidQuickAdd
 import com.example.prokject2_tracker.fluid.FluidRepository
 import com.example.prokject2_tracker.fluid.FluidType
 import com.example.prokject2_tracker.nutrition.NutritionTotals
@@ -85,19 +86,49 @@ class DiaryViewModel @Inject constructor(
             DiaryDayUiState(_selectedEpochDay.value, emptyMap()),
         )
 
+    /** The Schnellauswahl buttons under the fluid bar; empty until the user configures some. */
+    val fluidQuickAdds: StateFlow<List<FluidQuickAdd>> = fluidRepository.observeQuickAdds()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
     fun goToPreviousDay() {
         _selectedEpochDay.value -= 1
-        _undoableDelete.value = null
+        clearUndo()
     }
 
     fun goToNextDay() {
         _selectedEpochDay.value += 1
-        _undoableDelete.value = null
+        clearUndo()
     }
 
     fun goToToday() {
         _selectedEpochDay.value = DateUtils.todayEpochDay()
+        clearUndo()
+    }
+
+    private fun clearUndo() {
         _undoableDelete.value = null
+        _undoableFluidAdd.value = null
+    }
+
+    /**
+     * The last drink logged from the Schnellauswahl, kept only so the button next to it can take it
+     * back. Like [undoableDelete] it is dropped when the day changes — undoing onto a day you are no
+     * longer looking at would be the worse surprise.
+     */
+    private val _undoableFluidAdd = MutableStateFlow<FluidEntry?>(null)
+    val undoableFluidAdd: StateFlow<FluidEntry?> = _undoableFluidAdd.asStateFlow()
+
+    fun quickAddFluid(quickAdd: FluidQuickAdd) {
+        val epochDay = _selectedEpochDay.value
+        viewModelScope.launch {
+            _undoableFluidAdd.value = fluidRepository.logQuickAdd(epochDay, quickAdd)
+        }
+    }
+
+    fun undoFluidAdd() {
+        val entry = _undoableFluidAdd.value ?: return
+        _undoableFluidAdd.value = null
+        viewModelScope.launch { fluidRepository.delete(entry) }
     }
 
     /**
