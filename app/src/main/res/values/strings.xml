@@ -11,4 +11,5 @@
     <string name="nav_weight">Gewicht</string>
     <string name="nav_measurement">Maße</string>
     <string name="nav_blood_pressure">Blutdruck</string>
+    <string name="nav_sleep">Schlaf</string>
 </resources>

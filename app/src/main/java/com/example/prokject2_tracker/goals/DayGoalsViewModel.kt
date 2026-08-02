@@ -10,6 +10,7 @@ import com.example.prokject2_tracker.fitness.strength.StrengthExerciseRepository
 import com.example.prokject2_tracker.fluid.FluidRepository
 import com.example.prokject2_tracker.habit.HabitRepository
 import com.example.prokject2_tracker.nutrition.diary.DiaryRepository
+import com.example.prokject2_tracker.sleep.SleepRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.SharingStarted
@@ -32,6 +33,7 @@ class DayGoalsViewModel @Inject constructor(
     habitRepository: HabitRepository,
     private val fitnessGoalRepository: FitnessGoalRepository,
     strengthExerciseRepository: StrengthExerciseRepository,
+    sleepRepository: SleepRepository,
 ) : ViewModel() {
     // Fixed at construction like the Habits screen: this is "today", and a screen that silently
     // rolled over at midnight would change what it says under the user's hands.
@@ -87,13 +89,26 @@ class DayGoalsViewModel @Inject constructor(
         ).asSection("Fitness")
     }
 
+    // The night that ended *this morning* — that is the sleep today is running on.
+    private val sleepSection = combine(
+        userPreferencesRepository.userPreferences,
+        sleepRepository.observeForDay(today),
+    ) { prefs, night ->
+        sleepGoalRows(
+            entry = night,
+            durationGoalMinutes = prefs.sleepDurationGoalMinutes,
+            bedtimeGoalMinuteOfDay = prefs.bedtimeGoalMinuteOfDay,
+        ).asSection("Schlaf")
+    }
+
     val uiState: StateFlow<DayGoalsUiState> = combine(
         nutritionSection,
         fluidSection,
         habitSection,
         fitnessSection,
-    ) { nutrition, fluid, habits, fitness ->
-        DayGoalsUiState(sections = listOfNotNull(nutrition, fluid, habits, fitness))
+        sleepSection,
+    ) { nutrition, fluid, habits, fitness, sleep ->
+        DayGoalsUiState(sections = listOfNotNull(nutrition, fluid, habits, fitness, sleep))
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), DayGoalsUiState())
 }
 

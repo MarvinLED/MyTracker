@@ -615,4 +615,46 @@ class MigrationTest {
         }
         db.close()
     }
+
+    @Test
+    fun migrate19To20_addsTheSleepLogAndItsTags() {
+        helper.createDatabase(dbName, 19).close()
+
+        val db = helper.runMigrationsAndValidate(dbName, 20, true, MIGRATION_19_20)
+
+        // Nothing is seeded: which tags are worth a tap is personal.
+        db.query("SELECT COUNT(*) FROM sleep_tags").use { cursor ->
+            cursor.moveToFirst()
+            assertEquals(0, cursor.getInt(0))
+        }
+        db.execSQL(
+            "INSERT INTO sleep_entries (id, epochDay, startMinuteOfDay, endMinuteOfDay, morningFitness, " +
+                "lastMealMinuteOfDay, createdAt) VALUES ('sleep-20000', 20000, 1390, 405, 7, 1230, 1700000000000)",
+        )
+        db.execSQL(
+            "INSERT INTO sleep_tags (id, name, sortOrder, createdAt) VALUES ('tag-hot', 'heiß', 0, 1700000000000)",
+        )
+        db.execSQL("INSERT INTO sleep_entry_tags (sleepEntryId, tagId) VALUES ('sleep-20000', 'tag-hot')")
+
+        db.query("SELECT startMinuteOfDay, endMinuteOfDay, morningFitness, lastMealMinuteOfDay FROM sleep_entries").use { cursor ->
+            cursor.moveToFirst()
+            assertEquals(1390, cursor.getInt(0))
+            assertEquals(405, cursor.getInt(1))
+            assertEquals(7, cursor.getInt(2))
+            assertEquals(1230, cursor.getInt(3))
+        }
+
+        db.execSQL("PRAGMA foreign_keys = ON")
+        // Deleting the tag takes the label off the night; the night itself stays.
+        db.execSQL("DELETE FROM sleep_tags WHERE id = 'tag-hot'")
+        db.query("SELECT COUNT(*) FROM sleep_entry_tags").use { cursor ->
+            cursor.moveToFirst()
+            assertEquals(0, cursor.getInt(0))
+        }
+        db.query("SELECT COUNT(*) FROM sleep_entries").use { cursor ->
+            cursor.moveToFirst()
+            assertEquals(1, cursor.getInt(0))
+        }
+        db.close()
+    }
 }

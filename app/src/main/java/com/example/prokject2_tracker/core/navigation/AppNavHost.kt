@@ -58,6 +58,10 @@ import com.example.prokject2_tracker.nutrition.library.LibraryRoute
 import com.example.prokject2_tracker.nutrition.library.LibraryScreen
 import com.example.prokject2_tracker.nutrition.recipe.RecipeEditRoute
 import com.example.prokject2_tracker.nutrition.recipe.RecipeEditScreen
+import com.example.prokject2_tracker.sleep.SleepRoute
+import com.example.prokject2_tracker.sleep.SleepScreen
+import com.example.prokject2_tracker.sleep.SleepTagManageRoute
+import com.example.prokject2_tracker.sleep.SleepTagManageScreen
 import com.example.prokject2_tracker.weight.WeightRoute
 import com.example.prokject2_tracker.weight.WeightScreen
 
@@ -118,6 +122,15 @@ fun AppNavHost(
         }
         composable<BloodPressureRoute> {
             BloodPressureScreen(onOpenDrawer = onOpenDrawer)
+        }
+        composable<SleepRoute> {
+            SleepScreen(
+                onOpenDrawer = onOpenDrawer,
+                onOpenTagManagement = { navController.navigate(SleepTagManageRoute) },
+            )
+        }
+        composable<SleepTagManageRoute> {
+            SleepTagManageScreen(onBack = { navController.popBackStack() })
         }
         composable<BodySiteManageRoute> {
             BodySiteManageScreen(onBack = { navController.popBackStack() })

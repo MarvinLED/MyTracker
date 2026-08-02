@@ -725,3 +725,39 @@ object MIGRATION_18_19 : Migration(18, 19) {
         )
     }
 }
+
+object MIGRATION_19_20 : Migration(19, 20) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        // sleep_entries: one night per row, keyed by the *morning* it ended (unique index behind the
+        // deterministic id "sleep-<day>", the same idempotent-logging idea as body_weight_entries).
+        // Times are minutes since midnight rather than timestamps: a night is "23:10 bis 6:45", and
+        // the date it belongs to is already the row's key.
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `sleep_entries` (`id` TEXT NOT NULL, `epochDay` INTEGER NOT NULL, " +
+                "`startMinuteOfDay` INTEGER NOT NULL, `endMinuteOfDay` INTEGER NOT NULL, " +
+                "`morningFitness` INTEGER, `lastMealMinuteOfDay` INTEGER, `createdAt` INTEGER NOT NULL, " +
+                "PRIMARY KEY(`id`))",
+        )
+        db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_sleep_entries_epochDay` ON `sleep_entries` (`epochDay`)")
+
+        // sleep_tags: the user's own labels ("heiß", "viel geträumt"). Not seeded — which of them
+        // are worth a tap is personal, and an unasked-for row of tags is worse than an empty one
+        // next to a field that says how to fill it.
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `sleep_tags` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, " +
+                "`sortOrder` INTEGER NOT NULL, `createdAt` INTEGER NOT NULL, PRIMARY KEY(`id`))",
+        )
+        db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_sleep_tags_name` ON `sleep_tags` (`name`)")
+
+        // The join table cascades from both sides: a deleted night takes its labels off, and a
+        // deleted tag comes off every night without touching the nights themselves.
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `sleep_entry_tags` (`sleepEntryId` TEXT NOT NULL, `tagId` TEXT NOT NULL, " +
+                "PRIMARY KEY(`sleepEntryId`, `tagId`), " +
+                "FOREIGN KEY(`sleepEntryId`) REFERENCES `sleep_entries`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE , " +
+                "FOREIGN KEY(`tagId`) REFERENCES `sleep_tags`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        )
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_sleep_entry_tags_sleepEntryId` ON `sleep_entry_tags` (`sleepEntryId`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_sleep_entry_tags_tagId` ON `sleep_entry_tags` (`tagId`)")
+    }
+}

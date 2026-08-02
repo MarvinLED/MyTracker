@@ -41,6 +41,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.prokject2_tracker.core.ui.TimeOfDayField
 import com.example.prokject2_tracker.core.ui.dismissingKeyboard
 import com.example.prokject2_tracker.core.util.GoalPeriod
 import com.example.prokject2_tracker.core.util.label
@@ -105,6 +106,44 @@ fun GoalsScreen(
                     onMinChange = { viewModel.onNutrientGoalMinChange(row.nutrient, it) },
                     onMaxChange = { viewModel.onNutrientGoalMaxChange(row.nutrient, it) },
                 )
+            }
+
+            Text("Schlaf", style = MaterialTheme.typography.titleMedium)
+            Text(
+                "Schlafdauer in Stunden (7,5 = 7 h 30 min) und die Uhrzeit, zu der du spätestens " +
+                    "schlafen willst. Leer lassen heißt \"kein Ziel\".",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = state.sleepDurationMinHours,
+                    onValueChange = viewModel::onSleepDurationMinChange,
+                    label = { Text("Mindestens (h)") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    singleLine = true,
+                    modifier = Modifier.weight(1f),
+                )
+                OutlinedTextField(
+                    value = state.sleepDurationMaxHours,
+                    onValueChange = viewModel::onSleepDurationMaxChange,
+                    label = { Text("Höchstens (h)") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    singleLine = true,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                TimeOfDayField(
+                    label = "Schlafenszeit spätestens",
+                    value = state.bedtimeGoalMinuteOfDay,
+                    onValueChange = viewModel::onBedtimeGoalChange,
+                    emptyLabel = "kein Ziel",
+                    defaultMinuteOfDay = 23 * 60,
+                )
+                if (state.bedtimeGoalMinuteOfDay != null) {
+                    TextButton(onClick = { viewModel.onBedtimeGoalChange(null) }) { Text("Ziel entfernen") }
+                }
             }
 
             Text("Flüssigkeiten", style = MaterialTheme.typography.titleMedium)

@@ -33,6 +33,10 @@ enum class AppDomain(private val accent: Color?) {
     // Rot is the slot the cross-cutting views below deliberately avoid, because on a neutral view it
     // would read as an error state. On a vitals screen it reads as what it is, so Blutdruck takes it.
     BLOOD_PRESSURE(Color(0xFFE66767)), // rot
+    // Grün is the last free slot of the palette. It doubles as the "Ziel erreicht" hue in
+    // `StatusColor.kt`, which is fine for the same reason rot works above: a top bar or drawer entry
+    // is an area, not a verdict, and every goal indicator carries its own icon and numbers.
+    SLEEP(Color(0xFF0E9A2B)), // grün
     ANALYSE(null),
     GOALS(null),
     LIBRARY(null),

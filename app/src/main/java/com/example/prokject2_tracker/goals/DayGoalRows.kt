@@ -12,6 +12,8 @@ import com.example.prokject2_tracker.habit.Habit
 import com.example.prokject2_tracker.habit.HabitGoal
 import com.example.prokject2_tracker.habit.HabitType
 import com.example.prokject2_tracker.nutrition.diary.goalTargetLabel
+import com.example.prokject2_tracker.sleep.SleepEntry
+import com.example.prokject2_tracker.sleep.sleepGoalStatuses
 
 /**
  * One goal of today, reduced to what the screen draws: how far along it is and whether it is met.
@@ -161,3 +163,24 @@ fun fitnessGoalRows(
         unit = if (goal.metric == FitnessGoalMetric.CARDIO_DURATION_MINUTES) "min" else "",
     )
 }
+
+/**
+ * Last night against the sleep goals. The rows are built in the sleep module — the bedtime's
+ * across-midnight rule belongs next to the data, not here — and only reshaped for this screen.
+ *
+ * A night that isn't logged still shows: "0 h von mind. 7 h" is exactly the nag this screen is for.
+ */
+fun sleepGoalRows(
+    entry: SleepEntry?,
+    durationGoalMinutes: NutrientGoal?,
+    bedtimeGoalMinuteOfDay: Int?,
+): List<DayGoalRow> =
+    sleepGoalStatuses(entry, durationGoalMinutes, bedtimeGoalMinuteOfDay).map { status ->
+        DayGoalRow(
+            id = "sleep-${status.label}",
+            label = status.label,
+            valueText = status.valueText,
+            isMet = status.isMet,
+            fraction = status.fraction,
+        )
+    }

@@ -24,6 +24,8 @@ import com.example.prokject2_tracker.nutrition.food.FoodDao
 import com.example.prokject2_tracker.nutrition.food.FoodUnitDao
 import com.example.prokject2_tracker.nutrition.food.TagDao
 import com.example.prokject2_tracker.nutrition.recipe.RecipeDao
+import com.example.prokject2_tracker.sleep.SleepDao
+import com.example.prokject2_tracker.sleep.SleepTagDao
 import com.example.prokject2_tracker.weight.BodyWeightDao
 import dagger.Module
 import dagger.Provides
@@ -58,6 +60,7 @@ object DatabaseModule {
                 MIGRATION_16_17,
                 MIGRATION_17_18,
                 MIGRATION_18_19,
+                MIGRATION_19_20,
             )
             // Upgrades now always go through a real, data-preserving Migration above — a missing
             // migration crashes loudly in development instead of silently wiping a real user's
@@ -134,4 +137,10 @@ object DatabaseModule {
 
     @Provides
     fun provideBloodPressureDao(database: AppDatabase): BloodPressureDao = database.bloodPressureDao()
+
+    @Provides
+    fun provideSleepDao(database: AppDatabase): SleepDao = database.sleepDao()
+
+    @Provides
+    fun provideSleepTagDao(database: AppDatabase): SleepTagDao = database.sleepTagDao()
 }

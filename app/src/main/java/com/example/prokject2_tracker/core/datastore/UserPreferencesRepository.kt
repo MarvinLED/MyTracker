@@ -5,6 +5,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.doublePreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -27,6 +28,17 @@ data class UserPreferences(
     val weightUnit: WeightUnit,
     /** Only the nutrients the user actually set a goal for; the rest are simply absent. */
     val nutrientGoals: Map<Nutrient, NutrientGoal> = emptyMap(),
+    /**
+     * How long a night should be, in **minutes** — [NutrientGoal] is reused because a sleep goal has
+     * exactly the same shape as a nutrient one: a lower bound ("mind. 7 h"), an upper bound, or both.
+     * Null, or a goal with neither bound, means sleep duration isn't tracked as a goal.
+     */
+    val sleepDurationGoalMinutes: NutrientGoal? = null,
+    /**
+     * The latest one wants to be asleep, as minutes since midnight. Compared on an evening timeline,
+     * see `com.example.prokject2_tracker.sleep.isBedtimeMet`. Null means no bedtime goal.
+     */
+    val bedtimeGoalMinuteOfDay: Int? = null,
 ) {
     /**
      * The calorie goal as a plain number, for the many places that only need "what am I aiming at".
@@ -74,6 +86,10 @@ class UserPreferencesRepository @Inject constructor(
 
         fun legacyValue(nutrient: Nutrient) = doublePreferencesKey(VALUE_KEY_NAMES.getValue(nutrient))
         fun legacyType(nutrient: Nutrient) = stringPreferencesKey("${VALUE_KEY_NAMES.getValue(nutrient)}_type")
+
+        val SLEEP_DURATION_MIN = doublePreferencesKey("sleep_duration_goal_minutes_min")
+        val SLEEP_DURATION_MAX = doublePreferencesKey("sleep_duration_goal_minutes_max")
+        val BEDTIME_GOAL = intPreferencesKey("bedtime_goal_minute_of_day")
     }
 
     /**
@@ -103,6 +119,11 @@ class UserPreferencesRepository @Inject constructor(
                 }
                 nutrient to goal
             }.toMap(),
+            sleepDurationGoalMinutes = NutrientGoal(
+                min = prefs[Keys.SLEEP_DURATION_MIN],
+                max = prefs[Keys.SLEEP_DURATION_MAX],
+            ).takeUnless { it.isEmpty },
+            bedtimeGoalMinuteOfDay = prefs[Keys.BEDTIME_GOAL],
         )
     }
 
@@ -112,6 +133,23 @@ class UserPreferencesRepository @Inject constructor(
 
     suspend fun setWeightUnit(unit: WeightUnit) {
         context.userPreferencesDataStore.edit { it[Keys.WEIGHT_UNIT] = unit.name }
+    }
+
+    /** A null or empty [goal] clears the sleep-duration goal; bounds are in minutes. */
+    suspend fun setSleepDurationGoal(goal: NutrientGoal?) {
+        context.userPreferencesDataStore.edit { prefs ->
+            val min = goal?.takeUnless { it.isEmpty }?.min
+            val max = goal?.takeUnless { it.isEmpty }?.max
+            if (min != null) prefs[Keys.SLEEP_DURATION_MIN] = min else prefs.remove(Keys.SLEEP_DURATION_MIN)
+            if (max != null) prefs[Keys.SLEEP_DURATION_MAX] = max else prefs.remove(Keys.SLEEP_DURATION_MAX)
+        }
+    }
+
+    /** Null clears the bedtime goal. */
+    suspend fun setBedtimeGoal(minuteOfDay: Int?) {
+        context.userPreferencesDataStore.edit { prefs ->
+            if (minuteOfDay != null) prefs[Keys.BEDTIME_GOAL] = minuteOfDay else prefs.remove(Keys.BEDTIME_GOAL)
+        }
     }
 
     /** A null or empty [goal] clears the nutrient's goal entirely, both bounds together. */

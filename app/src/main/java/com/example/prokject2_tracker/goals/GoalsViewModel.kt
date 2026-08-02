@@ -6,6 +6,8 @@ import com.example.prokject2_tracker.core.datastore.Nutrient
 import com.example.prokject2_tracker.core.datastore.NutrientGoal
 import com.example.prokject2_tracker.core.datastore.UserPreferencesRepository
 import com.example.prokject2_tracker.core.util.GoalPeriod
+import com.example.prokject2_tracker.core.util.minutesAsHours
+import com.example.prokject2_tracker.core.util.formatDecimal
 import com.example.prokject2_tracker.core.util.toLocaleDoubleOrNull
 import com.example.prokject2_tracker.fitness.FitnessGoal
 import com.example.prokject2_tracker.fitness.FitnessGoalMetric
@@ -55,6 +57,11 @@ data class GoalsUiState(
     val fluidTypeGoals: List<FluidTypeGoalInput> = emptyList(),
     val fitnessGoals: List<FitnessGoalRow> = emptyList(),
     val availableMuscleGroups: List<MuscleGroup> = emptyList(),
+    /** Sleep length in **hours** as typed ("7,5"); the repository stores minutes. */
+    val sleepDurationMinHours: String = "",
+    val sleepDurationMaxHours: String = "",
+    /** Minutes since midnight, or null for "kein Ziel" — the field is a clock, not a number. */
+    val bedtimeGoalMinuteOfDay: Int? = null,
 )
 
 @HiltViewModel
@@ -95,6 +102,11 @@ class GoalsViewModel @Inject constructor(
                 },
                 fitnessGoals = fitnessGoals.map { it.toRow(muscleGroups) },
                 availableMuscleGroups = muscleGroups,
+                sleepDurationMinHours = prefs.sleepDurationGoalMinutes?.min
+                    ?.let { it.toInt().minutesAsHours().formatGoalHours() }.orEmpty(),
+                sleepDurationMaxHours = prefs.sleepDurationGoalMinutes?.max
+                    ?.let { it.toInt().minutesAsHours().formatGoalHours() }.orEmpty(),
+                bedtimeGoalMinuteOfDay = prefs.bedtimeGoalMinuteOfDay,
             )
         }
     }
@@ -110,6 +122,13 @@ class GoalsViewModel @Inject constructor(
     )
 
     fun onWaterGoalChange(value: String) { _state.value = _state.value.copy(waterGoal = value) }
+
+    fun onSleepDurationMinChange(value: String) { _state.value = _state.value.copy(sleepDurationMinHours = value) }
+
+    fun onSleepDurationMaxChange(value: String) { _state.value = _state.value.copy(sleepDurationMaxHours = value) }
+
+    /** Null clears the bedtime goal — the screen offers that next to the picker. */
+    fun onBedtimeGoalChange(minuteOfDay: Int?) { _state.value = _state.value.copy(bedtimeGoalMinuteOfDay = minuteOfDay) }
 
     fun onNutrientGoalMinChange(nutrient: Nutrient, value: String) {
         updateNutrient(nutrient) { it.copy(minText = value) }
@@ -204,7 +223,23 @@ class GoalsViewModel @Inject constructor(
                     fitnessGoalRepository.setGoal(row.metric, row.period, row.muscleGroupId, row.movementDirection, it)
                 }
             }
+            // Typed in hours, stored in minutes: comparing a night to its goal is minute arithmetic,
+            // and rounding a 7,5 h goal to hours on the way in would lose the half.
+            userPreferencesRepository.setSleepDurationGoal(
+                NutrientGoal(
+                    min = s.sleepDurationMinHours.toGoalMinutes(),
+                    max = s.sleepDurationMaxHours.toGoalMinutes(),
+                ),
+            )
+            userPreferencesRepository.setBedtimeGoal(s.bedtimeGoalMinuteOfDay)
             _saved.emit(Unit)
         }
     }
 }
+
+/** Hours as typed to whole minutes; blank, unparseable or non-positive means "kein Ziel". */
+private fun String.toGoalMinutes(): Double? =
+    toLocaleDoubleOrNull()?.takeIf { it > 0.0 }?.let { (it * 60).toInt().toDouble() }
+
+/** "7" / "7,5" — the goal read back into the field it was typed in. */
+private fun Double.formatGoalHours(): String = formatDecimal(2)

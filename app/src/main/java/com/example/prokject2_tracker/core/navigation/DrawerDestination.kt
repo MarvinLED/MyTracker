@@ -7,6 +7,7 @@ import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.Insights
 import androidx.compose.material.icons.filled.Kitchen
 import androidx.compose.material.icons.filled.MonitorHeart
+import androidx.compose.material.icons.filled.Bedtime
 import androidx.compose.material.icons.filled.MonitorWeight
 import androidx.compose.material.icons.filled.Straighten
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -17,6 +18,7 @@ import com.example.prokject2_tracker.goals.GoalsRoute
 import com.example.prokject2_tracker.habit.HabitRoute
 import com.example.prokject2_tracker.measurement.MeasurementRoute
 import com.example.prokject2_tracker.nutrition.library.LibraryRoute
+import com.example.prokject2_tracker.sleep.SleepRoute
 import com.example.prokject2_tracker.ui.theme.AppDomain
 import com.example.prokject2_tracker.weight.WeightRoute
 
@@ -72,6 +74,13 @@ enum class DrawerDestination(
         labelRes = R.string.nav_measurement,
         icon = Icons.Filled.Straighten,
         domain = AppDomain.MEASUREMENT,
+    ),
+    SLEEP(
+        route = SleepRoute,
+        routeQualifiedName = SleepRoute::class.qualifiedName!!,
+        labelRes = R.string.nav_sleep,
+        icon = Icons.Filled.Bedtime,
+        domain = AppDomain.SLEEP,
     ),
     BLOOD_PRESSURE(
         route = BloodPressureRoute,

@@ -51,6 +51,11 @@ import com.example.prokject2_tracker.nutrition.food.TagDao
 import com.example.prokject2_tracker.nutrition.recipe.Recipe
 import com.example.prokject2_tracker.nutrition.recipe.RecipeDao
 import com.example.prokject2_tracker.nutrition.recipe.RecipeIngredient
+import com.example.prokject2_tracker.sleep.SleepDao
+import com.example.prokject2_tracker.sleep.SleepEntry
+import com.example.prokject2_tracker.sleep.SleepEntryTag
+import com.example.prokject2_tracker.sleep.SleepTag
+import com.example.prokject2_tracker.sleep.SleepTagDao
 import com.example.prokject2_tracker.weight.BodyWeightDao
 import com.example.prokject2_tracker.weight.BodyWeightEntry
 
@@ -83,8 +88,11 @@ import com.example.prokject2_tracker.weight.BodyWeightEntry
         BodySite::class,
         BodyMeasurement::class,
         BloodPressureEntry::class,
+        SleepEntry::class,
+        SleepTag::class,
+        SleepEntryTag::class,
     ],
-    version = 19,
+    version = 20,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -112,4 +120,6 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun bodySiteDao(): BodySiteDao
     abstract fun bodyMeasurementDao(): BodyMeasurementDao
     abstract fun bloodPressureDao(): BloodPressureDao
+    abstract fun sleepDao(): SleepDao
+    abstract fun sleepTagDao(): SleepTagDao
 }
