@@ -23,12 +23,6 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
-/** A deleted entry held for one undo, together with the per-day recipe copy that went with it. */
-data class DeletedEntry(
-    val entry: DiaryEntry,
-    val dayIngredients: List<DiaryRecipeIngredientDraft>,
-)
-
 data class DiaryDayUiState(
     val epochDay: Long,
     val entriesByMeal: Map<MealType, List<DiaryEntry>>,
@@ -55,6 +49,7 @@ data class DiaryDayUiState(
 class DiaryViewModel @Inject constructor(
     private val diaryRepository: DiaryRepository,
     private val fluidRepository: FluidRepository,
+    private val mealClipboard: MealClipboard,
     userPreferencesRepository: UserPreferencesRepository,
 ) : ViewModel() {
     private val _selectedEpochDay = MutableStateFlow(DateUtils.todayEpochDay())
@@ -136,15 +131,15 @@ class DiaryViewModel @Inject constructor(
      * changes: an undo button that reinstates something onto a day you're no longer looking at would
      * be a worse surprise than losing the undo.
      */
-    private val _undoableDelete = MutableStateFlow<DeletedEntry?>(null)
-    val undoableDelete: StateFlow<DeletedEntry?> = _undoableDelete.asStateFlow()
+    private val _undoableDelete = MutableStateFlow<DiaryEntrySnapshot?>(null)
+    val undoableDelete: StateFlow<DiaryEntrySnapshot?> = _undoableDelete.asStateFlow()
 
     fun deleteEntry(entry: DiaryEntry) {
         viewModelScope.launch {
             // Read the per-day recipe copy before deleting, since the delete cascades it away.
             val dayIngredients = diaryRepository.getRecipeIngredientDrafts(entry.id)
             diaryRepository.delete(entry)
-            _undoableDelete.value = DeletedEntry(entry, dayIngredients)
+            _undoableDelete.value = DiaryEntrySnapshot(entry, dayIngredients)
         }
     }
 
@@ -156,5 +151,35 @@ class DiaryViewModel @Inject constructor(
 
     fun dismissUndo() {
         _undoableDelete.value = null
+    }
+
+    /**
+     * The Tageszeit on the clipboard, if any. Survives switching days and leaving the Tagebuch —
+     * copying is only useful because the paste happens somewhere else (see [MealClipboard]).
+     */
+    val copiedMeal: StateFlow<CopiedMeal?> = mealClipboard.copied
+
+    /** Long press on a Tageszeit: takes everything logged under it on the selected day. */
+    fun copyMeal(mealType: MealType) {
+        val epochDay = _selectedEpochDay.value
+        viewModelScope.launch {
+            val snapshots = diaryRepository.getMealSnapshots(epochDay, mealType)
+            if (snapshots.isNotEmpty()) {
+                mealClipboard.put(CopiedMeal(epochDay = epochDay, mealType = mealType, entries = snapshots))
+            }
+        }
+    }
+
+    /** Writes the clipboard into [mealType] of the day on screen. The copy stays, so it can go to several days. */
+    fun pasteInto(mealType: MealType) {
+        val copied = mealClipboard.copied.value ?: return
+        val epochDay = _selectedEpochDay.value
+        viewModelScope.launch {
+            diaryRepository.copyEntriesTo(copied.entries, epochDay, mealType)
+        }
+    }
+
+    fun clearClipboard() {
+        mealClipboard.clear()
     }
 }

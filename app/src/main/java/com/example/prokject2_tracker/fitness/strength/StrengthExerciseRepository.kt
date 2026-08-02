@@ -54,7 +54,12 @@ class StrengthExerciseRepository @Inject constructor(
         return muscleGroupDao.getAllOnce().filter { it.id in ids }
     }
 
-    suspend fun create(name: String, muscleGroupIds: List<String>, movementDirection: MovementDirection?) {
+    suspend fun create(
+        name: String,
+        muscleGroupIds: List<String>,
+        movementDirection: MovementDirection?,
+        isBodyweight: Boolean,
+    ) {
         val now = Instant.now()
         val id = IdGenerator.newId()
         strengthExerciseDao.upsert(
@@ -64,6 +69,7 @@ class StrengthExerciseRepository @Inject constructor(
                 createdAt = now,
                 updatedAt = now,
                 movementDirection = movementDirection,
+                isBodyweight = isBodyweight,
             ),
         )
         strengthExerciseDao.replaceMuscleGroupsForExercise(id, muscleGroupIds)
@@ -74,9 +80,15 @@ class StrengthExerciseRepository @Inject constructor(
         name: String,
         muscleGroupIds: List<String>,
         movementDirection: MovementDirection?,
+        isBodyweight: Boolean,
     ) {
         strengthExerciseDao.upsert(
-            existing.copy(name = name, updatedAt = Instant.now(), movementDirection = movementDirection),
+            existing.copy(
+                name = name,
+                updatedAt = Instant.now(),
+                movementDirection = movementDirection,
+                isBodyweight = isBodyweight,
+            ),
         )
         strengthExerciseDao.replaceMuscleGroupsForExercise(existing.id, muscleGroupIds)
     }

@@ -17,4 +17,10 @@ data class StrengthExercise(
     val createdAt: Instant,
     val updatedAt: Instant,
     val movementDirection: MovementDirection? = null,
+    /**
+     * Klimmzüge and friends: the body is the load, so logging one starts in bodyweight mode and the
+     * weight steppers count *added* weight. Only the default for new sets — any exercise can still
+     * log either kind of set.
+     */
+    val isBodyweight: Boolean = false,
 )

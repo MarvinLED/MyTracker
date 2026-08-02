@@ -34,6 +34,8 @@ import com.example.prokject2_tracker.fluid.FluidTypeManageRoute
 import com.example.prokject2_tracker.fluid.FluidTypeManageScreen
 import com.example.prokject2_tracker.fluid.FluidUnitManageRoute
 import com.example.prokject2_tracker.fluid.FluidUnitManageScreen
+import com.example.prokject2_tracker.goals.DayGoalsRoute
+import com.example.prokject2_tracker.goals.DayGoalsScreen
 import com.example.prokject2_tracker.goals.GoalsRoute
 import com.example.prokject2_tracker.goals.GoalsScreen
 import com.example.prokject2_tracker.habit.HabitRoute
@@ -76,7 +78,11 @@ fun AppNavHost(
                     navController.navigate(DiaryAddEntryRoute(epochDay, mealType))
                 },
                 onEditEntry = { entryId -> navController.navigate(DiaryEditEntryRoute(entryId)) },
-                onOpenLibrary = { navController.navigate(LibraryRoute) },
+                // Same navigation as the drawer entry, not a plain navigate: the Bibliothek is a
+                // top-level destination, and pushing one of those as if it were a detail screen
+                // leaves the bottom bar unable to switch away from it again (see
+                // [navigateToTopLevel]).
+                onOpenLibrary = { navController.navigateToTopLevel(LibraryRoute) },
                 onManageFluidQuickAdds = { navController.navigate(FluidQuickAddManageRoute) },
                 onOpenDrawer = onOpenDrawer,
             )
@@ -150,6 +156,13 @@ fun AppNavHost(
         }
         composable<GoalsRoute> {
             GoalsScreen(onOpenDrawer = onOpenDrawer)
+        }
+        composable<DayGoalsRoute> {
+            DayGoalsScreen(
+                onOpenDrawer = onOpenDrawer,
+                // Ziele is a drawer destination too — same reason as onOpenLibrary above.
+                onEditGoals = { navController.navigateToTopLevel(GoalsRoute) },
+            )
         }
         composable<FitnessRoute> {
             FitnessScreen(

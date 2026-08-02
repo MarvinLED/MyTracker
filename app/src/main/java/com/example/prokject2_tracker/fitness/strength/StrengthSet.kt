@@ -31,5 +31,8 @@ data class StrengthSet(
     val exerciseId: String,
     val setIndex: Int,
     val reps: Int,
+    /** External weight only — the added plates on a bodyweight set. See [SetDraft.weightKg]. */
     val weightKg: Double?,
+    /** True when the body was the load (Klimmzüge). See [SetDraft.isBodyweight]. */
+    val isBodyweight: Boolean = false,
 )

@@ -1,12 +1,17 @@
 package com.example.prokject2_tracker.fitness.strength
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowUpward
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.ExpandLess
@@ -26,20 +31,27 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.example.prokject2_tracker.core.util.DateUtils
 import com.example.prokject2_tracker.core.util.formatCompact
+import com.example.prokject2_tracker.ui.theme.statusColor
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 private val dayFormatter = DateTimeFormatter.ofPattern("EEE, d. MMMM", Locale.GERMAN)
 private val shortDayFormatter = DateTimeFormatter.ofPattern("d. MMM", Locale.GERMAN)
+private val BannerShape = RoundedCornerShape(10.dp)
 
 /**
- * The top block: which day is being edited, and how it compares to the session before it.
- * "Frühere Einheiten" is collapsed by default so the entry panel stays above the fold — expanded it
- * answers "how much did I do in the last few workouts" beyond the single previous session.
+ * The top block: which day is being edited, and how it compares to the session before it. It opens
+ * with the verdict — did this session beat the last one's volume — because that is the question the
+ * screen exists to answer; the table below it is the evidence.
+ *
+ * This block is the one that never folds away, so the verdict is on screen whatever else is
+ * collapsed. "Frühere Einheiten" inside it is collapsed by default — expanded it answers "how much
+ * did I do in the last few workouts" beyond the single previous session.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -73,6 +85,8 @@ fun SessionComparisonCard(
                 }
             }
 
+            VolumeTargetBanner(volumeTarget(state.currentSession, state.previousSession))
+
             val previousLabel = state.previousSession
                 ?.let { DateUtils.formatDaysSince(DateUtils.daysBetweenEpochDays(it.epochDay, state.selectedEpochDay)) }
                 ?: "—"
@@ -96,30 +110,8 @@ fun SessionComparisonCard(
                 previous = state.previousSession?.setCount?.toString(),
                 current = state.currentSession?.setCount?.toString(),
             )
-            state.volumeDeltaKg?.let { delta ->
-                Row {
-                    Text(
-                        "Δ Volumen",
-                        modifier = Modifier.weight(1.1f),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Text("", modifier = Modifier.weight(1f))
-                    Text(
-                        // Sign first, colour only as reinforcement — the same reasoning the goal
-                        // bars use, so the number still reads correctly without colour vision.
-                        (if (delta >= 0) "+" else "−") + "${kotlin.math.abs(delta).formatCompact()} kg",
-                        modifier = Modifier.weight(1f),
-                        textAlign = TextAlign.End,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = if (delta >= 0) {
-                            MaterialTheme.colorScheme.primary
-                        } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        },
-                    )
-                }
-            }
+            // No "Δ Volumen" row here: the banner above already states the difference, and saying
+            // it twice made the one line that matters compete with itself.
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
 
@@ -161,6 +153,51 @@ fun SessionComparisonCard(
                     }
                 }
             }
+        }
+    }
+}
+
+/**
+ * The verdict, in the one spot that is on screen whatever else is collapsed: did this session beat
+ * the last one? Icon shape, wording and a tinted band all say the same thing, so it survives both
+ * a glance and colour-blind reading.
+ */
+@Composable
+private fun VolumeTargetBanner(target: VolumeTarget) {
+    val reached = target.status == VolumeTargetStatus.REACHED
+    val accent = when (target.status) {
+        VolumeTargetStatus.REACHED -> statusColor(isMet = true)
+        VolumeTargetStatus.MISSED -> statusColor(isMet = false)
+        // Nothing has been decided yet, so neither hue would be honest.
+        else -> MaterialTheme.colorScheme.onSurfaceVariant
+    }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(BannerShape)
+            .background(accent.copy(alpha = 0.14f))
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            if (reached) Icons.Filled.Check else Icons.Filled.ArrowUpward,
+            contentDescription = if (reached) "Volumenziel erreicht" else "Volumenziel noch nicht erreicht",
+            tint = accent,
+            modifier = Modifier.size(24.dp),
+        )
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                target.headline,
+                style = MaterialTheme.typography.titleMedium,
+                color = accent,
+            )
+            Text(
+                target.detail,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }

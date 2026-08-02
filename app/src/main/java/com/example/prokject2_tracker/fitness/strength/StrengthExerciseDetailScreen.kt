@@ -1,5 +1,6 @@
 package com.example.prokject2_tracker.fitness.strength
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,6 +12,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material3.Card
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
@@ -89,37 +92,41 @@ fun StrengthExerciseDetailScreen(
                 onSelectDay = viewModel::selectDay,
             )
 
-            StrengthSetEntryPanel(
-                state = state,
-                onAdjustWeight = viewModel::adjustWeight,
-                onSetWeight = viewModel::setWeight,
-                onToggleBodyweight = viewModel::toggleBodyweight,
-                onAdjustReps = viewModel::adjustReps,
-                onCommitSet = viewModel::commitSet,
-                onRemoveSet = viewModel::removeSetAt,
-                onResumeAt = viewModel::resumeAt,
-                onUndoRemoval = viewModel::undoRemoval,
-                onNoteChange = viewModel::onNoteChange,
-                onNoteCommit = viewModel::persistNote,
+            SectionHeader(
+                title = "Training hinzufügen",
+                expanded = state.isEntryExpanded,
+                onToggle = viewModel::toggleEntryExpanded,
             )
+            AnimatedVisibility(visible = state.isEntryExpanded) {
+                StrengthSetEntryPanel(
+                    state = state,
+                    onAdjustWeight = viewModel::adjustWeight,
+                    onSetWeight = viewModel::setWeight,
+                    onToggleBodyweight = viewModel::toggleBodyweight,
+                    onAdjustReps = viewModel::adjustReps,
+                    onCommitSet = viewModel::commitSet,
+                    onRemoveSet = viewModel::removeSetAt,
+                    onResumeAt = viewModel::resumeAt,
+                    onUndoRemoval = viewModel::undoRemoval,
+                    onNoteChange = viewModel::onNoteChange,
+                    onNoteCommit = viewModel::persistNote,
+                )
+            }
 
-            Card(modifier = Modifier.fillMaxWidth()) {
-                Column(
-                    modifier = Modifier.padding(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
+            SectionHeader(
+                // The header names what one point covers, so switching the x-axis span can never
+                // leave you guessing whether a value is a session or a whole month.
+                title = "Verlauf ${state.chartGranularity.pointLabel()}",
+                expanded = state.isChartExpanded,
+                onToggle = viewModel::toggleChartExpanded,
+            )
+            AnimatedVisibility(visible = state.isChartExpanded) {
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Column(
+                        modifier = Modifier.padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        // The header names what one point covers, so switching the x-axis span can
-                        // never leave you guessing whether a value is a session or a whole month.
-                        Text(
-                            "Verlauf ${state.chartGranularity.pointLabel()}",
-                            style = MaterialTheme.typography.titleMedium,
-                            modifier = Modifier.weight(1f),
-                        )
-                        Box {
+                        Box(modifier = Modifier.align(Alignment.End)) {
                             TextButton(onClick = { showRangeMenu = true }) {
                                 Text(state.chartRange.label())
                                 Icon(Icons.Filled.ArrowDropDown, contentDescription = "Zeitraum wählen")
@@ -139,37 +146,30 @@ fun StrengthExerciseDetailScreen(
                                 }
                             }
                         }
+                        // Built here rather than via ChartSeries.toChartLine, which infers zeroBased
+                        // from the unit string and would put volume on a non-zero axis too.
+                        DatedLineChart(
+                            lines = listOf(
+                                ChartLine(
+                                    label = "Volumen",
+                                    unit = "kg",
+                                    color = palette[0],
+                                    points = state.volumeSeries,
+                                    zeroBased = true,
+                                ),
+                                ChartLine(
+                                    label = "Max. Gewicht",
+                                    unit = "kg",
+                                    color = palette[1],
+                                    points = state.maxWeightSeries,
+                                    // A working range of 80–100 kg on a zero axis is a flat line.
+                                    zeroBased = false,
+                                ),
+                            ),
+                            panelHeight = 180,
+                            overlaid = true,
+                        )
                     }
-                    // Built here rather than via ChartSeries.toChartLine, which infers zeroBased
-                    // from the unit string and would put volume on a non-zero axis too.
-                    DatedLineChart(
-                        lines = listOf(
-                            ChartLine(
-                                label = "Volumen",
-                                unit = "kg",
-                                color = palette[0],
-                                points = state.volumeSeries,
-                                zeroBased = true,
-                            ),
-                            ChartLine(
-                                label = "Max. Gewicht",
-                                unit = "kg",
-                                color = palette[1],
-                                points = state.maxWeightSeries,
-                                // A working range of 80–100 kg on a zero axis is a flat line.
-                                zeroBased = false,
-                            ),
-                            ChartLine(
-                                label = "Sätze",
-                                unit = "Sätze",
-                                color = palette[2],
-                                points = state.setCountSeries,
-                                zeroBased = true,
-                            ),
-                        ),
-                        panelHeight = 180,
-                        overlaid = true,
-                    )
                 }
             }
         }
@@ -191,5 +191,20 @@ fun StrengthExerciseDetailScreen(
         ) {
             DatePicker(state = pickerState)
         }
+    }
+}
+
+/**
+ * The fold handle of one block. Full-width and outside the block's own Card, so a collapsed section
+ * is a single row of chrome — the point of folding it away in the first place.
+ */
+@Composable
+private fun SectionHeader(title: String, expanded: Boolean, onToggle: () -> Unit) {
+    TextButton(onClick = onToggle, modifier = Modifier.fillMaxWidth()) {
+        Text(title, modifier = Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
+        Icon(
+            if (expanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
+            contentDescription = if (expanded) "$title einklappen" else "$title ausklappen",
+        )
     }
 }

@@ -20,6 +20,10 @@ interface DiaryDao {
     @Query("SELECT * FROM diary_entries WHERE epochDay = :epochDay ORDER BY mealType, createdAt")
     fun observeForDay(epochDay: Long): Flow<List<DiaryEntry>>
 
+    /** The same rows as [observeForDay], for a one-off read — copying a Tageszeit, say. */
+    @Query("SELECT * FROM diary_entries WHERE epochDay = :epochDay ORDER BY mealType, createdAt")
+    suspend fun getForDay(epochDay: Long): List<DiaryEntry>
+
     @Query("SELECT * FROM diary_entries WHERE id = :id")
     suspend fun getById(id: String): DiaryEntry?
 

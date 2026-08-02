@@ -22,17 +22,16 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.navigation.NavDestination.Companion.hierarchy
-import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.prokject2_tracker.core.navigation.AppNavHost
 import com.example.prokject2_tracker.core.navigation.DrawerDestination
 import com.example.prokject2_tracker.core.navigation.TopLevelDestination
+import com.example.prokject2_tracker.core.navigation.navigateToTopLevel
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -44,29 +43,6 @@ fun AppScaffold() {
     val scope = rememberCoroutineScope()
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = backStackEntry?.destination
-
-    // Routes that a tab/drawer entry is allowed to land on. Everything else is a detail screen
-    // reached from one of them (Getränkearten verwalten, Eintrag hinzufügen, Rezept bearbeiten, ...).
-    val topLevelRoutes = remember {
-        (TopLevelDestination.entries.map { it.routeQualifiedName } +
-            DrawerDestination.entries.map { it.routeQualifiedName }).toSet()
-    }
-
-    fun navigateToTopLevel(route: Any) {
-        // Drop any detail screen the user had open *before* popUpTo(saveState = true) snapshots this
-        // tab's stack — otherwise coming back to the tab restores that detail screen instead of the
-        // tab's own overview.
-        while (navController.currentDestination?.route !in topLevelRoutes) {
-            if (!navController.popBackStack()) break
-        }
-        navController.navigate(route) {
-            popUpTo(navController.graph.findStartDestination().id) {
-                saveState = true
-            }
-            launchSingleTop = true
-            restoreState = true
-        }
-    }
 
     ModalNavigationDrawer(
         drawerState = drawerState,
@@ -82,7 +58,7 @@ fun AppScaffold() {
                         selected = selected,
                         onClick = {
                             scope.launch { drawerState.close() }
-                            navigateToTopLevel(destination.route)
+                            navController.navigateToTopLevel(destination.route)
                         },
                         icon = { Icon(destination.icon, contentDescription = null, tint = accent) },
                         label = { Text(stringResource(destination.labelRes)) },
@@ -113,7 +89,7 @@ fun AppScaffold() {
                         val accent = destination.domain.accent()
                         NavigationBarItem(
                             selected = selected,
-                            onClick = { navigateToTopLevel(destination.route) },
+                            onClick = { navController.navigateToTopLevel(destination.route) },
                             icon = { Icon(destination.icon, contentDescription = null) },
                             label = { Text(stringResource(destination.labelRes)) },
                             colors = NavigationBarItemDefaults.colors(

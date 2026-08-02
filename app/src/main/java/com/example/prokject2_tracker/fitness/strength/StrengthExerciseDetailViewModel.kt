@@ -35,9 +35,8 @@ data class StrengthExerciseDetailUiState(
     val selectedEpochDay: Long = DateUtils.todayEpochDay(),
     val currentSession: SessionStats? = null,
     val previousSession: SessionStats? = null,
-    /** Current minus previous session volume; null while either side is missing. */
-    val volumeDeltaKg: Double? = null,
     val recentSessions: List<SessionStats> = emptyList(),
+    /** The steppers' weight: the whole load normally, the *added* weight while [isBodyweight]. */
     val weightKg: Double = DEFAULT_WEIGHT_KG,
     val isBodyweight: Boolean = false,
     val reps: Int = DEFAULT_REPS,
@@ -48,7 +47,13 @@ data class StrengthExerciseDetailUiState(
     val chartGranularity: Granularity = Granularity.WEEKLY,
     val volumeSeries: List<MetricPoint> = emptyList(),
     val maxWeightSeries: List<MetricPoint> = emptyList(),
-    val setCountSeries: List<MetricPoint> = emptyList(),
+    /**
+     * The two lower blocks fold away so the session comparison — the answer to "war das gut?" —
+     * needs no scrolling. The Eingabe starts open because it is why the screen gets opened; the
+     * Verlauf starts closed because it is for reviewing, not for logging.
+     */
+    val isEntryExpanded: Boolean = true,
+    val isChartExpanded: Boolean = false,
 )
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -80,6 +85,7 @@ class StrengthExerciseDetailViewModel @Inject constructor(
     private val _reps = MutableStateFlow(DEFAULT_REPS)
     private val _lastRemoved = MutableStateFlow<Pair<Int, SetDraft>?>(null)
     private val _chartRange = MutableStateFlow(ChartRange.YEAR)
+    private val _panels = MutableStateFlow(PanelState())
 
     private val allSets: StateFlow<List<StrengthSet>> =
         strengthLogRepository.observeSetsForExercise(route.exerciseId)
@@ -92,8 +98,10 @@ class StrengthExerciseDetailViewModel @Inject constructor(
         combine(_weightKg, _isBodyweight, _reps, _lastRemoved) { weight, bodyweight, reps, removed ->
             StepperState(weight, bodyweight, reps, removed != null)
         },
-        combine(_exerciseName, _note, _chartRange) { name, note, range -> Triple(name, note, range) },
-    ) { sets, day, draft, stepper, (name, note, range) ->
+        combine(_exerciseName, _note, _chartRange, _panels) { name, note, range, panels ->
+            ScreenState(name, note, range, panels)
+        },
+    ) { sets, day, draft, stepper, screen ->
         val persisted = sets.sessionOn(day)
         // The draft wins while it exists, so the UI never waits for a database round-trip.
         val current = draft?.let { drafted ->
@@ -104,27 +112,27 @@ class StrengthExerciseDetailViewModel @Inject constructor(
             }
         } ?: persisted
         val previous = sets.previousSessionDay(before = day)?.let { sets.sessionOn(it) }
-        val window = sets.chartWindow(range)
-        val granularity = range.granularityFor(window.spanDays())
+        val window = sets.chartWindow(screen.chartRange)
+        val granularity = screen.chartRange.granularityFor(window.spanDays())
 
         StrengthExerciseDetailUiState(
-            exerciseName = name,
+            exerciseName = screen.exerciseName,
             selectedEpochDay = day,
             currentSession = current,
             previousSession = previous,
-            volumeDeltaKg = if (current != null && previous != null) current.volumeKg - previous.volumeKg else null,
             // Excludes the selected day: that one is already the "Dieses Training" column.
             recentSessions = sets.filter { it.epochDay != day }.recentSessions(limit = 5),
             weightKg = stepper.weightKg,
             isBodyweight = stepper.isBodyweight,
             reps = stepper.reps,
-            note = note,
+            note = screen.note,
             canUndoRemoval = stepper.canUndo,
-            chartRange = range,
+            chartRange = screen.chartRange,
             chartGranularity = granularity,
             volumeSeries = window.dailyVolumePoints().bucketBy(granularity, MetricAggregation.SUM),
             maxWeightSeries = window.dailyMaxWeightPoints().bucketBy(granularity, MetricAggregation.MAX),
-            setCountSeries = window.dailySetCountPoints().bucketBy(granularity, MetricAggregation.SUM),
+            isEntryExpanded = screen.panels.entryExpanded,
+            isChartExpanded = screen.panels.chartExpanded,
         )
     }.stateIn(
         viewModelScope,
@@ -138,6 +146,25 @@ class StrengthExerciseDetailViewModel @Inject constructor(
         val reps: Int,
         val canUndo: Boolean,
     )
+
+    /** Which of the two foldable blocks are open; see [StrengthExerciseDetailUiState.isEntryExpanded]. */
+    private data class PanelState(val entryExpanded: Boolean = true, val chartExpanded: Boolean = false)
+
+    /** The screen-level bits, bundled because [combine] takes a fixed number of sources. */
+    private data class ScreenState(
+        val exerciseName: String,
+        val note: String,
+        val chartRange: ChartRange,
+        val panels: PanelState,
+    )
+
+    fun toggleEntryExpanded() {
+        _panels.value = _panels.value.copy(entryExpanded = !_panels.value.entryExpanded)
+    }
+
+    fun toggleChartExpanded() {
+        _panels.value = _panels.value.copy(chartExpanded = !_panels.value.chartExpanded)
+    }
 
     init {
         viewModelScope.launch {
@@ -175,8 +202,11 @@ class StrengthExerciseDetailViewModel @Inject constructor(
         val seed = sets.sessionOn(epochDay)?.sets?.lastOrNull()
             ?: sets.previousSessionDay(before = epochDay)?.let { sets.sessionOn(it)?.sets?.lastOrNull() }
             ?: strengthLogRepository.getMostRecentSetForExercise(route.exerciseId)?.toDraft()
-        _weightKg.value = seed?.weightKg ?: DEFAULT_WEIGHT_KG
-        _isBodyweight.value = seed != null && seed.weightKg == null
+        // Nothing logged yet: the exercise's own kind decides. Klimmzüge open in bodyweight mode
+        // with no added weight instead of at a made-up 20 kg.
+        val exerciseIsBodyweight = strengthExerciseRepository.getById(route.exerciseId)?.isBodyweight == true
+        _isBodyweight.value = seed?.isBodyweight ?: exerciseIsBodyweight
+        _weightKg.value = seed?.weightKg ?: if (_isBodyweight.value) 0.0 else DEFAULT_WEIGHT_KG
         _reps.value = seed?.reps ?: DEFAULT_REPS
         _note.value = strengthLogRepository.observeEntriesForExercise(route.exerciseId).first()
             .firstOrNull { it.epochDay == epochDay }?.note.orEmpty()
@@ -184,18 +214,24 @@ class StrengthExerciseDetailViewModel @Inject constructor(
 
     // --- steppers --------------------------------------------------------------------------
 
+    /** In bodyweight mode this steps the *added* weight — the belt on a weighted pull-up. */
     fun adjustWeight(deltaKg: Double) {
-        if (_isBodyweight.value) return
         _weightKg.value = (_weightKg.value + deltaKg).coerceAtLeast(0.0)
     }
 
+    /** Same reading as [adjustWeight]: the typed number is the added weight while in bodyweight mode. */
     fun setWeight(weightKg: Double) {
         _weightKg.value = weightKg.coerceAtLeast(0.0)
-        _isBodyweight.value = false
     }
 
+    /**
+     * Switching modes resets the number rather than carrying it over: 60 kg of bench press is not
+     * 60 kg hanging off a belt, and reading it as such would log a set nobody did.
+     */
     fun toggleBodyweight() {
-        _isBodyweight.value = !_isBodyweight.value
+        val bodyweight = !_isBodyweight.value
+        _isBodyweight.value = bodyweight
+        _weightKg.value = if (bodyweight) 0.0 else DEFAULT_WEIGHT_KG
     }
 
     fun adjustReps(delta: Int) {
@@ -206,7 +242,14 @@ class StrengthExerciseDetailViewModel @Inject constructor(
 
     /** The one-tap action: append a set at the current weight and rep count. */
     fun commitSet() {
-        val set = SetDraft(reps = _reps.value, weightKg = if (_isBodyweight.value) null else _weightKg.value)
+        val bodyweight = _isBodyweight.value
+        val set = SetDraft(
+            reps = _reps.value,
+            // Null, not 0.0, when nothing is added: "no external weight" is what keeps a plain
+            // pull-up out of the Max-Gewicht series (see [maxWeightOf]).
+            weightKg = if (bodyweight) _weightKg.value.takeIf { it > 0.0 } else _weightKg.value,
+            isBodyweight = bodyweight,
+        )
         _lastRemoved.value = null
         writeSets(currentSets() + set)
     }
@@ -228,8 +271,8 @@ class StrengthExerciseDetailViewModel @Inject constructor(
     /** Tapping a set chip puts its weight and reps back into the steppers. */
     fun resumeAt(index: Int) {
         val set = currentSets().getOrNull(index) ?: return
-        _isBodyweight.value = set.weightKg == null
-        set.weightKg?.let { _weightKg.value = it }
+        _isBodyweight.value = set.isBodyweight
+        _weightKg.value = set.weightKg ?: if (set.isBodyweight) 0.0 else DEFAULT_WEIGHT_KG
         _reps.value = set.reps
     }
 
@@ -263,7 +306,7 @@ class StrengthExerciseDetailViewModel @Inject constructor(
                         exerciseName = _exerciseName.value,
                         epochDay = day,
                         note = note,
-                        sets = newSets.map { it.reps to it.weightKg },
+                        sets = newSets,
                     )
                 }
             }

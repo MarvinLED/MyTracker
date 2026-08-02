@@ -77,9 +77,9 @@ fun StrengthSetEntryPanel(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                TextButton(onClick = { showWeightDialog = true }, enabled = !state.isBodyweight) {
+                TextButton(onClick = { showWeightDialog = true }) {
                     Text(
-                        if (state.isBodyweight) "Körpergewicht" else "${state.weightKg.formatDecimal(2)} kg",
+                        stepperWeightLabel(state.weightKg, state.isBodyweight),
                         style = MaterialTheme.typography.headlineSmall,
                     )
                 }
@@ -92,9 +92,10 @@ fun StrengthSetEntryPanel(
 
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 WEIGHT_STEPS.forEach { step ->
+                    // Enabled in bodyweight mode too: there they step the *added* weight, which is
+                    // the whole point of a weighted pull-up.
                     FilledTonalButton(
                         onClick = { onAdjustWeight(step) },
-                        enabled = !state.isBodyweight,
                         modifier = Modifier.weight(1f),
                         contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 2.dp, vertical = 8.dp),
                     ) {
@@ -133,7 +134,7 @@ fun StrengthSetEntryPanel(
                             // Tapping the body restores this set's weight and reps into the steppers —
                             // the usual move when dropping back to a lighter weight.
                             onClick = { onResumeAt(index) },
-                            label = { Text("${set.reps} × ${weightLabel(set.weightKg)}") },
+                            label = { Text("${set.reps} × ${weightLabel(set.weightKg, set.isBodyweight)}") },
                             trailingIcon = {
                                 // InputChip routes its whole surface to onClick, so the × needs its
                                 // own clickable rather than a trailing-icon callback.
@@ -174,6 +175,7 @@ fun StrengthSetEntryPanel(
     if (showWeightDialog) {
         WeightInputDialog(
             initialKg = state.weightKg,
+            isBodyweight = state.isBodyweight,
             onConfirm = {
                 onSetWeight(it)
                 showWeightDialog = false
@@ -183,14 +185,29 @@ fun StrengthSetEntryPanel(
     }
 }
 
+/**
+ * What the steppers currently mean: a plain weight, "Körpergewicht", or "Körpergewicht + 10 kg" once
+ * something is hanging off the belt.
+ */
+private fun stepperWeightLabel(weightKg: Double, isBodyweight: Boolean): String = when {
+    !isBodyweight -> "${weightKg.formatDecimal(2)} kg"
+    weightKg <= 0.0 -> "Körpergewicht"
+    else -> "Körpergewicht + ${weightKg.formatDecimal(2)} kg"
+}
+
 @Composable
-private fun WeightInputDialog(initialKg: Double, onConfirm: (Double) -> Unit, onDismiss: () -> Unit) {
+private fun WeightInputDialog(
+    initialKg: Double,
+    isBodyweight: Boolean,
+    onConfirm: (Double) -> Unit,
+    onDismiss: () -> Unit,
+) {
     var text by remember { mutableStateOf(initialKg.formatDecimal(2)) }
     val parsed = text.toLocaleDoubleOrNull()
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Gewicht") },
+        title = { Text(if (isBodyweight) "Zusatzgewicht" else "Gewicht") },
         text = {
             OutlinedTextField(
                 value = text,

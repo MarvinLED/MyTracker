@@ -92,9 +92,8 @@ class StrengthSessionStatsTest {
             row(day("2026-07-22"), 8, 60.0),
         )
         assertEquals(listOf(day("2026-07-22")), sets.dailyMaxWeightPoints().map { it.epochDay })
-        // Volume and set count still cover that day.
+        // Volume still covers that day.
         assertEquals(2, sets.dailyVolumePoints().size)
-        assertEquals(2, sets.dailySetCountPoints().size)
     }
 
     @Test

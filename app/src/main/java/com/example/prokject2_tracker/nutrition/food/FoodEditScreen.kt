@@ -203,6 +203,20 @@ fun FoodEditScreen(
                 Spacer(Modifier.width(4.dp))
                 Text("Einheit hinzufügen")
             }
+            Text("Preis", style = MaterialTheme.typography.titleSmall)
+            OutlinedTextField(
+                value = state.price,
+                onValueChange = viewModel::onPriceChange,
+                label = { Text("Preis (€)") },
+                supportingText = state.pricePer100Hint?.let { hint -> { Text(hint) } },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                modifier = Modifier.fillMaxWidth(),
+            )
+            PriceBasisPicker(
+                unitNames = state.priceUnitOptions.map { it.name },
+                selectedUnitName = state.priceUnitName,
+                onSelect = viewModel::onPriceUnitChange,
+            )
             Text("Flüssigkeit", style = MaterialTheme.typography.titleSmall)
             Text(
                 "Besteht dieses Lebensmittel aus einer Flüssigkeit, wird sie beim Eintragen ins " +
@@ -270,6 +284,32 @@ fun FoodEditScreen(
                     }
                 }
             }
+        }
+    }
+}
+
+/**
+ * What the entered price is the price of: "pro 100 g" or one of the food's own units. Only units
+ * that are fully filled in show up — a unit without a gram amount can't price anything. With no
+ * units the row is a single chip, which still says what the price means.
+ */
+@Composable
+private fun PriceBasisPicker(unitNames: List<String>, selectedUnitName: String?, onSelect: (String?) -> Unit) {
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        FilterChip(
+            selected = selectedUnitName == null,
+            onClick = { onSelect(null) },
+            label = { Text("pro 100 g") },
+        )
+        unitNames.forEach { name ->
+            FilterChip(
+                selected = selectedUnitName == name,
+                onClick = { onSelect(name) },
+                label = { Text("pro $name") },
+            )
         }
     }
 }

@@ -500,4 +500,119 @@ class MigrationTest {
         }
         db.close()
     }
+
+    @Test
+    fun migrate17To18_addsAnEmptyPriceToExistingFoods() {
+        val v17 = helper.createDatabase(dbName, 17)
+        v17.execSQL(
+            "INSERT INTO food_items (id, name, baseUnit, kcalPer100, proteinPer100, carbsPer100, fatPer100, " +
+                "saturatedFatPer100, sugarPer100, fiberPer100, saltPer100, createdAt, updatedAt) " +
+                "VALUES ('food-1', 'Toastbrot', 'G', 250.0, 9.0, 46.0, 3.0, 0.6, 3.5, 3.0, 1.0, " +
+                "1700000000000, 1700000000000)",
+        )
+        v17.execSQL(
+            "INSERT INTO food_units (id, foodItemId, name, amountBaseUnits, sortOrder) " +
+                "VALUES ('unit-1', 'food-1', 'Packung', 500.0, 0)",
+        )
+        v17.close()
+
+        val db = helper.runMigrationsAndValidate(dbName, 18, true, MIGRATION_17_18)
+
+        // A food that predates the column has no price — NULL, not 0 €.
+        db.query("SELECT price, priceUnitName FROM food_items WHERE id = 'food-1'").use { cursor ->
+            cursor.moveToFirst()
+            assertEquals(true, cursor.isNull(0))
+            assertEquals(true, cursor.isNull(1))
+        }
+        // Both bases the UI offers round-trip: per 100 g (NULL) and per named unit.
+        db.execSQL("UPDATE food_items SET price = 2.49, priceUnitName = 'Packung' WHERE id = 'food-1'")
+        db.query("SELECT price, priceUnitName FROM food_items WHERE id = 'food-1'").use { cursor ->
+            cursor.moveToFirst()
+            assertEquals(2.49, cursor.getDouble(0), 0.0001)
+            assertEquals("Packung", cursor.getString(1))
+        }
+        db.execSQL("UPDATE food_items SET price = 0.89, priceUnitName = NULL WHERE id = 'food-1'")
+        db.query("SELECT price, priceUnitName FROM food_items WHERE id = 'food-1'").use { cursor ->
+            cursor.moveToFirst()
+            assertEquals(0.89, cursor.getDouble(0), 0.0001)
+            assertEquals(true, cursor.isNull(1))
+        }
+        db.close()
+    }
+
+    @Test
+    fun migrate18To19_readsTheOldWeightlessSetsAsBodyweight() {
+        val v18 = helper.createDatabase(dbName, 18)
+        v18.execSQL(
+            "INSERT INTO muscle_groups (id, name, sortOrder, createdAt) " +
+                "VALUES ('musclegroup-ruecken', 'Rücken', 0, 1700000000000)",
+        )
+        listOf("exercise-klimmzug" to "Klimmzüge", "exercise-bank" to "Bankdrücken", "exercise-neu" to "Dips")
+            .forEach { (id, name) ->
+                v18.execSQL(
+                    "INSERT INTO strength_exercises (id, name, createdAt, updatedAt) " +
+                        "VALUES ('$id', '$name', 1700000000000, 1700000000000)",
+                )
+            }
+        v18.execSQL(
+            "INSERT INTO strength_log_entries (id, epochDay, createdAt, exerciseId, exerciseName, note) " +
+                "VALUES ('entry-1', 20000, 1700000000000, 'exercise-klimmzug', 'Klimmzüge', NULL)",
+        )
+        v18.execSQL(
+            "INSERT INTO strength_log_entries (id, epochDay, createdAt, exerciseId, exerciseName, note) " +
+                "VALUES ('entry-2', 20000, 1700000000000, 'exercise-bank', 'Bankdrücken', NULL)",
+        )
+        // Klimmzüge: only ever logged without a weight. Bankdrücken: always with one.
+        v18.execSQL(
+            "INSERT INTO strength_sets (id, logEntryId, epochDay, exerciseId, setIndex, reps, weightKg) " +
+                "VALUES ('set-1', 'entry-1', 20000, 'exercise-klimmzug', 0, 8, NULL)",
+        )
+        v18.execSQL(
+            "INSERT INTO strength_sets (id, logEntryId, epochDay, exerciseId, setIndex, reps, weightKg) " +
+                "VALUES ('set-2', 'entry-1', 20000, 'exercise-klimmzug', 1, 6, NULL)",
+        )
+        v18.execSQL(
+            "INSERT INTO strength_sets (id, logEntryId, epochDay, exerciseId, setIndex, reps, weightKg) " +
+                "VALUES ('set-3', 'entry-2', 20000, 'exercise-bank', 0, 5, 80.0)",
+        )
+        v18.close()
+
+        val db = helper.runMigrationsAndValidate(dbName, 19, true, MIGRATION_18_19)
+
+        // A NULL weight was what bodyweight meant, so those sets keep saying so under the new flag.
+        db.query("SELECT id, isBodyweight, weightKg FROM strength_sets ORDER BY id").use { cursor ->
+            cursor.moveToFirst()
+            assertEquals(1, cursor.getInt(1))
+            cursor.moveToNext()
+            assertEquals(1, cursor.getInt(1))
+            cursor.moveToNext()
+            assertEquals(0, cursor.getInt(1))
+            assertEquals(80.0, cursor.getDouble(2), 0.0001)
+        }
+        // The exercise flag is inferred from the log: every set bodyweight -> bodyweight exercise.
+        db.query("SELECT id, isBodyweight FROM strength_exercises ORDER BY id").use { cursor ->
+            cursor.moveToFirst()
+            assertEquals("exercise-bank", cursor.getString(0))
+            assertEquals(0, cursor.getInt(1))
+            cursor.moveToNext()
+            assertEquals("exercise-klimmzug", cursor.getString(0))
+            assertEquals(1, cursor.getInt(1))
+            // Never logged: nothing to infer from, so it stays off.
+            cursor.moveToNext()
+            assertEquals("exercise-neu", cursor.getString(0))
+            assertEquals(0, cursor.getInt(1))
+        }
+        // The new case the column exists for: bodyweight *plus* a belt.
+        db.execSQL(
+            "INSERT INTO strength_sets (id, logEntryId, epochDay, exerciseId, setIndex, reps, weightKg, isBodyweight) " +
+                "VALUES ('set-4', 'entry-1', 20000, 'exercise-klimmzug', 2, 5, 10.0, 1)",
+        )
+        db.query("SELECT reps, weightKg, isBodyweight FROM strength_sets WHERE id = 'set-4'").use { cursor ->
+            cursor.moveToFirst()
+            assertEquals(5, cursor.getInt(0))
+            assertEquals(10.0, cursor.getDouble(1), 0.0001)
+            assertEquals(1, cursor.getInt(2))
+        }
+        db.close()
+    }
 }

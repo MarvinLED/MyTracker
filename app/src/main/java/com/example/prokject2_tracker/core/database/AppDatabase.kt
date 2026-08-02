@@ -84,7 +84,7 @@ import com.example.prokject2_tracker.weight.BodyWeightEntry
         BodyMeasurement::class,
         BloodPressureEntry::class,
     ],
-    version = 17,
+    version = 19,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)

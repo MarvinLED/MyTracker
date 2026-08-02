@@ -75,7 +75,7 @@ class StrengthLogRepository @Inject constructor(
         exerciseId: String,
         exerciseName: String,
         note: String?,
-        sets: List<Pair<Int, Double?>>,
+        sets: List<SetDraft>,
     ): String {
         val id = existingId ?: IdGenerator.newId()
         val createdAt = existingId?.let { strengthLogDao.getById(it)?.createdAt } ?: Instant.now()
@@ -91,15 +91,16 @@ class StrengthLogRepository @Inject constructor(
         )
         strengthSetDao.replaceSetsForLogEntry(
             id,
-            sets.mapIndexed { index, (reps, weightKg) ->
+            sets.mapIndexed { index, draft ->
                 StrengthSet(
                     id = IdGenerator.newId(),
                     logEntryId = id,
                     epochDay = epochDay,
                     exerciseId = exerciseId,
                     setIndex = index,
-                    reps = reps,
-                    weightKg = weightKg,
+                    reps = draft.reps,
+                    weightKg = draft.weightKg,
+                    isBodyweight = draft.isBodyweight,
                 )
             },
         )
@@ -126,7 +127,7 @@ class StrengthLogRepository @Inject constructor(
         exerciseName: String,
         epochDay: Long,
         note: String?,
-        sets: List<Pair<Int, Double?>>,
+        sets: List<SetDraft>,
     ): String? = database.withTransaction {
         val existing = strengthLogDao.getForExerciseOnDay(exerciseId, epochDay)
         if (sets.isEmpty()) {

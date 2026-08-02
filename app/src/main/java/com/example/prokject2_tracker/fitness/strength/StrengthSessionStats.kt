@@ -61,10 +61,6 @@ fun List<StrengthSet>.recentSessions(limit: Int): List<SessionStats> =
 fun List<StrengthSet>.dailyVolumePoints(): List<MetricPoint> =
     groupByDay { sets -> volumeOf(sets) }
 
-/** Daily set counts, for `bucketBy(WEEKLY, SUM)`. */
-fun List<StrengthSet>.dailySetCountPoints(): List<MetricPoint> =
-    groupByDay { sets -> sets.size.toDouble() }
-
 /**
  * Daily heaviest weight, for `bucketBy(WEEKLY, MAX)`. Bodyweight-only days emit no point at all
  * (see [maxWeightOf]) — the line skips them rather than dipping to zero.

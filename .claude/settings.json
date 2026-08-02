@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.example.prokject2_tracker.nutrition.diary.MealCopyPasteTest)",
+      "Bash(./gradlew connectedDebugAndroidTest testDebugUnitTest)",
+      "Bash(python3 -c ' *)",
+      "Bash(./gradlew connectedDebugAndroidTest)"
+    ]
+  }
+}

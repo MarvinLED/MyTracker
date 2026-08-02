@@ -26,6 +26,16 @@ data class DiaryRecipeIngredientDraft(
 )
 
 /**
+ * An entry with everything that is *not* stored in its own row — currently its per-day recipe copy.
+ * Enough to write the entry back out somewhere: an undo puts it back where it was (see [restore]),
+ * a paste writes it to another day or meal (see [copyEntriesTo]).
+ */
+data class DiaryEntrySnapshot(
+    val entry: DiaryEntry,
+    val dayIngredients: List<DiaryRecipeIngredientDraft>,
+)
+
+/**
  * The ingredient list a recipe entry is computed from, plus the servings it divides by: either the
  * library recipe or the entry's own per-day copy of it. Both paths produce an entry the same way,
  * so the nutrition snapshot and the mirrored fluid can't drift apart between them.
@@ -251,6 +261,35 @@ class DiaryRepository @Inject constructor(
             DiarySourceType.FOOD -> foodDao.getById(entry.sourceId)?.let { syncFluidForFoodEntry(entry, it) }
             DiarySourceType.RECIPE -> recipeSourceFor(entry)?.let { syncFluidForRecipeEntry(entry, it) }
             DiarySourceType.QUICK -> Unit
+        }
+    }
+
+    /** Every entry of one meal on one day, with the per-day recipe copies a paste has to carry along. */
+    suspend fun getMealSnapshots(epochDay: Long, mealType: MealType): List<DiaryEntrySnapshot> =
+        diaryDao.getForDay(epochDay)
+            .filter { it.mealType == mealType }
+            .map { DiaryEntrySnapshot(it, getRecipeIngredientDrafts(it.id)) }
+
+    /**
+     * Writes copies of [snapshots] onto [epochDay]/[mealType] — the paste half of copying a whole
+     * Tageszeit. New ids and [DiaryEntry.createdAt], so the originals stay untouched and the copies
+     * sort in as freshly logged.
+     *
+     * The nutrition snapshot is copied, not re-derived: "dasselbe nochmal" means the same numbers,
+     * even if the Lebensmittel has been edited in the meantime — the same reasoning as [restore].
+     */
+    suspend fun copyEntriesTo(snapshots: List<DiaryEntrySnapshot>, epochDay: Long, mealType: MealType) {
+        val now = Instant.now()
+        snapshots.forEach { snapshot ->
+            restore(
+                snapshot.entry.copy(
+                    id = IdGenerator.newId(),
+                    epochDay = epochDay,
+                    mealType = mealType,
+                    createdAt = now,
+                ),
+                snapshot.dayIngredients,
+            )
         }
     }
 

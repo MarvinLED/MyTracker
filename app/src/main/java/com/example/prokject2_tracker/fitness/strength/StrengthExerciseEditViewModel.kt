@@ -18,6 +18,8 @@ data class StrengthExerciseEditState(
     val name: String = "",
     val muscleGroupIds: Set<String> = emptySet(),
     val movementDirection: MovementDirection? = null,
+    /** "Die Übung wird mit dem eigenen Körpergewicht gemacht" — see [StrengthExercise.isBodyweight]. */
+    val isBodyweight: Boolean = false,
     val isSaved: Boolean = false,
 ) {
     val isValid: Boolean get() = name.isNotBlank() && muscleGroupIds.isNotEmpty()
@@ -50,6 +52,7 @@ class StrengthExerciseEditViewModel @Inject constructor(
                         name = exercise.name,
                         muscleGroupIds = muscleGroupIds,
                         movementDirection = exercise.movementDirection,
+                        isBodyweight = exercise.isBodyweight,
                     )
                 }
             }
@@ -62,6 +65,8 @@ class StrengthExerciseEditViewModel @Inject constructor(
         val updated = if (group.id in current) current - group.id else current + group.id
         _state.value = _state.value.copy(muscleGroupIds = updated)
     }
+
+    fun onBodyweightToggle(value: Boolean) { _state.value = _state.value.copy(isBodyweight = value) }
 
     /** Tapping the selected direction again clears it — the tag stays optional. */
     fun onMovementDirectionToggle(direction: MovementDirection) {
@@ -79,6 +84,7 @@ class StrengthExerciseEditViewModel @Inject constructor(
                     name = s.name,
                     muscleGroupIds = s.muscleGroupIds.toList(),
                     movementDirection = s.movementDirection,
+                    isBodyweight = s.isBodyweight,
                 )
             } else {
                 strengthExerciseRepository.update(
@@ -86,6 +92,7 @@ class StrengthExerciseEditViewModel @Inject constructor(
                     name = s.name,
                     muscleGroupIds = s.muscleGroupIds.toList(),
                     movementDirection = s.movementDirection,
+                    isBodyweight = s.isBodyweight,
                 )
             }
             _state.value = _state.value.copy(isSaved = true)

@@ -1,6 +1,8 @@
 package com.example.prokject2_tracker.nutrition.diary
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -15,11 +17,14 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Kitchen
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Undo
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -32,15 +37,20 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -74,7 +84,10 @@ fun DiaryScreen(
     val undoableDelete by viewModel.undoableDelete.collectAsState()
     val quickAdds by viewModel.fluidQuickAdds.collectAsState()
     val undoableFluidAdd by viewModel.undoableFluidAdd.collectAsState()
+    val copiedMeal by viewModel.copiedMeal.collectAsState()
     val dateFormatter = remember { DateTimeFormatter.ofPattern("EEEE, d. MMMM", Locale.GERMAN) }
+    val shortDateFormatter = remember { DateTimeFormatter.ofPattern("d. MMM", Locale.GERMAN) }
+    var showPasteTargetPicker by remember { mutableStateOf(false) }
 
     Scaffold(
         modifier = modifier,
@@ -201,6 +214,18 @@ fun DiaryScreen(
             // missing block doesn't, and four of them on a fresh day are four rows of "Nichts
             // eingetragen." above the first real entry.
             val loggedMeals = MealType.entries.filter { !uiState.entriesByMeal[it].isNullOrEmpty() }
+            copiedMeal?.let { copied ->
+                item(key = "clipboard") {
+                    // Above the meals rather than below: on a day with nothing logged yet there is
+                    // nothing below, and that is exactly when this bar is the only way to paste.
+                    ClipboardBar(
+                        copied = copied,
+                        dateFormatter = shortDateFormatter,
+                        onPaste = { showPasteTargetPicker = true },
+                        onDiscard = viewModel::clearClipboard,
+                    )
+                }
+            }
             if (loggedMeals.isNotEmpty()) {
                 item(key = "meals") {
                     DiaryCard {
@@ -209,7 +234,10 @@ fun DiaryScreen(
                                 MealBlock(
                                     mealType = mealType,
                                     entries = uiState.entriesByMeal[mealType].orEmpty(),
+                                    canPaste = copiedMeal != null,
                                     onAddEntry = { onAddEntry(uiState.epochDay, mealType) },
+                                    onCopyMeal = { viewModel.copyMeal(mealType) },
+                                    onPasteIntoMeal = { viewModel.pasteInto(mealType) },
                                     onEditEntry = onEditEntry,
                                     onDeleteEntry = viewModel::deleteEntry,
                                 )
@@ -220,6 +248,79 @@ fun DiaryScreen(
             }
         }
     }
+
+    if (showPasteTargetPicker) {
+        PasteTargetDialog(
+            onPick = { mealType ->
+                viewModel.pasteInto(mealType)
+                showPasteTargetPicker = false
+            },
+            onDismiss = { showPasteTargetPicker = false },
+        )
+    }
+}
+
+/**
+ * What is on the clipboard and where it came from, plus the two things to do with it. The day and
+ * meal are spelled out because the copy outlives the day it was made on — "3 Einträge" alone would
+ * leave you guessing which meal is about to land.
+ */
+@Composable
+private fun ClipboardBar(
+    copied: CopiedMeal,
+    dateFormatter: DateTimeFormatter,
+    onPaste: () -> Unit,
+    onDiscard: () -> Unit,
+) {
+    DiaryCard {
+        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    "${copied.mealType.label()} kopiert",
+                    style = MaterialTheme.typography.titleSmall,
+                )
+                Text(
+                    "${DateUtils.localDateOfEpochDay(copied.epochDay).format(dateFormatter)} · " +
+                        "${copied.entries.size} ${if (copied.entries.size == 1) "Eintrag" else "Einträge"}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Button(onClick = onPaste) {
+                Icon(Icons.Filled.ContentPaste, contentDescription = null)
+                Spacer(Modifier.width(8.dp))
+                Text("Einfügen")
+            }
+            IconButton(onClick = onDiscard) {
+                Icon(Icons.Filled.Close, contentDescription = "Kopie verwerfen")
+            }
+        }
+    }
+}
+
+/** Which Tageszeit the copy goes into — all four, not just the ones the day already shows. */
+@Composable
+private fun PasteTargetDialog(onPick: (MealType) -> Unit, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("In welche Tageszeit einfügen?") },
+        text = {
+            Column {
+                MealType.entries.forEach { mealType ->
+                    Text(
+                        mealType.label(),
+                        style = MaterialTheme.typography.bodyLarge,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onPick(mealType) }
+                            .padding(vertical = 12.dp),
+                    )
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Abbrechen") } },
+    )
 }
 
 /** A dark card on the blue page — the surface every value and label on this screen sits on. */
@@ -233,19 +334,36 @@ private fun DiaryCard(content: @Composable () -> Unit) {
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun MealBlock(
     mealType: MealType,
     entries: List<DiaryEntry>,
+    canPaste: Boolean,
     onAddEntry: () -> Unit,
+    onCopyMeal: () -> Unit,
+    onPasteIntoMeal: () -> Unit,
     onEditEntry: (String) -> Unit,
     onDeleteEntry: (DiaryEntry) -> Unit,
 ) {
+    val haptics = LocalHapticFeedback.current
+
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         // The heading is the shortcut for logging into this meal — it is the one place on the page
-        // that already names the meal, so nothing else has to ask which one you meant.
+        // that already names the meal, so nothing else has to ask which one you meant. Long-pressing
+        // it copies the whole Tageszeit; the buzz says the copy took, the paste bar shows what.
         Row(
-            modifier = Modifier.fillMaxWidth().clickable(onClick = onAddEntry).padding(vertical = 4.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .combinedClickable(
+                    onClick = onAddEntry,
+                    onLongClick = {
+                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                        onCopyMeal()
+                    },
+                    onLongClickLabel = "${mealType.label()} kopieren",
+                )
+                .padding(vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
@@ -258,7 +376,19 @@ private fun MealBlock(
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            Spacer(Modifier.width(8.dp))
+            // Only while something is copied: a paste button with an empty clipboard behind it is
+            // just a dead control on every meal of every day.
+            if (canPaste) {
+                IconButton(onClick = onPasteIntoMeal) {
+                    Icon(
+                        Icons.Filled.ContentPaste,
+                        contentDescription = "In ${mealType.label()} einfügen",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            } else {
+                Spacer(Modifier.width(8.dp))
+            }
             Icon(
                 Icons.Filled.Add,
                 contentDescription = "Lebensmittel zu ${mealType.label()} hinzufügen",

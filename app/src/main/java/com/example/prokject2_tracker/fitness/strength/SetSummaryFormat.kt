@@ -4,13 +4,19 @@ import com.example.prokject2_tracker.core.util.formatDecimal
 import kotlin.math.roundToLong
 
 /**
- * One set as the entry UI works with it, before it becomes a [StrengthSet] row. A null [weightKg]
- * means bodyweight — deliberately not 0 kg, since "no external weight" and "zero kilos" are
- * different facts and the max-weight series depends on telling them apart.
+ * One set as the entry UI works with it, before it becomes a [StrengthSet] row.
+ *
+ * [weightKg] is always the *external* weight: the whole load on a barbell set, and only the added
+ * plates on a bodyweight set (a 10 kg belt on a pull-up). Null means none was on — deliberately not
+ * 0 kg, since "no external weight" and "zero kilos" are different facts and the max-weight series
+ * depends on telling them apart.
+ *
+ * [isBodyweight] says the body itself was the load. Together the two cover all three cases a set can
+ * be: 60 kg bench (false + 60), pull-ups (true + null), weighted pull-ups (true + 10).
  */
-data class SetDraft(val reps: Int, val weightKg: Double?)
+data class SetDraft(val reps: Int, val weightKg: Double?, val isBodyweight: Boolean = false)
 
-fun StrengthSet.toDraft() = SetDraft(reps = reps, weightKg = weightKg)
+fun StrengthSet.toDraft() = SetDraft(reps = reps, weightKg = weightKg, isBodyweight = isBodyweight)
 
 /**
  * "50 kg × 5, 5 · 60 kg × 8, 8, 8" — **consecutive** sets of equal weight collapse into one group.
@@ -27,15 +33,24 @@ fun formatSetSummary(sets: List<SetDraft>): String {
     // Group on the weight in whole grams: null groups with null, and two sets that stepped to the
     // same value can't miss each other over floating-point noise.
     return sets
-        .groupConsecutiveBy { weightKey(it.weightKg) }
+        .groupConsecutiveBy { it.isBodyweight to weightKey(it.weightKg) }
         .joinToString(" · ") { group ->
-            "${weightLabel(group.first().weightKg)} × ${group.joinToString(", ") { it.reps.toString() }}"
+            val first = group.first()
+            "${weightLabel(first.weightKg, first.isBodyweight)} × ${group.joinToString(", ") { it.reps.toString() }}"
         }
 }
 
-/** "60 kg", "62,25 kg", or "KG" for a bodyweight set — the label the training list has always used. */
-fun weightLabel(weightKg: Double?): String =
-    if (weightKg == null) "KG" else "${weightKg.formatDecimal(2)} kg"
+/**
+ * "60 kg", "62,25 kg", "KG" for a bodyweight set — the label the training list has always used —
+ * and "KG +10 kg" once a bodyweight set carries added weight.
+ */
+fun weightLabel(weightKg: Double?, isBodyweight: Boolean = false): String = when {
+    isBodyweight && (weightKg == null || weightKg <= 0.0) -> "KG"
+    isBodyweight -> "KG +${weightKg!!.formatDecimal(2)} kg"
+    // A weightless set that isn't flagged is bodyweight from before the flag existed.
+    weightKg == null -> "KG"
+    else -> "${weightKg.formatDecimal(2)} kg"
+}
 
 /**
  * A session's headline for the exercise list: the heaviest weight and the reps done at it —
@@ -55,8 +70,9 @@ fun formatTopSets(sets: List<SetDraft>): String? {
     }
     // Compared in whole grams, so a set stepped to 62,25 kg can't miss the max over float noise.
     val topKey = weightKey(maxWeight)
-    val reps = sets.filter { weightKey(it.weightKg) == topKey }.joinToString(", ") { it.reps.toString() }
-    return "${weightLabel(maxWeight)} × $reps"
+    val topSets = sets.filter { weightKey(it.weightKg) == topKey }
+    val reps = topSets.joinToString(", ") { it.reps.toString() }
+    return "${weightLabel(maxWeight, topSets.first().isBodyweight)} × $reps"
 }
 
 /** Weight as whole grams, so nulls group with nulls and equal values always compare equal. */

@@ -1,26 +1,34 @@
 package com.example.prokject2_tracker.nutrition.recipe
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -37,14 +45,18 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.prokject2_tracker.core.ui.dismissingKeyboard
 import com.example.prokject2_tracker.core.util.formatCompact
 import com.example.prokject2_tracker.core.util.toLocaleDoubleOrNull
-import com.example.prokject2_tracker.nutrition.food.FoodAmountInput
 import com.example.prokject2_tracker.nutrition.food.FoodPickerDialog
 import com.example.prokject2_tracker.nutrition.food.label
 
@@ -113,16 +125,19 @@ fun RecipeEditScreen(
                 modifier = Modifier.fillMaxWidth(),
             )
             Text("Zutaten", style = MaterialTheme.typography.titleSmall)
-            state.ingredients.forEach { row ->
-                IngredientEditRow(
-                    row = row,
-                    fluidTypeNames = fluidTypeNames,
-                    requestFocus = focusTargetFoodId == row.foodId,
-                    onFocusHandled = { focusTargetFoodId = null },
-                    onAmountChange = { viewModel.updateIngredientAmount(row.foodId, it) },
-                    onUnitSelected = { viewModel.selectIngredientUnit(row.foodId, it) },
-                    onRemove = { viewModel.removeIngredient(row.foodId) },
-                )
+            // Tighter than the 12.dp between the form fields above: the ingredients read as one
+            // list, not as a stack of separate controls.
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                state.ingredients.forEach { row ->
+                    IngredientEditRow(
+                        row = row,
+                        requestFocus = focusTargetFoodId == row.foodId,
+                        onFocusHandled = { focusTargetFoodId = null },
+                        onAmountChange = { viewModel.updateIngredientAmount(row.foodId, it) },
+                        onUnitSelected = { viewModel.selectIngredientUnit(row.foodId, it) },
+                        onRemove = { viewModel.removeIngredient(row.foodId) },
+                    )
+                }
             }
             Button(onClick = { showPicker = true }) {
                 Icon(Icons.Filled.Add, contentDescription = null)
@@ -152,14 +167,22 @@ fun RecipeEditScreen(
     }
 }
 
+/** The amount field: wide enough for "1000", narrow enough to leave the name room to breathe. */
+private val AmountFieldWidth = 76.dp
+
 /**
- * One ingredient: name and delete on top, amount plus unit chips below. Two lines rather than one,
- * because a name, a number field and a chip per unit never fit across a phone's width.
+ * One ingredient, one line: name, amount, unit, remove. The unit is a menu rather than the chip row
+ * [FoodAmountInput] draws — chips are right where a single amount is the whole screen (Tagebuch),
+ * but a recipe is a *list* of amounts, and a chip row per ingredient turned five ingredients into a
+ * screenful of scrolling.
+ *
+ * What the row no longer spells out: the per-ingredient "davon x ml Milch" (the Flüssigkeiten card
+ * below sums the same thing) and the gram equivalent of a unit amount, which is shown next to the
+ * name only when the number alone would be ambiguous.
  */
 @Composable
 private fun IngredientEditRow(
     row: IngredientRow,
-    fluidTypeNames: Map<String, String>,
     requestFocus: Boolean,
     onFocusHandled: () -> Unit,
     onAmountChange: (String) -> Unit,
@@ -168,6 +191,7 @@ private fun IngredientEditRow(
 ) {
     val focusRequester = remember { FocusRequester() }
     val keyboardController = LocalSoftwareKeyboardController.current
+    val focusManager = LocalFocusManager.current
 
     // Adding an ingredient puts the cursor straight into its amount field and opens the number pad:
     // typing the amount is always the next thing to do.
@@ -179,43 +203,102 @@ private fun IngredientEditRow(
         }
     }
 
-    Column(
+    Row(
         modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(row.foodName)
-                val fluidName = row.fluidTypeId?.let { fluidTypeNames[it] }
-                if (fluidName != null && row.fluidMl > 0.0) {
+        Row(
+            modifier = Modifier.weight(1f),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                row.foodName,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                // fill = false: the name gives its leftover width to the gram equivalent instead of
+                // pushing it off the row.
+                modifier = Modifier.weight(1f, fill = false),
+            )
+            // "2 × Scheibe" says nothing about how much that is — in grams the number speaks for
+            // itself, so this only appears in unit mode.
+            row.selectedUnit?.let {
+                row.amountBaseUnits?.let { grams ->
                     Text(
-                        "davon ${row.fluidMl.formatCompact()} ml $fluidName",
-                        style = MaterialTheme.typography.bodySmall,
+                        "${grams.formatCompact()} ${row.baseUnit.label()}",
+                        style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
                     )
                 }
             }
-            IconButton(onClick = onRemove) {
-                Icon(Icons.Filled.Close, contentDescription = "Entfernen")
-            }
         }
-        FoodAmountInput(
-            amountText = row.amountText,
-            onAmountChange = onAmountChange,
-            units = row.units,
-            selectedUnitId = row.selectedUnitId,
-            onUnitSelected = onUnitSelected,
-            baseUnit = row.baseUnit,
-            focusRequester = focusRequester,
-            modifier = Modifier.fillMaxWidth(),
+        OutlinedTextField(
+            value = row.amountText,
+            onValueChange = onAmountChange,
+            singleLine = true,
+            textStyle = LocalTextStyle.current.copy(textAlign = TextAlign.End),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Done),
+            // "Bestätigen" on the number pad should put the keyboard away, not jump to the next row.
+            keyboardActions = KeyboardActions(
+                onDone = {
+                    focusManager.clearFocus()
+                    keyboardController?.hide()
+                },
+            ),
+            modifier = Modifier
+                .width(AmountFieldWidth)
+                .focusRequester(focusRequester),
         )
-        // What the row contributes in grams, once it was entered as a count of a unit.
-        row.selectedUnit?.let {
-            row.amountBaseUnits?.let { grams ->
-                Text(
-                    "= ${grams.formatCompact()} ${row.baseUnit.label()}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+        UnitPicker(row = row, onUnitSelected = onUnitSelected)
+        IconButton(onClick = onRemove) {
+            Icon(Icons.Filled.Close, contentDescription = "${row.foodName} entfernen")
+        }
+    }
+}
+
+/**
+ * Base unit or one of the food's named units. A food without named units has nothing to pick, so it
+ * shows the plain "g"/"ml" the number is in rather than a menu that opens onto a single entry.
+ */
+@Composable
+private fun UnitPicker(row: IngredientRow, onUnitSelected: (String?) -> Unit) {
+    val baseLabel = row.baseUnit.label()
+    if (row.units.isEmpty()) {
+        Text(baseLabel, style = MaterialTheme.typography.bodyMedium)
+        return
+    }
+
+    var expanded by remember { mutableStateOf(false) }
+    Box {
+        TextButton(
+            onClick = { expanded = true },
+            contentPadding = PaddingValues(start = 8.dp, end = 0.dp),
+        ) {
+            Text(
+                row.selectedUnit?.name ?: baseLabel,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.widthIn(max = 72.dp),
+            )
+            Icon(Icons.Filled.ArrowDropDown, contentDescription = "Einheit wählen")
+        }
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            DropdownMenuItem(
+                text = { Text(baseLabel) },
+                onClick = {
+                    onUnitSelected(null)
+                    expanded = false
+                },
+            )
+            row.units.forEach { unit ->
+                DropdownMenuItem(
+                    text = { Text("${unit.name} (${unit.amountBaseUnits.formatCompact()} $baseLabel)") },
+                    onClick = {
+                        onUnitSelected(unit.id)
+                        expanded = false
+                    },
                 )
             }
         }

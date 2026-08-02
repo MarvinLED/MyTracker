@@ -40,6 +40,18 @@ data class FoodItem(
      * entirely of it" (a drink), less covers e.g. a soup. Null is read as 100.0.
      */
     val fluidMlPer100: Double? = null,
+    /**
+     * Optional price in €, for the amount [priceUnitName] names. Null means no price recorded —
+     * 0.0 would claim the food is free.
+     */
+    val price: Double? = null,
+    /**
+     * What [price] is the price *of*: null means 100 [baseUnit], otherwise the name of one of this
+     * food's [FoodUnit]s ("Packung"). The name rather than the unit id, because [FoodUnit] rows are
+     * replaced wholesale on every save (see `FoodRepository.setUnits`) and their ids don't survive
+     * it — the same reason logged entries snapshot the name.
+     */
+    val priceUnitName: String? = null,
     val createdAt: Instant,
     val updatedAt: Instant,
 )

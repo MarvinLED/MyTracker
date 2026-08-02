@@ -41,6 +41,10 @@ data class FoodEditState(
     val fiberPer100: String = "",
     val saltPer100: String = "",
     val units: List<UnitRow> = emptyList(),
+    /** Blank = no price recorded; see [FoodItem.price]. */
+    val price: String = "",
+    /** null = the price is for 100 g, otherwise the name of one of [units]; see [FoodItem.priceUnitName]. */
+    val priceUnitName: String? = null,
     /** null = this food isn't (partly) a drink; see [FoodItem.fluidTypeId]. */
     val fluidTypeId: String? = null,
     /** Blank means "consists entirely of it" and is saved as 100 ml per 100 g. */
@@ -49,6 +53,21 @@ data class FoodEditState(
     val tagInput: String = "",
     val isSaved: Boolean = false,
 ) {
+    /** The units a price can currently be entered for — half-filled rows aren't offered. */
+    val priceUnitOptions: List<UnitRow> get() = units.filter { it.isComplete }
+
+    /**
+     * "≈ 0,50 € / 100 g" while a price is being typed for a named unit, so the comparison value is
+     * visible before saving. Null when there is nothing (yet) to convert.
+     */
+    val pricePer100Hint: String?
+        get() {
+            val basis = priceUnitOptions.firstOrNull { it.name == priceUnitName } ?: return null
+            val per100 = pricePer100(price.toLocaleDoubleOrNull(), basis.amount.toLocaleDoubleOrNull())
+                ?: return null
+            return "≈ ${formatEuro(per100)} / 100 g"
+        }
+
     val isValid: Boolean
         get() = name.isNotBlank() &&
             kcalPer100.isNotBlank() && kcalPer100.toLocaleDoubleOrNull() != null &&
@@ -60,6 +79,7 @@ data class FoodEditState(
             fiberPer100.isBlankOrValidNumber() &&
             saltPer100.isBlankOrValidNumber() &&
             units.all { it.isBlank || it.isComplete } &&
+            price.isBlankOrValidNumber() &&
             (fluidTypeId == null || fluidMlPer100.isBlankOrValidNumber())
 }
 
@@ -112,6 +132,8 @@ class FoodEditViewModel @Inject constructor(
                         units = foodRepository.getUnits(food.id).map {
                             UnitRow(name = it.name, amount = it.amountBaseUnits.formatDecimal(3))
                         },
+                        price = food.price?.formatDecimal(2).orEmpty(),
+                        priceUnitName = food.priceUnitName,
                         fluidTypeId = food.fluidTypeId,
                         fluidMlPer100 = food.fluidMlPer100?.toString().orEmpty(),
                         tags = tagRepository.getTagsForFoodOnce(food.id),
@@ -164,17 +186,34 @@ class FoodEditViewModel @Inject constructor(
     fun onSaltChange(value: String) { _state.value = _state.value.copy(saltPer100 = value) }
     fun onFluidMlPer100Change(value: String) { _state.value = _state.value.copy(fluidMlPer100 = value) }
 
+    fun onPriceChange(value: String) { _state.value = _state.value.copy(price = value) }
+
+    /** null selects "pro 100 g"; any other value must be one of the unit rows' names. */
+    fun onPriceUnitChange(unitName: String?) { _state.value = _state.value.copy(priceUnitName = unitName) }
+
     fun addUnitRow() {
         _state.value = _state.value.copy(units = _state.value.units + UnitRow())
     }
 
-    fun onUnitNameChange(index: Int, value: String) = updateUnitRow(index) { it.copy(name = value) }
+    /** Renaming the unit a price refers to carries the price along instead of silently dropping it. */
+    fun onUnitNameChange(index: Int, value: String) {
+        val renamed = _state.value.units.getOrNull(index)?.name
+        updateUnitRow(index) { it.copy(name = value) }
+        if (renamed != null && renamed == _state.value.priceUnitName) {
+            _state.value = _state.value.copy(priceUnitName = value.ifBlank { null })
+        }
+    }
 
     fun onUnitAmountChange(index: Int, value: String) = updateUnitRow(index) { it.copy(amount = value) }
 
     fun removeUnitRow(index: Int) {
-        _state.value = _state.value.copy(
-            units = _state.value.units.filterIndexed { i, _ -> i != index },
+        val removed = _state.value.units.getOrNull(index)?.name
+        val current = _state.value
+        _state.value = current.copy(
+            units = current.units.filterIndexed { i, _ -> i != index },
+            // The basis is gone, so the price falls back to "pro 100 g" rather than to a unit that
+            // no longer exists.
+            priceUnitName = if (removed == current.priceUnitName) null else current.priceUnitName,
         )
     }
 
@@ -204,6 +243,11 @@ class FoodEditViewModel @Inject constructor(
             }
             // A picked type with a blank amount means "besteht ganz aus dieser Flüssigkeit" = 100 ml/100 g.
             val fluidMlPer100 = s.fluidTypeId?.let { s.fluidMlPer100.toLocaleDoubleOrNull() ?: 100.0 }
+            // A blank or non-positive price is "kein Preis erfasst", not "kostet 0 €". The basis is
+            // only kept if it survived the unit edits above — otherwise the price is per 100 g.
+            val price = s.price.toLocaleDoubleOrNull()?.takeIf { it > 0.0 }
+            val priceUnitName = s.priceUnitName?.trim()
+                ?.takeIf { name -> unitDrafts.any { it.name.trim() == name } }
             val current = existing
             val savedFoodId: String
             if (current == null) {
@@ -221,6 +265,8 @@ class FoodEditViewModel @Inject constructor(
                     saltPer100 = s.saltPer100.toNutrientValue(),
                     fluidTypeId = s.fluidTypeId,
                     fluidMlPer100 = fluidMlPer100,
+                    price = price,
+                    priceUnitName = priceUnitName,
                 )
                 savedFoodId = created.id
             } else {
@@ -241,6 +287,8 @@ class FoodEditViewModel @Inject constructor(
                         saltPer100 = s.saltPer100.toNutrientValue(),
                         fluidTypeId = s.fluidTypeId,
                         fluidMlPer100 = fluidMlPer100,
+                        price = price,
+                        priceUnitName = priceUnitName,
                     ),
                 )
             }

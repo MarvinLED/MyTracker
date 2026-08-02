@@ -691,3 +691,37 @@ object MIGRATION_16_17 : Migration(16, 17) {
         )
     }
 }
+
+object MIGRATION_17_18 : Migration(17, 18) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        // food_items: what a Lebensmittel costs. `price` is nullable rather than defaulting to 0,
+        // because "kein Preis erfasst" and "kostet nichts" are different statements and every food
+        // that exists today is the former. `priceUnitName` says what the price is *for*: NULL means
+        // 100 g/ml, otherwise it names one of the food's food_units rows ("Packung"). The name, not
+        // the unit id, since food_units rows are recreated with fresh ids on every save.
+        db.execSQL("ALTER TABLE `food_items` ADD COLUMN `price` REAL")
+        db.execSQL("ALTER TABLE `food_items` ADD COLUMN `priceUnitName` TEXT")
+    }
+}
+
+object MIGRATION_18_19 : Migration(18, 19) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        // Bodyweight becomes a fact of its own instead of being encoded as "no weight". A set now
+        // says whether the body was the load, and `weightKg` means the *external* weight either way
+        // — which is what makes weighted pull-ups (bodyweight + 10 kg) expressible at all.
+        db.execSQL("ALTER TABLE `strength_sets` ADD COLUMN `isBodyweight` INTEGER NOT NULL DEFAULT 0")
+        // A NULL weight is exactly what bodyweight used to mean, so every such set carries over.
+        db.execSQL("UPDATE `strength_sets` SET `isBodyweight` = 1 WHERE `weightKg` IS NULL")
+
+        // The exercise-level flag decides what logging *starts* in. Inferred from the log rather
+        // than left off for everyone: an exercise whose every logged set was bodyweight is a
+        // bodyweight exercise, and asking the user to re-tag Klimmzüge they have logged for months
+        // would be busywork. Exercises never logged stay off — there is nothing to infer from.
+        db.execSQL("ALTER TABLE `strength_exercises` ADD COLUMN `isBodyweight` INTEGER NOT NULL DEFAULT 0")
+        db.execSQL(
+            "UPDATE `strength_exercises` SET `isBodyweight` = 1 WHERE `id` IN (" +
+                "SELECT `exerciseId` FROM `strength_sets` GROUP BY `exerciseId` " +
+                "HAVING COUNT(*) = SUM(CASE WHEN `weightKg` IS NULL THEN 1 ELSE 0 END))",
+        )
+    }
+}
