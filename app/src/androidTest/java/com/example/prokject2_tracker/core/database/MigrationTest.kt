@@ -657,4 +657,45 @@ class MigrationTest {
         }
         db.close()
     }
+
+    @Test
+    fun migrate20To21_addsTheTaskListAndItsCompletions() {
+        helper.createDatabase(dbName, 20).close()
+
+        val db = helper.runMigrationsAndValidate(dbName, 21, true, MIGRATION_20_21)
+
+        db.execSQL(
+            "INSERT INTO tasks (id, name, recurrence, intervalCount, weekdayMask, dayOfMonth, " +
+                "startEpochDay, archived, createdAt, updatedAt) " +
+                "VALUES ('task-1', 'Müll rausbringen', 'EVERY_N_WEEKS', 3, 0, 1, 20000, 0, " +
+                "1700000000000, 1700000000000)",
+        )
+        db.execSQL(
+            "INSERT INTO task_completions (id, taskId, dueEpochDay, completedEpochDay, createdAt) " +
+                "VALUES ('task-1-20000', 'task-1', 20000, 20001, 1700000000000)",
+        )
+
+        // The rhythm round-trips, including the phase the interval is counted in.
+        db.query("SELECT recurrence, intervalCount, startEpochDay FROM tasks").use { cursor ->
+            cursor.moveToFirst()
+            assertEquals("EVERY_N_WEEKS", cursor.getString(0))
+            assertEquals(3, cursor.getInt(1))
+            assertEquals(20000, cursor.getLong(2))
+        }
+        // Due day and completion day are kept apart — that is what lets a backlog be worked off.
+        db.query("SELECT dueEpochDay, completedEpochDay FROM task_completions").use { cursor ->
+            cursor.moveToFirst()
+            assertEquals(20000, cursor.getLong(0))
+            assertEquals(20001, cursor.getLong(1))
+        }
+
+        db.execSQL("PRAGMA foreign_keys = ON")
+        // Deleting the task takes its history with it; nothing is left pointing at a gone rule.
+        db.execSQL("DELETE FROM tasks WHERE id = 'task-1'")
+        db.query("SELECT COUNT(*) FROM task_completions").use { cursor ->
+            cursor.moveToFirst()
+            assertEquals(0, cursor.getInt(0))
+        }
+        db.close()
+    }
 }

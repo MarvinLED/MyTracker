@@ -4,7 +4,11 @@
       "Bash(./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.example.prokject2_tracker.nutrition.diary.MealCopyPasteTest)",
       "Bash(./gradlew connectedDebugAndroidTest testDebugUnitTest)",
       "Bash(python3 -c ' *)",
-      "Bash(./gradlew connectedDebugAndroidTest)"
+      "Bash(./gradlew connectedDebugAndroidTest)",
+      "Bash(git -C /home/user/Dokumente/Projects/Project1 diff --stat)",
+      "Bash(./gradlew testDebugUnitTest --tests '*TaskScheduleTest*')",
+      "Bash(~/Android/Sdk/emulator/emulator -avd Pixel_10 -no-snapshot-save -no-audio)",
+      "Bash(git -C /home/user/Dokumente/Projects/Project1 status --short)"
     ]
   }
 }

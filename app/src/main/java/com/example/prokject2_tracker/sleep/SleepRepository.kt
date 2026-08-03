@@ -30,6 +30,8 @@ class SleepRepository @Inject constructor(
 
     suspend fun getMostRecentBefore(epochDay: Long): SleepEntry? = sleepDao.getMostRecentBefore(epochDay)
 
+    suspend fun getMostRecentFitnessBefore(epochDay: Long): Int? = sleepDao.getMostRecentFitnessBefore(epochDay)
+
     suspend fun getTagIdsForEntry(sleepEntryId: String): List<String> = sleepDao.getTagIdsForEntry(sleepEntryId)
 
     /**

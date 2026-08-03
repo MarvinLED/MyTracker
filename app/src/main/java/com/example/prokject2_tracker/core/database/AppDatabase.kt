@@ -56,6 +56,10 @@ import com.example.prokject2_tracker.sleep.SleepEntry
 import com.example.prokject2_tracker.sleep.SleepEntryTag
 import com.example.prokject2_tracker.sleep.SleepTag
 import com.example.prokject2_tracker.sleep.SleepTagDao
+import com.example.prokject2_tracker.task.Task
+import com.example.prokject2_tracker.task.TaskCompletion
+import com.example.prokject2_tracker.task.TaskCompletionDao
+import com.example.prokject2_tracker.task.TaskDao
 import com.example.prokject2_tracker.weight.BodyWeightDao
 import com.example.prokject2_tracker.weight.BodyWeightEntry
 
@@ -91,8 +95,10 @@ import com.example.prokject2_tracker.weight.BodyWeightEntry
         SleepEntry::class,
         SleepTag::class,
         SleepEntryTag::class,
+        Task::class,
+        TaskCompletion::class,
     ],
-    version = 20,
+    version = 21,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -122,4 +128,6 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun bloodPressureDao(): BloodPressureDao
     abstract fun sleepDao(): SleepDao
     abstract fun sleepTagDao(): SleepTagDao
+    abstract fun taskDao(): TaskDao
+    abstract fun taskCompletionDao(): TaskCompletionDao
 }

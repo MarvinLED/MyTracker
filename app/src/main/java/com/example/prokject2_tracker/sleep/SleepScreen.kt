@@ -33,6 +33,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -55,6 +56,7 @@ import com.example.prokject2_tracker.ui.theme.statusColor
 import com.example.prokject2_tracker.ui.theme.topAppBarColors
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import kotlin.math.roundToInt
 
 private val dayFormatter = DateTimeFormatter.ofPattern("EEE, d. MMMM", Locale.GERMAN)
 private val shortDayFormatter = DateTimeFormatter.ofPattern("EEE, d. MMM", Locale.GERMAN)
@@ -117,7 +119,7 @@ fun SleepScreen(
                     onEndChange = viewModel::onEndChange,
                     onLastMealChange = viewModel::onLastMealChange,
                     onClearLastMeal = viewModel::clearLastMeal,
-                    onFitnessSelected = viewModel::onFitnessSelected,
+                    onFitnessChange = viewModel::onFitnessChange,
                     onTagToggle = viewModel::onTagToggle,
                     onTagInputChange = viewModel::onTagInputChange,
                     onAddTag = viewModel::addTagFromInput,
@@ -148,7 +150,7 @@ private fun NightForm(
     onEndChange: (Int) -> Unit,
     onLastMealChange: (Int) -> Unit,
     onClearLastMeal: () -> Unit,
-    onFitnessSelected: (Int) -> Unit,
+    onFitnessChange: (Int) -> Unit,
     onTagToggle: (String) -> Unit,
     onTagInputChange: (String) -> Unit,
     onAddTag: () -> Unit,
@@ -225,15 +227,29 @@ private fun NightForm(
                 }
             }
 
-            Text("Fitness am Morgen", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                (MIN_MORNING_FITNESS..MAX_MORNING_FITNESS).forEach { value ->
-                    FilterChip(
-                        selected = state.morningFitness == value,
-                        onClick = { onFitnessSelected(value) },
-                        label = { Text("$value") },
+            // The slider opens on the last rating given, so a morning that feels like the one before
+            // needs no touch at all. The number is spelled out because the handle alone does not say
+            // whether it sits on 7 or 8.
+            Column {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        "Fitness am Morgen",
+                        modifier = Modifier.weight(1f),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Text(
+                        "${state.morningFitness}/$MAX_MORNING_FITNESS",
+                        style = MaterialTheme.typography.titleMedium,
                     )
                 }
+                Slider(
+                    value = state.morningFitness.toFloat(),
+                    onValueChange = { onFitnessChange(it.roundToInt()) },
+                    valueRange = MIN_MORNING_FITNESS.toFloat()..MAX_MORNING_FITNESS.toFloat(),
+                    // The steps are the stops *between* the ends, so the handle snaps to whole ratings.
+                    steps = MAX_MORNING_FITNESS - MIN_MORNING_FITNESS - 1,
+                )
             }
 
             Text("Tags", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)

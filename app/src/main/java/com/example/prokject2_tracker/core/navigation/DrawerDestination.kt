@@ -10,6 +10,7 @@ import androidx.compose.material.icons.filled.MonitorHeart
 import androidx.compose.material.icons.filled.Bedtime
 import androidx.compose.material.icons.filled.MonitorWeight
 import androidx.compose.material.icons.filled.Straighten
+import androidx.compose.material.icons.filled.Task
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.example.prokject2_tracker.R
 import com.example.prokject2_tracker.analyse.AnalyseRoute
@@ -19,6 +20,7 @@ import com.example.prokject2_tracker.habit.HabitRoute
 import com.example.prokject2_tracker.measurement.MeasurementRoute
 import com.example.prokject2_tracker.nutrition.library.LibraryRoute
 import com.example.prokject2_tracker.sleep.SleepRoute
+import com.example.prokject2_tracker.task.TaskRoute
 import com.example.prokject2_tracker.ui.theme.AppDomain
 import com.example.prokject2_tracker.weight.WeightRoute
 
@@ -60,6 +62,13 @@ enum class DrawerDestination(
         labelRes = R.string.nav_habit,
         icon = Icons.Filled.Checklist,
         domain = AppDomain.HABIT,
+    ),
+    TASK(
+        route = TaskRoute,
+        routeQualifiedName = TaskRoute::class.qualifiedName!!,
+        labelRes = R.string.nav_tasks,
+        icon = Icons.Filled.Task,
+        domain = AppDomain.TASK,
     ),
     WEIGHT(
         route = WeightRoute,

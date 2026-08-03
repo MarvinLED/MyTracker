@@ -14,6 +14,9 @@ import com.example.prokject2_tracker.habit.HabitType
 import com.example.prokject2_tracker.nutrition.diary.goalTargetLabel
 import com.example.prokject2_tracker.sleep.SleepEntry
 import com.example.prokject2_tracker.sleep.sleepGoalStatuses
+import com.example.prokject2_tracker.task.TaskStatus
+import com.example.prokject2_tracker.task.dueLabel
+import com.example.prokject2_tracker.task.dueToday
 
 /**
  * One goal of today, reduced to what the screen draws: how far along it is and whether it is met.
@@ -138,6 +141,23 @@ fun habitGoalRows(
             unit = if (habit.type == HabitType.DURATION) "min" else "",
         )
     }
+}
+
+/**
+ * The tasks today has to answer for: everything still owed, plus what was ticked off today so the
+ * row does not vanish the moment it is done (and take the day's count down with it).
+ *
+ * A task is not a matter of degree, so like a Ja/Nein-Habit it gets no bar — [DayGoalRow.fraction]
+ * stays null and the screen draws a Haken or a Kreuz.
+ */
+fun taskRows(statuses: List<TaskStatus>): List<DayGoalRow> = statuses.dueToday().map { status ->
+    DayGoalRow(
+        id = "task-${status.task.id}",
+        label = status.task.name,
+        valueText = status.openDueDay?.let { dueLabel(it, status.today) } ?: "erledigt",
+        isMet = !status.isOpen,
+        fraction = null,
+    )
 }
 
 /** The name a fitness goal goes by, including what it is scoped to when it is scoped to anything. */

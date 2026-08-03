@@ -9,7 +9,12 @@ import com.example.prokject2_tracker.fluid.FluidType
 import com.example.prokject2_tracker.habit.Habit
 import com.example.prokject2_tracker.habit.HabitGoal
 import com.example.prokject2_tracker.habit.HabitType
+import com.example.prokject2_tracker.task.Task
+import com.example.prokject2_tracker.task.TaskCompletion
+import com.example.prokject2_tracker.task.TaskRecurrence
+import com.example.prokject2_tracker.task.taskStatuses
 import java.time.Instant
+import java.time.LocalDate
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -163,6 +168,63 @@ class DayGoalRowsTest {
         createdAt = AnInstant,
         dailyGoalMinMl = min,
         dailyGoalMaxMl = max,
+    )
+
+    @Test
+    fun taskRows_showWhatIsOwedAndHowLateItIs() {
+        val today = LocalDate.parse("2026-08-05").toEpochDay()
+        val tasks = listOf(
+            task("t-1", "Müll rausbringen", start = "2026-08-05"),
+            task("t-2", "Rechnung zahlen", start = "2026-08-02"),
+        )
+
+        val rows = taskRows(taskStatuses(tasks, completions = emptyList(), today = today))
+
+        // Oldest debt first, so the row that has been waiting longest is the one read first.
+        assertEquals(listOf("Rechnung zahlen", "Müll rausbringen"), rows.map { it.label })
+        assertEquals("seit 3 Tagen fällig", rows[0].valueText)
+        assertEquals("heute fällig", rows[1].valueText)
+        // Not a matter of degree: a Haken, never a bar.
+        assertNull(rows[0].fraction)
+        assertFalse(rows[0].isMet)
+    }
+
+    @Test
+    fun taskRows_keepATaskTickedOffTodayInsteadOfDroppingIt() {
+        val today = LocalDate.parse("2026-08-05").toEpochDay()
+        val tasks = listOf(task("t-1", "Müll rausbringen", start = "2026-08-05"))
+        val completions = listOf(
+            TaskCompletion(
+                id = "t-1-${today}",
+                taskId = "t-1",
+                dueEpochDay = today,
+                completedEpochDay = today,
+                createdAt = AnInstant,
+            ),
+        )
+
+        val row = taskRows(taskStatuses(tasks, completions, today)).single()
+
+        // The row stays so the day's count does not drop by one the moment something gets done.
+        assertTrue(row.isMet)
+        assertEquals("erledigt", row.valueText)
+    }
+
+    @Test
+    fun taskRows_leaveOutWhatIsNotDueYet() {
+        val today = LocalDate.parse("2026-08-05").toEpochDay()
+        val tasks = listOf(task("t-1", "Zahnarzt", start = "2026-09-01"))
+
+        assertTrue(taskRows(taskStatuses(tasks, completions = emptyList(), today = today)).isEmpty())
+    }
+
+    private fun task(id: String, name: String, start: String) = Task(
+        id = id,
+        name = name,
+        recurrence = TaskRecurrence.ONCE,
+        startEpochDay = LocalDate.parse(start).toEpochDay(),
+        createdAt = AnInstant,
+        updatedAt = AnInstant,
     )
 
     private fun habit(id: String, name: String, type: HabitType) = Habit(

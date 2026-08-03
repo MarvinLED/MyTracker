@@ -62,6 +62,8 @@ import com.example.prokject2_tracker.sleep.SleepRoute
 import com.example.prokject2_tracker.sleep.SleepScreen
 import com.example.prokject2_tracker.sleep.SleepTagManageRoute
 import com.example.prokject2_tracker.sleep.SleepTagManageScreen
+import com.example.prokject2_tracker.task.TaskRoute
+import com.example.prokject2_tracker.task.TaskScreen
 import com.example.prokject2_tracker.weight.WeightRoute
 import com.example.prokject2_tracker.weight.WeightScreen
 
@@ -110,6 +112,9 @@ fun AppNavHost(
         }
         composable<HabitRoute> {
             HabitScreen(onOpenDrawer = onOpenDrawer)
+        }
+        composable<TaskRoute> {
+            TaskScreen(onOpenDrawer = onOpenDrawer)
         }
         composable<WeightRoute> {
             WeightScreen(onOpenDrawer = onOpenDrawer)

@@ -761,3 +761,39 @@ object MIGRATION_19_20 : Migration(19, 20) {
         db.execSQL("CREATE INDEX IF NOT EXISTS `index_sleep_entry_tags_tagId` ON `sleep_entry_tags` (`tagId`)")
     }
 }
+
+object MIGRATION_20_21 : Migration(20, 21) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        // tasks: the *rule*, not the occurrences. A recurring task is one row for good — which of
+        // its due dates are done lives in task_completions below, so working through a rhythm never
+        // rewrites the task itself. `startEpochDay` anchors every rhythm (and is the date itself
+        // for a one-off), which is what makes "alle 3 Wochen" a phase rather than a guess.
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `tasks` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, " +
+                "`recurrence` TEXT NOT NULL, `intervalCount` INTEGER NOT NULL, " +
+                "`weekdayMask` INTEGER NOT NULL, `dayOfMonth` INTEGER NOT NULL, " +
+                "`startEpochDay` INTEGER NOT NULL, `archived` INTEGER NOT NULL, " +
+                "`createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, PRIMARY KEY(`id`))",
+        )
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_tasks_name` ON `tasks` (`name`)")
+
+        // task_completions: one ticked-off due date. Keyed by the day it was *due* rather than the
+        // day of the tap, so catching up on a backlog settles the occurrence it was meant for;
+        // `completedEpochDay` keeps the day it actually happened, which is what lets the Tagesziele
+        // still show a task as done today after the tick.
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `task_completions` (`id` TEXT NOT NULL, `taskId` TEXT NOT NULL, " +
+                "`dueEpochDay` INTEGER NOT NULL, `completedEpochDay` INTEGER NOT NULL, " +
+                "`createdAt` INTEGER NOT NULL, PRIMARY KEY(`id`), " +
+                "FOREIGN KEY(`taskId`) REFERENCES `tasks`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        )
+        db.execSQL(
+            "CREATE UNIQUE INDEX IF NOT EXISTS `index_task_completions_taskId_dueEpochDay` " +
+                "ON `task_completions` (`taskId`, `dueEpochDay`)",
+        )
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS `index_task_completions_completedEpochDay` " +
+                "ON `task_completions` (`completedEpochDay`)",
+        )
+    }
+}

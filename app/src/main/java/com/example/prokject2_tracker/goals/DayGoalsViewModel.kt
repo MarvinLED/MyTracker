@@ -11,6 +11,8 @@ import com.example.prokject2_tracker.fluid.FluidRepository
 import com.example.prokject2_tracker.habit.HabitRepository
 import com.example.prokject2_tracker.nutrition.diary.DiaryRepository
 import com.example.prokject2_tracker.sleep.SleepRepository
+import com.example.prokject2_tracker.task.TaskRepository
+import com.example.prokject2_tracker.task.taskStatuses
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.SharingStarted
@@ -34,6 +36,7 @@ class DayGoalsViewModel @Inject constructor(
     private val fitnessGoalRepository: FitnessGoalRepository,
     strengthExerciseRepository: StrengthExerciseRepository,
     sleepRepository: SleepRepository,
+    taskRepository: TaskRepository,
 ) : ViewModel() {
     // Fixed at construction like the Habits screen: this is "today", and a screen that silently
     // rolled over at midnight would change what it says under the user's hands.
@@ -101,15 +104,27 @@ class DayGoalsViewModel @Inject constructor(
         ).asSection("Schlaf")
     }
 
+    // Unlike the rest of this screen, a task is not a target that the day's logging is measured
+    // against — it is something to go and do. That is why it leads: it is the only section anyone
+    // can act on directly.
+    private val taskSection = combine(
+        taskRepository.observeActive(),
+        taskRepository.observeCompletions(),
+    ) { tasks, completions ->
+        taskRows(taskStatuses(tasks, completions, today)).asSection("Aufgaben")
+    }
+
+    // Past the five-flow `combine` overloads, so this is the vararg one: every section is the same
+    // nullable type, and the nulls are the areas with nothing set.
     val uiState: StateFlow<DayGoalsUiState> = combine(
+        taskSection,
         nutritionSection,
         fluidSection,
         habitSection,
         fitnessSection,
         sleepSection,
-    ) { nutrition, fluid, habits, fitness, sleep ->
-        DayGoalsUiState(sections = listOfNotNull(nutrition, fluid, habits, fitness, sleep))
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), DayGoalsUiState())
+    ) { sections -> DayGoalsUiState(sections = sections.filterNotNull()) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), DayGoalsUiState())
 }
 
 /** An area with no goal set contributes no heading either. */

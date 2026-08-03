@@ -25,6 +25,17 @@ interface SleepDao {
     suspend fun getMostRecentBefore(epochDay: Long): SleepEntry?
 
     /**
+     * The last rating actually given before [epochDay] — where the slider starts. Nights without a
+     * rating are skipped, so a gap in the log does not reset the slider.
+     */
+    @Query(
+        "SELECT morningFitness FROM sleep_entries " +
+            "WHERE epochDay < :epochDay AND morningFitness IS NOT NULL " +
+            "ORDER BY epochDay DESC LIMIT 1",
+    )
+    suspend fun getMostRecentFitnessBefore(epochDay: Long): Int?
+
+    /**
      * Sleep duration per night, counted forwards across midnight in SQL so the Analyse series needs
      * no post-processing. Mirrors `SleepEntry.durationMinutes` — keep the two in step.
      */

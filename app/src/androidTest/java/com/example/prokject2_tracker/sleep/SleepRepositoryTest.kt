@@ -115,6 +115,21 @@ class SleepRepositoryTest {
         assertNull(repository.getMostRecentBefore(day - 1))
     }
 
+    /** Where the fitness slider opens: the last rating given, however long ago that was. */
+    @Test
+    fun theFitnessPrefillSkipsNightsThatWereNeverRated() = runBlocking {
+        // Nothing rated yet — the caller falls back to its own default.
+        assertNull(repository.getMostRecentFitnessBefore(day))
+
+        repository.logNight(day - 3, 23 * 60, 7 * 60, morningFitness = 7, lastMealMinuteOfDay = null, tagIds = emptyList())
+        repository.logNight(day - 1, 23 * 60, 7 * 60, morningFitness = null, lastMealMinuteOfDay = null, tagIds = emptyList())
+
+        // The unrated night in between is skipped rather than read as "no rating".
+        assertEquals(7, repository.getMostRecentFitnessBefore(day))
+        // Strictly *before* the day asked about — a night does not prefill from itself.
+        assertNull(repository.getMostRecentFitnessBefore(day - 3))
+    }
+
     /** The Analyse series computes the wrap-around in SQL — it has to agree with the Kotlin side. */
     @Test
     fun theDurationSeriesCountsAcrossMidnightLikeTheEntityDoes() = runBlocking {

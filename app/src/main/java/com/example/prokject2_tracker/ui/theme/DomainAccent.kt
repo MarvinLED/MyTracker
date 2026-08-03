@@ -37,6 +37,10 @@ enum class AppDomain(private val accent: Color?) {
     // `StatusColor.kt`, which is fine for the same reason rot works above: a top bar or drawer entry
     // is an area, not a verdict, and every goal indicator carries its own icon and numbers.
     SLEEP(Color(0xFF0E9A2B)), // grün
+    // Past the eight hues above, which is why this one is a muted braun rather than another
+    // saturated primary: it stays apart from aqua/grün/gelb at a glance without competing with
+    // them for attention, and a chore list is not the screen that should shout loudest.
+    TASK(Color(0xFF8A6244)), // braun
     ANALYSE(null),
     GOALS(null),
     LIBRARY(null),

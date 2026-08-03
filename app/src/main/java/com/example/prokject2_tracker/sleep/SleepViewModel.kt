@@ -24,6 +24,9 @@ private const val HISTORY_LIMIT = 14
 private const val DEFAULT_BEDTIME_MINUTE = 23 * 60
 private const val DEFAULT_WAKE_MINUTE = 7 * 60
 
+/** Where the fitness slider starts before a single morning has ever been rated — the middle. */
+private const val DEFAULT_MORNING_FITNESS = 5
+
 /** One past night, with its tags resolved to names for the list. */
 data class SleepHistoryRow(
     val entry: SleepEntry,
@@ -40,7 +43,7 @@ data class SleepUiState(
     val startMinuteOfDay: Int? = null,
     val endMinuteOfDay: Int? = null,
     val lastMealMinuteOfDay: Int? = null,
-    val morningFitness: Int? = null,
+    val morningFitness: Int = DEFAULT_MORNING_FITNESS,
     val selectedTagIds: Set<String> = emptySet(),
     val allTags: List<SleepTag> = emptyList(),
     val tagInput: String = "",
@@ -155,7 +158,7 @@ class SleepViewModel @Inject constructor(
                     startMinuteOfDay = stored.startMinuteOfDay,
                     endMinuteOfDay = stored.endMinuteOfDay,
                     lastMealMinuteOfDay = stored.lastMealMinuteOfDay,
-                    morningFitness = stored.morningFitness,
+                    morningFitness = resolveFitness(stored.morningFitness, epochDay),
                     tagIds = sleepRepository.getTagIdsForEntry(stored.id).toSet(),
                 )
                 return@launch
@@ -164,14 +167,23 @@ class SleepViewModel @Inject constructor(
             _draft.value = SleepDraft(
                 startMinuteOfDay = previous?.startMinuteOfDay ?: DEFAULT_BEDTIME_MINUTE,
                 endMinuteOfDay = previous?.endMinuteOfDay ?: DEFAULT_WAKE_MINUTE,
-                // Deliberately not carried over: the rating and the tags are about *this* night, and
-                // a prefilled 8/10 would quietly log yesterday's morning again.
+                morningFitness = resolveFitness(stored = null, epochDay = epochDay),
+                // Deliberately not carried over: the tags and the meal time are about *this* night,
+                // and repeating them would quietly log yesterday's evening again.
                 lastMealMinuteOfDay = null,
-                morningFitness = null,
                 tagIds = emptySet(),
             )
         }
     }
+
+    /**
+     * What the slider shows: the night's own rating, else the last rating given before it. Mornings
+     * feel much like the one before, so starting there makes the usual night a no-op — and a night
+     * that was never rated (an old entry, or one logged before the slider existed) gets a sensible
+     * position rather than an arbitrary one.
+     */
+    private suspend fun resolveFitness(stored: Int?, epochDay: Long): Int =
+        stored ?: sleepRepository.getMostRecentFitnessBefore(epochDay) ?: DEFAULT_MORNING_FITNESS
 
     fun goToPreviousDay() = selectDay(_epochDay.value - 1)
 
@@ -190,11 +202,7 @@ class SleepViewModel @Inject constructor(
 
     fun clearLastMeal() { _draft.value = _draft.value.copy(lastMealMinuteOfDay = null) }
 
-    /** Tapping the selected rating again clears it — the rating stays optional. */
-    fun onFitnessSelected(value: Int) {
-        val current = _draft.value.morningFitness
-        _draft.value = _draft.value.copy(morningFitness = if (current == value) null else value)
-    }
+    fun onFitnessChange(value: Int) { _draft.value = _draft.value.copy(morningFitness = value) }
 
     fun onTagToggle(tagId: String) {
         val current = _draft.value.tagIds
@@ -245,7 +253,7 @@ class SleepViewModel @Inject constructor(
         val startMinuteOfDay: Int? = null,
         val endMinuteOfDay: Int? = null,
         val lastMealMinuteOfDay: Int? = null,
-        val morningFitness: Int? = null,
+        val morningFitness: Int = DEFAULT_MORNING_FITNESS,
         val tagIds: Set<String> = emptySet(),
     )
 }

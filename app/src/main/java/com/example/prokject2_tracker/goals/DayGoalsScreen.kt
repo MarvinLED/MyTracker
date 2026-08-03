@@ -85,7 +85,8 @@ fun DayGoalsScreen(
             ) {
                 Text(
                     "Noch keine Tagesziele gesetzt — unter Ziele lassen sich Nährwerte, " +
-                        "Flüssigkeit, Habits und Training festlegen.",
+                        "Flüssigkeit, Habits und Training festlegen, unter Aufgaben einmalige " +
+                        "und wiederkehrende To-dos.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
