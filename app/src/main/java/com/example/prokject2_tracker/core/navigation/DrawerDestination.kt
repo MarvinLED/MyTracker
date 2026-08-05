@@ -2,12 +2,13 @@ package com.example.prokject2_tracker.core.navigation
 
 import androidx.annotation.StringRes
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Bedtime
 import androidx.compose.material.icons.filled.Checklist
 import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.Insights
 import androidx.compose.material.icons.filled.Kitchen
+import androidx.compose.material.icons.filled.LocalDrink
 import androidx.compose.material.icons.filled.MonitorHeart
-import androidx.compose.material.icons.filled.Bedtime
 import androidx.compose.material.icons.filled.MonitorWeight
 import androidx.compose.material.icons.filled.Straighten
 import androidx.compose.material.icons.filled.Task
@@ -15,6 +16,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import com.example.prokject2_tracker.R
 import com.example.prokject2_tracker.analyse.AnalyseRoute
 import com.example.prokject2_tracker.bloodpressure.BloodPressureRoute
+import com.example.prokject2_tracker.fluid.FluidRoute
 import com.example.prokject2_tracker.goals.GoalsRoute
 import com.example.prokject2_tracker.habit.HabitRoute
 import com.example.prokject2_tracker.measurement.MeasurementRoute
@@ -83,6 +85,13 @@ enum class DrawerDestination(
         labelRes = R.string.nav_measurement,
         icon = Icons.Filled.Straighten,
         domain = AppDomain.MEASUREMENT,
+    ),
+    FLUID(
+        route = FluidRoute,
+        routeQualifiedName = FluidRoute::class.qualifiedName!!,
+        labelRes = R.string.nav_fluid,
+        icon = Icons.Filled.LocalDrink,
+        domain = AppDomain.FLUID,
     ),
     SLEEP(
         route = SleepRoute,

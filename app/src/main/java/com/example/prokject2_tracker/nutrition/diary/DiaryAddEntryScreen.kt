@@ -62,6 +62,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
@@ -104,6 +106,8 @@ fun DiaryAddEntryScreen(
     val focusManager = LocalFocusManager.current
     val snackbarHostState = remember { SnackbarHostState() }
     val listState = rememberLazyListState()
+    val searchExpanded = remember { mutableStateOf(false) }
+    val showCreateMenu = remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         viewModel.addedConfirmation.collect { name ->
@@ -131,7 +135,7 @@ fun DiaryAddEntryScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            // Mode and MealType icon buttons
+            // Mode and MealType icon buttons with Search and Create buttons
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -154,65 +158,79 @@ fun DiaryAddEntryScreen(
                         onClick = { viewModel.onMealTypeChange(type) },
                     )
                 }
+
+                Spacer(Modifier.width(8.dp))
+
+                // Search toggle button
+                if (mode != DiaryPickerMode.QUICK) {
+                    IconButtonWithTooltip(
+                        isSelected = searchExpanded.value,
+                        onClick = {
+                            searchExpanded.value = !searchExpanded.value
+                            if (searchExpanded.value) {
+                                focusManager.clearFocus()
+                            }
+                        },
+                        icon = Icons.Filled.Search,
+                        label = "Suche",
+                    )
+                }
+
+                // Create menu button
+                if (mode != DiaryPickerMode.QUICK) {
+                    Box {
+                        IconButtonWithTooltip(
+                            isSelected = false,
+                            onClick = { showCreateMenu.value = true },
+                            icon = Icons.Filled.Add,
+                            label = "Erstellen",
+                        )
+
+                        androidx.compose.material3.DropdownMenu(
+                            expanded = showCreateMenu.value,
+                            onDismissRequest = { showCreateMenu.value = false },
+                        ) {
+                            if (mode == DiaryPickerMode.ALL || mode == DiaryPickerMode.FOOD) {
+                                androidx.compose.material3.DropdownMenuItem(
+                                    text = { Text("+ Lebensmittel") },
+                                    onClick = {
+                                        showCreateMenu.value = false
+                                        onCreateFood()
+                                    },
+                                    leadingIcon = { Icon(Icons.Filled.Add, contentDescription = null) },
+                                )
+                            }
+                            if (mode == DiaryPickerMode.ALL || mode == DiaryPickerMode.RECIPE) {
+                                androidx.compose.material3.DropdownMenuItem(
+                                    text = { Text("+ Rezept") },
+                                    onClick = {
+                                        showCreateMenu.value = false
+                                        onCreateRecipe()
+                                    },
+                                    leadingIcon = { Icon(Icons.Filled.Add, contentDescription = null) },
+                                )
+                            }
+                        }
+                    }
+                }
             }
             HorizontalDivider(thickness = 2.dp, color = AppDomain.DIARY.accent())
 
             if (mode == DiaryPickerMode.QUICK) {
                 QuickEntryForm(state = quick, viewModel = viewModel)
             } else {
-                // Search field
-                OutlinedTextField(
-                    value = query,
-                    onValueChange = viewModel::onQueryChange,
-                    label = { Text("Suche") },
-                    leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
-                    trailingIcon = {
-                        if (query.isNotBlank()) {
-                            IconButton(onClick = { viewModel.onQueryChange("") }) {
-                                Icon(Icons.Filled.Close, contentDescription = "Suche leeren")
-                            }
-                        }
-                    },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                    modifier = Modifier.fillMaxWidth(),
-                )
-
-                // Sort chips
-                androidx.compose.foundation.layout.FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    DiaryPickerSort.entries.forEach { s ->
-                        FilterChip(
-                            selected = sort == s,
-                            onClick = { viewModel.onSortChange(s) },
-                            label = { Text(s.label()) },
-                        )
-                    }
-                }
-
-                // Tag chips (horizontally scrolling)
-                if (allTags.isNotEmpty()) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .horizontalScroll(rememberScrollState()),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        FilterChip(
-                            selected = selectedTagId == null,
-                            onClick = { viewModel.onTagSelected(null) },
-                            label = { Text("Alle") },
-                        )
-                        allTags.forEach { tag ->
-                            FilterChip(
-                                selected = selectedTagId == tag.id,
-                                onClick = { viewModel.onTagSelected(tag.id) },
-                                label = { Text(tag.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                            )
-                        }
-                    }
+                // Expandable search section
+                if (searchExpanded.value) {
+                    SearchSection(
+                        query = query,
+                        onQueryChange = viewModel::onQueryChange,
+                        sort = sort,
+                        onSortChange = viewModel::onSortChange,
+                        allTags = allTags,
+                        selectedTagId = selectedTagId,
+                        onTagSelected = viewModel::onTagSelected,
+                        focusManager = focusManager,
+                    )
                 }
 
                 // Unified picker list
@@ -248,37 +266,6 @@ fun DiaryAddEntryScreen(
                                     }
                                 },
                             )
-                        }
-                    }
-
-                    // Create buttons
-                    item(key = "create") {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(top = 8.dp),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            if (mode == DiaryPickerMode.ALL || mode == DiaryPickerMode.FOOD) {
-                                TextButton(
-                                    onClick = onCreateFood,
-                                    modifier = Modifier.weight(1f),
-                                ) {
-                                    Icon(Icons.Filled.Add, contentDescription = null)
-                                    Spacer(Modifier.width(4.dp))
-                                    Text("Lebensmittel", maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                }
-                            }
-                            if (mode == DiaryPickerMode.ALL || mode == DiaryPickerMode.RECIPE) {
-                                TextButton(
-                                    onClick = onCreateRecipe,
-                                    modifier = Modifier.weight(1f),
-                                ) {
-                                    Icon(Icons.Filled.Add, contentDescription = null)
-                                    Spacer(Modifier.width(4.dp))
-                                    Text("Rezept", maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                }
-                            }
                         }
                     }
                 }
@@ -669,6 +656,86 @@ private fun MealTypeIconButton(
             LaunchedEffect(Unit) {
                 kotlinx.coroutines.delay(1500)
                 showTooltip.value = false
+            }
+        }
+    }
+}
+
+@Composable
+private fun SearchSection(
+    query: String,
+    onQueryChange: (String) -> Unit,
+    sort: DiaryPickerSort,
+    onSortChange: (DiaryPickerSort) -> Unit,
+    allTags: List<com.example.prokject2_tracker.nutrition.food.Tag>,
+    selectedTagId: String?,
+    onTagSelected: (String?) -> Unit,
+    focusManager: androidx.compose.ui.focus.FocusManager,
+) {
+    val searchFocusRequester = remember { FocusRequester() }
+
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        // Search field
+        OutlinedTextField(
+            value = query,
+            onValueChange = onQueryChange,
+            label = { Text("Suche") },
+            leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
+            trailingIcon = {
+                if (query.isNotBlank()) {
+                    IconButton(onClick = { onQueryChange("") }) {
+                        Icon(Icons.Filled.Close, contentDescription = "Suche leeren")
+                    }
+                }
+            },
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+            modifier = Modifier
+                .fillMaxWidth()
+                .focusRequester(searchFocusRequester),
+        )
+
+        LaunchedEffect(Unit) {
+            searchFocusRequester.requestFocus()
+        }
+
+        // Sort chips
+        androidx.compose.foundation.layout.FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            DiaryPickerSort.entries.forEach { s ->
+                FilterChip(
+                    selected = sort == s,
+                    onClick = { onSortChange(s) },
+                    label = { Text(s.label()) },
+                )
+            }
+        }
+
+        // Tag chips (horizontally scrolling)
+        if (allTags.isNotEmpty()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                FilterChip(
+                    selected = selectedTagId == null,
+                    onClick = { onTagSelected(null) },
+                    label = { Text("Alle") },
+                )
+                allTags.forEach { tag ->
+                    FilterChip(
+                        selected = selectedTagId == tag.id,
+                        onClick = { onTagSelected(tag.id) },
+                        label = { Text(tag.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                    )
+                }
             }
         }
     }
