@@ -797,3 +797,36 @@ object MIGRATION_20_21 : Migration(20, 21) {
         )
     }
 }
+
+object MIGRATION_21_22 : Migration(21, 22) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        // Sleep entries can now mark "did not sleep" nights without recording times.
+        // Make start/end times nullable and add didNotSleep flag.
+        // Can't alter column to nullable directly, so recreate the table.
+        db.execSQL(
+            "CREATE TABLE `sleep_entries_new` (`id` TEXT NOT NULL, `epochDay` INTEGER NOT NULL, " +
+                "`startMinuteOfDay` INTEGER, `endMinuteOfDay` INTEGER, " +
+                "`morningFitness` INTEGER, `lastMealMinuteOfDay` INTEGER, " +
+                "`didNotSleep` INTEGER NOT NULL DEFAULT 0, `createdAt` INTEGER NOT NULL, " +
+                "PRIMARY KEY(`id`))",
+        )
+        // Copy existing data, assuming startMinuteOfDay and endMinuteOfDay were never NULL before
+        db.execSQL(
+            "INSERT INTO `sleep_entries_new` " +
+                "SELECT `id`, `epochDay`, `startMinuteOfDay`, `endMinuteOfDay`, " +
+                "`morningFitness`, `lastMealMinuteOfDay`, 0, `createdAt` FROM `sleep_entries`",
+        )
+        db.execSQL("DROP TABLE `sleep_entries`")
+        db.execSQL("ALTER TABLE `sleep_entries_new` RENAME TO `sleep_entries`")
+        db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_sleep_entries_epochDay` ON `sleep_entries` (`epochDay`)")
+
+        // Nap entries: daytime naps (Mittagsschlaf) with similar structure to sleep entries.
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `nap_entries` (`id` TEXT NOT NULL, `epochDay` INTEGER NOT NULL, " +
+                "`startMinuteOfDay` INTEGER NOT NULL, `endMinuteOfDay` INTEGER NOT NULL, " +
+                "`refreshmentFitness` INTEGER, `createdAt` INTEGER NOT NULL, " +
+                "PRIMARY KEY(`id`))",
+        )
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_nap_entries_epochDay` ON `nap_entries` (`epochDay`)")
+    }
+}

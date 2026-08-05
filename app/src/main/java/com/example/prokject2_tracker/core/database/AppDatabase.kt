@@ -51,6 +51,7 @@ import com.example.prokject2_tracker.nutrition.food.TagDao
 import com.example.prokject2_tracker.nutrition.recipe.Recipe
 import com.example.prokject2_tracker.nutrition.recipe.RecipeDao
 import com.example.prokject2_tracker.nutrition.recipe.RecipeIngredient
+import com.example.prokject2_tracker.sleep.NapEntry
 import com.example.prokject2_tracker.sleep.SleepDao
 import com.example.prokject2_tracker.sleep.SleepEntry
 import com.example.prokject2_tracker.sleep.SleepEntryTag
@@ -93,12 +94,13 @@ import com.example.prokject2_tracker.weight.BodyWeightEntry
         BodyMeasurement::class,
         BloodPressureEntry::class,
         SleepEntry::class,
+        NapEntry::class,
         SleepTag::class,
         SleepEntryTag::class,
         Task::class,
         TaskCompletion::class,
     ],
-    version = 21,
+    version = 22,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)

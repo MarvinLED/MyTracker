@@ -41,11 +41,12 @@ class SleepRepository @Inject constructor(
      */
     suspend fun logNight(
         epochDay: Long,
-        startMinuteOfDay: Int,
-        endMinuteOfDay: Int,
+        startMinuteOfDay: Int?,
+        endMinuteOfDay: Int?,
         morningFitness: Int?,
         lastMealMinuteOfDay: Int?,
         tagIds: List<String>,
+        didNotSleep: Boolean = false,
     ) {
         val id = "sleep-$epochDay"
         val createdAt = sleepDao.getForDay(epochDay)?.createdAt ?: Instant.now()
@@ -57,6 +58,7 @@ class SleepRepository @Inject constructor(
                 endMinuteOfDay = endMinuteOfDay,
                 morningFitness = morningFitness?.coerceIn(MIN_MORNING_FITNESS, MAX_MORNING_FITNESS),
                 lastMealMinuteOfDay = lastMealMinuteOfDay,
+                didNotSleep = didNotSleep,
                 createdAt = createdAt,
             ),
         )
@@ -98,4 +100,9 @@ class SleepRepository @Inject constructor(
     suspend fun deleteTag(tag: SleepTag) {
         sleepTagDao.delete(tag)
     }
+
+    // TODO: Implement nap repository methods when NapDao is created
+    // suspend fun logNap(epochDay: Long, startMinuteOfDay: Int, endMinuteOfDay: Int, refreshmentFitness: Int?)
+    // suspend fun getNapsForDay(epochDay: Long): List<NapEntry>
+    // suspend fun deleteNap(napEntry: NapEntry)
 }

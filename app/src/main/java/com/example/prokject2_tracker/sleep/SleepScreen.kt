@@ -36,7 +36,9 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.AlertDialog
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -54,6 +56,7 @@ import com.example.prokject2_tracker.core.util.formatMinuteOfDay
 import com.example.prokject2_tracker.ui.theme.AppDomain
 import com.example.prokject2_tracker.ui.theme.statusColor
 import com.example.prokject2_tracker.ui.theme.topAppBarColors
+import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlin.math.roundToInt
@@ -76,6 +79,58 @@ fun SleepScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     var showMenu by remember { mutableStateOf(false) }
+    var showMorningPopup by remember { mutableStateOf(false) }
+    var wakeTimeMinutes by remember { mutableStateOf(uiState.endMinuteOfDay ?: 7 * 60) }
+
+    // Show morning popup if opening between 4 AM - 12 noon and it's the today/next night
+    LaunchedEffect(uiState.epochDay) {
+        val now = LocalTime.now()
+        val isInMorningHours = now >= LocalTime.of(4, 0) && now < LocalTime.of(12, 0)
+        val todayEpochDay = DateUtils.todayEpochDay()
+        val showingTodayOrTomorrow = uiState.epochDay == todayEpochDay || uiState.epochDay == todayEpochDay + 1
+
+        if (isInMorningHours && showingTodayOrTomorrow && uiState.isExistingNight) {
+            showMorningPopup = true
+            wakeTimeMinutes = uiState.endMinuteOfDay ?: 7 * 60
+        }
+    }
+
+    // Morning wake-time popup
+    if (showMorningPopup) {
+        var tempWakeTime by remember { mutableStateOf(wakeTimeMinutes) }
+
+        AlertDialog(
+            onDismissRequest = { showMorningPopup = false },
+            title = { Text("Wann bist du heute aufgestanden?") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    TimeOfDayField(
+                        label = "Aufwach-Zeit",
+                        value = tempWakeTime,
+                        onValueChange = { tempWakeTime = it },
+                        defaultMinuteOfDay = 7 * 60,
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.onEndChange(tempWakeTime)
+                        showMorningPopup = false
+                    }
+                ) {
+                    Text("Speichern")
+                }
+            },
+            dismissButton = {
+                Button(
+                    onClick = { showMorningPopup = false }
+                ) {
+                    Text("Überspringen")
+                }
+            },
+        )
+    }
 
     Scaffold(
         modifier = modifier,
@@ -124,6 +179,8 @@ fun SleepScreen(
                     onTagInputChange = viewModel::onTagInputChange,
                     onAddTag = viewModel::addTagFromInput,
                     onSave = viewModel::save,
+                    onModeChange = viewModel::onModeChange,
+                    onDidNotSleepChange = viewModel::onDidNotSleepChange,
                 )
             }
             if (uiState.goalStatuses.isNotEmpty()) {
@@ -155,12 +212,28 @@ private fun NightForm(
     onTagInputChange: (String) -> Unit,
     onAddTag: () -> Unit,
     onSave: () -> Unit,
+    onModeChange: (SleepFormMode) -> Unit,
+    onDidNotSleepChange: (Boolean) -> Unit,
 ) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(
             modifier = Modifier.padding(12.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
+            // Mode chips: Nacht vs. Mittagsschlaf
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilterChip(
+                    selected = state.mode == SleepFormMode.NIGHT,
+                    onClick = { onModeChange(SleepFormMode.NIGHT) },
+                    label = { Text("Nacht") },
+                )
+                FilterChip(
+                    selected = state.mode == SleepFormMode.NAP,
+                    onClick = { onModeChange(SleepFormMode.NAP) },
+                    label = { Text("Mittagsschlaf") },
+                )
+            }
+
             // "Nacht auf Mittwoch": the entry belongs to the morning, and saying so is what stops
             // the date from being read as the evening you went to bed.
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -168,7 +241,11 @@ private fun NightForm(
                     Icon(Icons.Filled.ChevronLeft, contentDescription = "Vorherige Nacht")
                 }
                 Text(
-                    "Nacht auf ${DateUtils.localDateOfEpochDay(state.epochDay).format(dayFormatter)}",
+                    if (state.mode == SleepFormMode.NAP) {
+                        "Mittagsschlaf ${DateUtils.localDateOfEpochDay(state.epochDay).format(shortDayFormatter)}"
+                    } else {
+                        "Nacht auf ${DateUtils.localDateOfEpochDay(state.epochDay).format(dayFormatter)}"
+                    },
                     modifier = Modifier.weight(1f),
                     style = MaterialTheme.typography.titleMedium,
                 )
@@ -177,27 +254,70 @@ private fun NightForm(
                 }
             }
 
-            Row(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.Bottom) {
-                TimeOfDayField(
-                    label = "Eingeschlafen",
-                    value = state.startMinuteOfDay,
-                    onValueChange = onStartChange,
-                    defaultMinuteOfDay = 23 * 60,
-                )
-                TimeOfDayField(
-                    label = "Aufgewacht",
-                    value = state.endMinuteOfDay,
-                    onValueChange = onEndChange,
-                    defaultMinuteOfDay = 7 * 60,
-                )
-                state.durationMinutes?.let { duration ->
-                    Column {
-                        Text(
-                            "Dauer",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            if (state.mode == SleepFormMode.NIGHT) {
+                // "Nicht geschlafen" checkbox - toggle between times and checkbox
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    androidx.compose.material3.Checkbox(
+                        checked = state.didNotSleep,
+                        onCheckedChange = onDidNotSleepChange,
+                        modifier = Modifier.padding(end = 8.dp),
+                    )
+                    Text("Nicht geschlafen", style = MaterialTheme.typography.bodyMedium)
+                }
+
+                if (!state.didNotSleep) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.Bottom) {
+                        TimeOfDayField(
+                            label = "Eingeschlafen",
+                            value = state.startMinuteOfDay,
+                            onValueChange = onStartChange,
+                            defaultMinuteOfDay = 23 * 60,
                         )
-                        Text(formatDuration(duration), style = MaterialTheme.typography.titleMedium)
+                        TimeOfDayField(
+                            label = "Aufgewacht",
+                            value = state.endMinuteOfDay,
+                            onValueChange = onEndChange,
+                            defaultMinuteOfDay = 7 * 60,
+                        )
+                        state.durationMinutes?.let { duration ->
+                            Column {
+                                Text(
+                                    "Dauer",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                                Text(formatDuration(duration), style = MaterialTheme.typography.titleMedium)
+                            }
+                        }
+                    }
+                }
+            } else {
+                // Nap form: just start and end time
+                Row(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.Bottom) {
+                    TimeOfDayField(
+                        label = "Start",
+                        value = state.startMinuteOfDay,
+                        onValueChange = onStartChange,
+                        defaultMinuteOfDay = 13 * 60,
+                    )
+                    TimeOfDayField(
+                        label = "Ende",
+                        value = state.endMinuteOfDay,
+                        onValueChange = onEndChange,
+                        defaultMinuteOfDay = 14 * 60,
+                    )
+                    state.durationMinutes?.let { duration ->
+                        Column {
+                            Text(
+                                "Dauer",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            Text(formatDuration(duration), style = MaterialTheme.typography.titleMedium)
+                        }
                     }
                 }
             }
@@ -284,8 +404,19 @@ private fun NightForm(
                 }
             }
 
-            Button(onClick = onSave, enabled = state.canSave, modifier = Modifier.fillMaxWidth()) {
-                Text(if (state.isExistingNight) "Nacht aktualisieren" else "Nacht speichern")
+            // Only show "update" button if there are actual changes, and "save" button for new entries
+            Button(
+                onClick = onSave,
+                enabled = state.canSave,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(
+                    when {
+                        state.isExistingNight && state.hasChanges -> "Nacht aktualisieren"
+                        state.isExistingNight && !state.hasChanges -> "Keine Änderungen"
+                        else -> "Nacht speichern"
+                    }
+                )
             }
         }
     }
@@ -329,10 +460,21 @@ private fun HistoryRow(row: SleepHistoryRow, onDelete: () -> Unit) {
                         style = MaterialTheme.typography.bodyMedium,
                     )
                     Text(
-                        "${formatMinuteOfDay(entry.startMinuteOfDay)}–${formatMinuteOfDay(entry.endMinuteOfDay)} · " +
-                            formatDuration(entry.durationMinutes) +
-                            (entry.morningFitness?.let { " · Fitness $it/$MAX_MORNING_FITNESS" } ?: "") +
-                            (entry.lastMealMinuteOfDay?.let { " · gegessen ${formatMinuteOfDay(it)}" } ?: ""),
+                        if (entry.didNotSleep) {
+                            "Nicht geschlafen"
+                        } else {
+                            val start = entry.startMinuteOfDay
+                            val end = entry.endMinuteOfDay
+                            val duration = entry.durationMinutes
+                            if (start != null && end != null && duration != null) {
+                                "${formatMinuteOfDay(start)}–${formatMinuteOfDay(end)} · " +
+                                    formatDuration(duration) +
+                                    (entry.morningFitness?.let { " · Fitness $it/$MAX_MORNING_FITNESS" } ?: "") +
+                                    (entry.lastMealMinuteOfDay?.let { " · gegessen ${formatMinuteOfDay(it)}" } ?: "")
+                            } else {
+                                "Fehlerhafte Eingabe"
+                            }
+                        },
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )

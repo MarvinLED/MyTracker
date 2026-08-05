@@ -16,6 +16,7 @@ import java.time.Instant
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 
 /** One ingredient row of a per-day recipe copy as edited in the UI, before ids are assigned. */
 data class DiaryRecipeIngredientDraft(
@@ -57,6 +58,15 @@ class DiaryRepository @Inject constructor(
     fun observeForDay(epochDay: Long): Flow<List<DiaryEntry>> = diaryDao.observeForDay(epochDay)
 
     fun observeDayTotalKcal(epochDay: Long): Flow<Double> = diaryDao.observeDayTotalKcal(epochDay)
+
+    fun observeLastLoggedPerSource(): Flow<Map<Pair<DiarySourceType, String>, LastLoggedSource>> =
+        diaryDao.observeLastLoggedPerSource(DiarySourceType.QUICK).map { rows ->
+            rows.groupBy { it.sourceType to it.sourceId }
+                .mapValues { (_, group) -> group.maxBy { it.createdAt } }
+        }
+
+    suspend fun getLastLoggedAmount(sourceType: DiarySourceType, sourceId: String): LastLoggedAmount? =
+        diaryDao.getLastLoggedAmount(sourceType, sourceId)
 
     fun observeDayNutritionTotals(epochDay: Long): Flow<NutritionTotals> =
         diaryDao.observeDayNutritionTotals(epochDay)

@@ -9,6 +9,8 @@ import com.example.prokject2_tracker.core.util.toLocaleDoubleOrNull
 import com.example.prokject2_tracker.nutrition.food.FoodItem
 import com.example.prokject2_tracker.nutrition.food.FoodRepository
 import com.example.prokject2_tracker.nutrition.food.FoodUnit
+import com.example.prokject2_tracker.nutrition.food.Tag
+import com.example.prokject2_tracker.nutrition.food.TagRepository
 import com.example.prokject2_tracker.nutrition.food.amountInBaseUnits
 import com.example.prokject2_tracker.nutrition.food.defaultAmountText
 import com.example.prokject2_tracker.nutrition.recipe.RecipeRepository
@@ -16,9 +18,11 @@ import com.example.prokject2_tracker.nutrition.recipe.RecipeWithNutrition
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
@@ -55,46 +59,80 @@ class DiaryAddEntryViewModel @Inject constructor(
     private val diaryRepository: DiaryRepository,
     foodRepository: FoodRepository,
     recipeRepository: RecipeRepository,
+    private val tagRepository: TagRepository,
 ) : ViewModel() {
     private val route: DiaryAddEntryRoute = savedStateHandle.toRoute()
     val epochDay: Long = route.epochDay
 
-    private val _sourceType = MutableStateFlow(DiarySourceType.FOOD)
-    val sourceType: StateFlow<DiarySourceType> = _sourceType.asStateFlow()
+    private val _mode = MutableStateFlow(DiaryPickerMode.ALL)
+    val mode: StateFlow<DiaryPickerMode> = _mode.asStateFlow()
 
     private val _query = MutableStateFlow("")
     val query: StateFlow<String> = _query.asStateFlow()
 
-    // Nothing is suggested until something is typed: an unfiltered list of the whole library is a
-    // wall of text that buries the fields below it, and it isn't an answer to anything the user asked.
-    val foodResults: StateFlow<List<FoodItem>> = _query
-        .flatMapLatest { q -> if (q.isBlank()) flowOf(emptyList()) else foodRepository.search(q) }
+    private val _sort = MutableStateFlow(DiaryPickerSort.LAST_EATEN)
+    val sort: StateFlow<DiaryPickerSort> = _sort.asStateFlow()
+
+    private val _selectedTagId = MutableStateFlow<String?>(null)
+    val selectedTagId: StateFlow<String?> = _selectedTagId.asStateFlow()
+
+    private val _mealType = MutableStateFlow(route.mealType)
+    val mealType: StateFlow<MealType> = _mealType.asStateFlow()
+
+    val allTags: StateFlow<List<Tag>> = tagRepository.observeAllTags()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    val recipeResults: StateFlow<List<RecipeWithNutrition>> = _query
+    private val foodResults: StateFlow<List<FoodItem>> = _query
+        .flatMapLatest { q -> if (q.isBlank()) foodRepository.observeAll() else foodRepository.search(q) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    private val recipeResults: StateFlow<List<RecipeWithNutrition>> = _query
         .flatMapLatest { q ->
-            if (q.isBlank()) {
-                flowOf(emptyList())
-            } else {
-                recipeRepository.observeAllWithNutrition().map { list ->
-                    list.filter { it.recipe.name.contains(q, ignoreCase = true) }
-                }
+            recipeRepository.observeAllWithNutrition().map { list ->
+                if (q.isBlank()) list else list.filter { it.recipe.name.contains(q, ignoreCase = true) }
             }
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    private val _selectedFood = MutableStateFlow<FoodItem?>(null)
-    val selectedFood: StateFlow<FoodItem?> = _selectedFood.asStateFlow()
+    private val tagsByFoodId: StateFlow<Map<String, List<Tag>>> = tagRepository.observeTagsByFoodId()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
 
-    private val _selectedRecipe = MutableStateFlow<RecipeWithNutrition?>(null)
-    val selectedRecipe: StateFlow<RecipeWithNutrition?> = _selectedRecipe.asStateFlow()
+    private val lastLogged: StateFlow<Map<Pair<DiarySourceType, String>, LastLoggedSource>> =
+        diaryRepository.observeLastLoggedPerSource()
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
+
+    private val unifiedItems: StateFlow<List<DiaryPickerItem>> =
+        combine(foodResults, recipeResults, tagsByFoodId) { foods, recipes, tagsByFood ->
+            val foodItems = foods.map { food ->
+                DiaryPickerItem.Food(food, tagsByFood[food.id].orEmpty())
+            }
+            val recipeItems = recipes.map { recipe ->
+                DiaryPickerItem.Recipe(recipe)
+            }
+            foodItems + recipeItems
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    private val filteredItems: StateFlow<List<DiaryPickerItem>> =
+        combine(unifiedItems, _mode, _selectedTagId) { items, mode, tagId ->
+            items.filteredForPicker(mode, tagId)
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val pickerItems: StateFlow<List<DiaryPickerItem>> =
+        combine(filteredItems, _sort, _mealType, lastLogged) { items, sort, mealType, lastLog ->
+            items.sortedForPicker(sort, mealType, lastLog)
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    private val _expandedItem = MutableStateFlow<DiaryPickerItem?>(null)
+    val expandedItem: StateFlow<DiaryPickerItem?> = _expandedItem.asStateFlow()
 
     private val _amountText = MutableStateFlow("")
     val amountText: StateFlow<String> = _amountText.asStateFlow()
 
-    /** The selected food's named units, empty for recipes and Schnelleinträge. */
-    val foodUnits: StateFlow<List<FoodUnit>> = _selectedFood
-        .flatMapLatest { food -> food?.let { foodRepository.observeUnits(it.id) } ?: flowOf(emptyList()) }
+    /** The expanded food's named units, empty for recipes and Schnelleinträge. */
+    val foodUnits: StateFlow<List<FoodUnit>> = _expandedItem
+        .flatMapLatest { item ->
+            (item as? DiaryPickerItem.Food)?.let { foodRepository.observeUnits(it.food.id) } ?: flowOf(emptyList())
+        }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     /** null = the amount is being typed in the food's base unit (g/ml). */
@@ -107,69 +145,65 @@ class DiaryAddEntryViewModel @Inject constructor(
     private val _quick = MutableStateFlow(QuickEntryState())
     val quick: StateFlow<QuickEntryState> = _quick.asStateFlow()
 
-    // Preselected by whoever opened the form: the tapped meal, or the one that fits the current
-    // time when the user came in through the add button.
-    private val _mealType = MutableStateFlow(route.mealType)
-    val mealType: StateFlow<MealType> = _mealType.asStateFlow()
+    private val _addedConfirmation = MutableSharedFlow<String>()
+    val addedConfirmation = _addedConfirmation.asSharedFlow()
 
-    private val _isSaved = MutableStateFlow(false)
-    val isSaved: StateFlow<Boolean> = _isSaved.asStateFlow()
-
-    val isValid: StateFlow<Boolean> =
-        combine(_sourceType, _selectedFood, _selectedRecipe, _amountText, _quick) { type, food, recipe, amount, quick ->
-            if (type == DiarySourceType.QUICK) {
-                quick.isValid
-            } else {
-                (food != null || recipe != null) && amount.toLocaleDoubleOrNull()?.let { it > 0.0 } == true
-            }
-        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
-
-    fun selectSourceType(type: DiarySourceType) {
-        _sourceType.value = type
-        _selectedFood.value = null
-        _selectedRecipe.value = null
+    fun onModeChange(mode: DiaryPickerMode) {
+        _mode.value = mode
+        _query.value = ""
+        _selectedTagId.value = null
+        _expandedItem.value = null
         _amountText.value = ""
         _selectedUnitId.value = null
     }
 
     fun onQueryChange(value: String) { _query.value = value }
 
-    fun selectFood(food: FoodItem) {
-        _selectedFood.value = food
-        // 100 g/ml is the unit the food's values are given in and by far the most common thing to
-        // log; a named unit is one tap away from there.
-        _amountText.value = defaultAmountText(null)
-        _selectedUnitId.value = null
+    fun onSortChange(sort: DiaryPickerSort) { _sort.value = sort }
+
+    fun onTagSelected(tagId: String?) { _selectedTagId.value = tagId }
+
+    fun onRowTapped(item: DiaryPickerItem) {
+        if (_expandedItem.value?.id == item.id && _expandedItem.value?.sourceType == item.sourceType) {
+            _expandedItem.value = null
+            _amountText.value = ""
+            _selectedUnitId.value = null
+        } else {
+            _expandedItem.value = item
+            when (item) {
+                is DiaryPickerItem.Food -> {
+                    viewModelScope.launch {
+                        val lastLogged = diaryRepository.getLastLoggedAmount(DiarySourceType.FOOD, item.food.id)
+                        if (lastLogged != null) {
+                            _amountText.value = lastLogged.unitCount?.let { it.formatDecimal(1) } ?: lastLogged.quantity.formatDecimal(1)
+                            _selectedUnitId.value = if (lastLogged.unitName != null) {
+                                foodUnits.value.firstOrNull { it.name == lastLogged.unitName }?.id
+                            } else {
+                                null
+                            }
+                        } else {
+                            _amountText.value = defaultAmountText(null)
+                            _selectedUnitId.value = null
+                        }
+                    }
+                }
+                is DiaryPickerItem.Recipe -> {
+                    _amountText.value = "1"
+                    _selectedUnitId.value = null
+                }
+            }
+        }
     }
 
-    /**
-     * Switches between the base unit (null) and one of the food's named units, prefilling the usual
-     * amount for the new mode. Re-tapping the selected chip does nothing — the chips fire on every
-     * tap, and resetting a just-typed amount for a mode that didn't change would be a trap.
-     */
     fun selectUnit(unitId: String?) {
         if (unitId == _selectedUnitId.value) return
         _selectedUnitId.value = unitId
         _amountText.value = defaultAmountText(selectedUnit)
     }
 
-    /** Steps the amount by [delta], clamped at 0 — the ± buttons next to the Menge field. */
     fun adjustAmount(delta: Double) {
         val current = _amountText.value.toLocaleDoubleOrNull() ?: 0.0
         _amountText.value = (current + delta).coerceAtLeast(0.0).formatDecimal(3)
-    }
-
-    fun selectRecipe(recipe: RecipeWithNutrition) {
-        _selectedRecipe.value = recipe
-        _amountText.value = "1"
-        _selectedUnitId.value = null
-    }
-
-    fun clearSelection() {
-        _selectedFood.value = null
-        _selectedRecipe.value = null
-        _amountText.value = ""
-        _selectedUnitId.value = null
     }
 
     fun onAmountChange(value: String) { _amountText.value = value }
@@ -181,35 +215,38 @@ class DiaryAddEntryViewModel @Inject constructor(
     fun onQuickCarbsChange(value: String) { _quick.value = _quick.value.copy(carbs = value) }
     fun onQuickFatChange(value: String) { _quick.value = _quick.value.copy(fat = value) }
 
-    fun save() {
-        if (!isValid.value) return
-        if (_sourceType.value == DiarySourceType.QUICK) {
-            saveQuick()
-            return
-        }
+    fun confirmAdd() {
+        val item = _expandedItem.value ?: return
         val typed = _amountText.value.toLocaleDoubleOrNull() ?: return
         val unit = selectedUnit
-        val amount = amountInBaseUnits(_amountText.value, unit) ?: return
-        val food = _selectedFood.value
-        val recipe = _selectedRecipe.value
-        viewModelScope.launch {
-            when {
-                food != null -> diaryRepository.logFood(
-                    epochDay = epochDay,
-                    foodId = food.id,
-                    amountBaseUnits = amount,
-                    mealType = _mealType.value,
-                    unitName = unit?.name,
-                    unitCount = unit?.let { typed },
-                )
-                recipe != null -> diaryRepository.logRecipe(epochDay, recipe.recipe.id, typed, _mealType.value)
-                else -> return@launch
+
+        when (item) {
+            is DiaryPickerItem.Food -> {
+                val amount = amountInBaseUnits(_amountText.value, unit) ?: return
+                viewModelScope.launch {
+                    diaryRepository.logFood(
+                        epochDay = epochDay,
+                        foodId = item.food.id,
+                        amountBaseUnits = amount,
+                        mealType = _mealType.value,
+                        unitName = unit?.name,
+                        unitCount = unit?.let { typed },
+                    )
+                    _addedConfirmation.emit(item.food.name)
+                    resetExpansionState()
+                }
             }
-            _isSaved.value = true
+            is DiaryPickerItem.Recipe -> {
+                viewModelScope.launch {
+                    diaryRepository.logRecipe(epochDay, item.recipe.recipe.id, typed, _mealType.value)
+                    _addedConfirmation.emit(item.recipe.recipe.name)
+                    resetExpansionState()
+                }
+            }
         }
     }
 
-    private fun saveQuick() {
+    fun confirmQuick() {
         val q = _quick.value
         val kcal = q.kcal.toLocaleDoubleOrNull() ?: return
         viewModelScope.launch {
@@ -222,7 +259,14 @@ class DiaryAddEntryViewModel @Inject constructor(
                 fat = q.fat.toOptionalNutrient(),
                 mealType = _mealType.value,
             )
-            _isSaved.value = true
+            _addedConfirmation.emit(q.name.ifBlank { "Schnelleintrag" })
+            _quick.value = QuickEntryState()
         }
+    }
+
+    private fun resetExpansionState() {
+        _expandedItem.value = null
+        _amountText.value = ""
+        _selectedUnitId.value = null
     }
 }

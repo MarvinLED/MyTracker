@@ -7,6 +7,7 @@ import androidx.room.Query
 import androidx.room.Transaction
 import androidx.room.Upsert
 import com.example.prokject2_tracker.nutrition.NutritionTotals
+import java.time.Instant
 import kotlinx.coroutines.flow.Flow
 
 /** Projection matching [com.example.prokject2_tracker.core.metrics.MetricPoint]'s field names. */
@@ -14,6 +15,23 @@ data class DailyKcalTotal(val epochDay: Long, val value: Double)
 data class DailyProteinTotal(val epochDay: Long, val value: Double)
 data class DailyCarbsTotal(val epochDay: Long, val value: Double)
 data class DailyFatTotal(val epochDay: Long, val value: Double)
+
+/** One source's most recent logging: which day, and under which MealType — the "Zuletzt gegessen" signal. */
+data class LastLoggedSource(
+    val sourceType: DiarySourceType,
+    val sourceId: String,
+    val mealType: MealType,
+    val epochDay: Long,
+    val createdAt: Instant,
+)
+
+/** One source's most recent amount and unit — for pre-filling quantity when adding. */
+data class LastLoggedAmount(
+    val quantity: Double,
+    val quantityUnit: String,
+    val unitName: String?,
+    val unitCount: Double?,
+)
 
 @Dao
 interface DiaryDao {
@@ -67,6 +85,29 @@ interface DiaryDao {
             "GROUP BY epochDay ORDER BY epochDay",
     )
     fun observeDailyFatTotals(startInclusive: Long, endInclusive: Long): Flow<List<DailyFatTotal>>
+
+    /**
+     * The most recent diary_entries row per (sourceType, sourceId), Schnelleinträge excluded (they have
+     * no sourceId to group by). May return more than one row for a source if it was logged more than
+     * once on its single most recent day (e.g. breakfast and dinner the same day) — the caller collapses
+     * that by createdAt, the same tiebreaker [observeForDay] already sorts by.
+     */
+    @Query(
+        "SELECT de.sourceType, de.sourceId, de.mealType, de.epochDay, de.createdAt FROM diary_entries de " +
+            "JOIN (SELECT sourceType, sourceId, MAX(epochDay) AS lastDay FROM diary_entries " +
+            "WHERE sourceType != :excludedType GROUP BY sourceType, sourceId) latest " +
+            "ON latest.sourceType = de.sourceType AND latest.sourceId = de.sourceId AND latest.lastDay = de.epochDay " +
+            "WHERE de.sourceType != :excludedType",
+    )
+    fun observeLastLoggedPerSource(excludedType: DiarySourceType): Flow<List<LastLoggedSource>>
+
+    /** The most recent quantity and unit for a specific source, for pre-filling when adding. */
+    @Query(
+        "SELECT quantity, quantityUnit, unitName, unitCount FROM diary_entries " +
+            "WHERE sourceType = :sourceType AND sourceId = :sourceId " +
+            "ORDER BY epochDay DESC, createdAt DESC LIMIT 1",
+    )
+    suspend fun getLastLoggedAmount(sourceType: DiarySourceType, sourceId: String): LastLoggedAmount?
 
     @Upsert
     suspend fun upsert(entry: DiaryEntry)

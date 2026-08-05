@@ -7,6 +7,7 @@ import com.example.prokject2_tracker.core.datastore.UserPreferencesRepository
 import com.example.prokject2_tracker.core.util.DateUtils
 import com.example.prokject2_tracker.core.util.minutesBetweenTimesOfDay
 import dagger.hilt.android.lifecycle.HiltViewModel
+import java.time.LocalTime
 import javax.inject.Inject
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -27,6 +28,9 @@ private const val DEFAULT_WAKE_MINUTE = 7 * 60
 /** Where the fitness slider starts before a single morning has ever been rated — the middle. */
 private const val DEFAULT_MORNING_FITNESS = 5
 
+/** Which form mode is active. */
+enum class SleepFormMode { NIGHT, NAP }
+
 /** One past night, with its tags resolved to names for the list. */
 data class SleepHistoryRow(
     val entry: SleepEntry,
@@ -40,15 +44,20 @@ data class SleepHistoryRow(
  */
 data class SleepUiState(
     val epochDay: Long = DateUtils.todayEpochDay(),
+    val mode: SleepFormMode = SleepFormMode.NIGHT,
     val startMinuteOfDay: Int? = null,
     val endMinuteOfDay: Int? = null,
     val lastMealMinuteOfDay: Int? = null,
     val morningFitness: Int = DEFAULT_MORNING_FITNESS,
+    val napRefreshmentFitness: Int = DEFAULT_MORNING_FITNESS,
+    val didNotSleep: Boolean = false,
     val selectedTagIds: Set<String> = emptySet(),
     val allTags: List<SleepTag> = emptyList(),
     val tagInput: String = "",
     /** True once this night exists in the database — the button then says "Aktualisieren". */
     val isExistingNight: Boolean = false,
+    /** True when the current form differs from the stored entry — "update" button only shows when true. */
+    val hasChanges: Boolean = false,
     val history: List<SleepHistoryRow> = emptyList(),
     val durationGoalMinutes: NutrientGoal? = null,
     val bedtimeGoalMinuteOfDay: Int? = null,
@@ -68,7 +77,8 @@ data class SleepUiState(
             return minutesBetweenTimesOfDay(meal, start)
         }
 
-    val canSave: Boolean get() = startMinuteOfDay != null && endMinuteOfDay != null
+    val canSave: Boolean
+        get() = didNotSleep || (startMinuteOfDay != null && endMinuteOfDay != null)
 
     /** How the night in the form stands against the goals — the same rows the Tagesziele show. */
     val goalStatuses: List<SleepGoalStatus>
@@ -100,7 +110,8 @@ class SleepViewModel @Inject constructor(
     private val sleepRepository: SleepRepository,
     userPreferencesRepository: UserPreferencesRepository,
 ) : ViewModel() {
-    private val _epochDay = MutableStateFlow(DateUtils.todayEpochDay())
+    private val _epochDay = MutableStateFlow(calculateInitialEpochDay())
+    private val _mode = MutableStateFlow(SleepFormMode.NIGHT)
 
     /** The typed-in half of the form. Null fields mean "not touched", so loading a night can fill them. */
     private val _draft = MutableStateFlow(SleepDraft())
@@ -109,6 +120,7 @@ class SleepViewModel @Inject constructor(
     val uiState: StateFlow<SleepUiState> = combine(
         _epochDay.flatMapLatest { day -> sleepRepository.observeForDay(day) },
         _draft,
+        _mode,
         combine(
             sleepRepository.observeAll(),
             sleepRepository.observeTags(),
@@ -117,18 +129,30 @@ class SleepViewModel @Inject constructor(
         combine(_epochDay, _tagInput, userPreferencesRepository.userPreferences) { day, input, prefs ->
             Triple(day, input, prefs)
         },
-    ) { storedNight, draft, (entries, tags, tagIdsByEntry), (day, tagInput, prefs) ->
+    ) { storedNight, draft, mode, (entries, tags, tagIdsByEntry), (day, tagInput, prefs) ->
         val tagNamesById = tags.associate { it.id to it.name }
+        val hasChanges = storedNight != null && (
+            draft.startMinuteOfDay != storedNight.startMinuteOfDay ||
+            draft.endMinuteOfDay != storedNight.endMinuteOfDay ||
+            draft.lastMealMinuteOfDay != storedNight.lastMealMinuteOfDay ||
+            draft.morningFitness != storedNight.morningFitness ||
+            draft.didNotSleep != storedNight.didNotSleep ||
+            draft.tagIds != sleepRepository.getTagIdsForEntry(storedNight.id).toSet()
+        )
         SleepUiState(
             epochDay = day,
+            mode = mode,
             startMinuteOfDay = draft.startMinuteOfDay,
             endMinuteOfDay = draft.endMinuteOfDay,
             lastMealMinuteOfDay = draft.lastMealMinuteOfDay,
             morningFitness = draft.morningFitness,
+            napRefreshmentFitness = draft.napRefreshmentFitness,
+            didNotSleep = draft.didNotSleep,
             selectedTagIds = draft.tagIds,
             allTags = tags,
             tagInput = tagInput,
             isExistingNight = storedNight != null,
+            hasChanges = hasChanges,
             history = entries.filter { it.epochDay != day }.take(HISTORY_LIMIT).map { entry ->
                 SleepHistoryRow(
                     entry = entry,
@@ -159,6 +183,7 @@ class SleepViewModel @Inject constructor(
                     endMinuteOfDay = stored.endMinuteOfDay,
                     lastMealMinuteOfDay = stored.lastMealMinuteOfDay,
                     morningFitness = resolveFitness(stored.morningFitness, epochDay),
+                    didNotSleep = stored.didNotSleep,
                     tagIds = sleepRepository.getTagIdsForEntry(stored.id).toSet(),
                 )
                 return@launch
@@ -171,6 +196,7 @@ class SleepViewModel @Inject constructor(
                 // Deliberately not carried over: the tags and the meal time are about *this* night,
                 // and repeating them would quietly log yesterday's evening again.
                 lastMealMinuteOfDay = null,
+                didNotSleep = false,
                 tagIds = emptySet(),
             )
         }
@@ -213,6 +239,16 @@ class SleepViewModel @Inject constructor(
 
     fun onTagInputChange(value: String) { _tagInput.value = value }
 
+    fun onModeChange(mode: SleepFormMode) { _mode.value = mode }
+
+    fun onDidNotSleepChange(value: Boolean) {
+        _draft.value = _draft.value.copy(didNotSleep = value)
+    }
+
+    fun onNapRefreshmentChange(value: Int) {
+        _draft.value = _draft.value.copy(napRefreshmentFitness = value)
+    }
+
     /** Creates the typed tag (or reuses one of the same name) and attaches it to the night at once. */
     fun addTagFromInput() {
         val name = _tagInput.value
@@ -227,18 +263,31 @@ class SleepViewModel @Inject constructor(
 
     fun save() {
         val draft = _draft.value
-        val start = draft.startMinuteOfDay ?: return
-        val end = draft.endMinuteOfDay ?: return
         val day = _epochDay.value
         viewModelScope.launch {
-            sleepRepository.logNight(
-                epochDay = day,
-                startMinuteOfDay = start,
-                endMinuteOfDay = end,
-                morningFitness = draft.morningFitness,
-                lastMealMinuteOfDay = draft.lastMealMinuteOfDay,
-                tagIds = draft.tagIds.toList(),
-            )
+            if (draft.didNotSleep) {
+                sleepRepository.logNight(
+                    epochDay = day,
+                    startMinuteOfDay = null,
+                    endMinuteOfDay = null,
+                    morningFitness = draft.morningFitness,
+                    lastMealMinuteOfDay = null,
+                    tagIds = draft.tagIds.toList(),
+                    didNotSleep = true,
+                )
+            } else {
+                val start = draft.startMinuteOfDay ?: return@launch
+                val end = draft.endMinuteOfDay ?: return@launch
+                sleepRepository.logNight(
+                    epochDay = day,
+                    startMinuteOfDay = start,
+                    endMinuteOfDay = end,
+                    morningFitness = draft.morningFitness,
+                    lastMealMinuteOfDay = draft.lastMealMinuteOfDay,
+                    tagIds = draft.tagIds.toList(),
+                    didNotSleep = false,
+                )
+            }
         }
     }
 
@@ -254,6 +303,26 @@ class SleepViewModel @Inject constructor(
         val endMinuteOfDay: Int? = null,
         val lastMealMinuteOfDay: Int? = null,
         val morningFitness: Int = DEFAULT_MORNING_FITNESS,
+        val napRefreshmentFitness: Int = DEFAULT_MORNING_FITNESS,
+        val didNotSleep: Boolean = false,
         val tagIds: Set<String> = emptySet(),
     )
+}
+
+/**
+ * Calculate which night should be displayed when the screen opens.
+ * Morning (4 AM - 12:00 noon) → show last night (today)
+ * Afternoon (12:00 noon onwards) → show next night (tomorrow)
+ */
+private fun calculateInitialEpochDay(): Long {
+    val now = LocalTime.now()
+    val noonTime = LocalTime.of(12, 0)
+    val morningStart = LocalTime.of(4, 0)
+
+    val today = DateUtils.todayEpochDay()
+    return if (now >= morningStart && now < noonTime) {
+        today
+    } else {
+        today + 1
+    }
 }
