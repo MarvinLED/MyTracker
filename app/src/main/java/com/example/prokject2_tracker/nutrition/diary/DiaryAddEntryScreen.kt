@@ -143,14 +143,29 @@ fun DiaryAddEntryScreen(
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                DiaryPickerMode.entries.forEach { m ->
+                // Cycling mode button (ALL → FOOD → RECIPE → ALL)
+                val cyclingModes = listOf(DiaryPickerMode.ALL, DiaryPickerMode.FOOD, DiaryPickerMode.RECIPE)
+                if (mode in cyclingModes) {
                     IconButtonWithTooltip(
-                        isSelected = mode == m,
-                        onClick = { viewModel.onModeChange(m) },
-                        icon = getModeIcon(m),
-                        label = m.label(),
+                        isSelected = true,
+                        onClick = {
+                            val currentIndex = cyclingModes.indexOf(mode)
+                            val nextMode = cyclingModes[(currentIndex + 1) % cyclingModes.size]
+                            viewModel.onModeChange(nextMode)
+                        },
+                        icon = getModeIcon(mode),
+                        label = mode.label(),
                     )
                 }
+
+                // Quick mode button
+                IconButtonWithTooltip(
+                    isSelected = mode == DiaryPickerMode.QUICK,
+                    onClick = { viewModel.onModeChange(DiaryPickerMode.QUICK) },
+                    icon = getModeIcon(DiaryPickerMode.QUICK),
+                    label = DiaryPickerMode.QUICK.label(),
+                )
+
                 MealType.entries.forEach { type ->
                     MealTypeIconButton(
                         mealType = type,

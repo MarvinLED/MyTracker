@@ -830,3 +830,18 @@ object MIGRATION_21_22 : Migration(21, 22) {
         db.execSQL("CREATE INDEX IF NOT EXISTS `index_nap_entries_epochDay` ON `nap_entries` (`epochDay`)")
     }
 }
+
+object MIGRATION_22_23 : Migration(22, 23) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        // tag_hierarchy: parent-child relationships between tags (e.g. Vegan → Vegetarisch).
+        // Empty table at first; relationships are user-created via the UI.
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `tag_hierarchy` (`parentTagId` TEXT NOT NULL, `childTagId` TEXT NOT NULL, " +
+                "PRIMARY KEY(`parentTagId`, `childTagId`), " +
+                "FOREIGN KEY(`parentTagId`) REFERENCES `tags`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE , " +
+                "FOREIGN KEY(`childTagId`) REFERENCES `tags`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        )
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_tag_hierarchy_parentTagId` ON `tag_hierarchy` (`parentTagId`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_tag_hierarchy_childTagId` ON `tag_hierarchy` (`childTagId`)")
+    }
+}

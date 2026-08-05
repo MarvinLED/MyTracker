@@ -13,13 +13,18 @@ class TagRepository @Inject constructor(
 ) {
     fun observeAllTags(): Flow<List<Tag>> = tagDao.observeAll()
 
-    /** Every food's currently attached tags, keyed by foodItemId — for the Bibliothek list. */
+    /** Every food's currently attached tags, keyed by foodItemId — for the Bibliothek list.
+     * Only shows the most specific tags (excluding parent tags if children are present). */
     fun observeTagsByFoodId(): Flow<Map<String, List<Tag>>> =
-        combine(tagDao.observeAll(), tagDao.observeAllFoodItemTags()) { tags, crossRefs ->
+        combine(tagDao.observeAll(), tagDao.observeAllFoodItemTags(), tagDao.observeAllHierarchy()) { tags, crossRefs, hierarchy ->
             val tagById = tags.associateBy { it.id }
-            crossRefs
+            val tagsByFood = crossRefs
                 .groupBy({ it.foodItemId }) { tagById[it.tagId] }
                 .mapValues { (_, tagList) -> tagList.filterNotNull() }
+
+            tagsByFood.mapValues { (_, tagList) ->
+                filterToMostSpecificTags(tagList, hierarchy)
+            }
         }
 
     suspend fun getTagsForFoodOnce(foodItemId: String): List<Tag> {
@@ -34,6 +39,38 @@ class TagRepository @Inject constructor(
         return tagDao.getAllOnce().filter { it.id in ids }
     }
 
+    /** Get all parent tags of a tag, recursively traversing the hierarchy. */
+    private suspend fun getAllParentTagIds(childTagId: String): Set<String> {
+        val parents = mutableSetOf<String>()
+        val toVisit = mutableListOf(childTagId)
+        val visited = mutableSetOf<String>()
+
+        while (toVisit.isNotEmpty()) {
+            val current = toVisit.removeAt(0)
+            if (current in visited) continue
+            visited.add(current)
+
+            val hierarchy = tagDao.getHierarchyForTag(current)
+            hierarchy.forEach { h ->
+                if (h.childTagId == current && h.parentTagId !in visited) {
+                    parents.add(h.parentTagId)
+                    toVisit.add(h.parentTagId)
+                }
+            }
+        }
+
+        return parents
+    }
+
+    /** Get all tags that should match in search (includes all parent tags). */
+    suspend fun expandTagsWithParents(tagIds: Set<String>): Set<String> {
+        val expanded = tagIds.toMutableSet()
+        for (tagId in tagIds) {
+            expanded.addAll(getAllParentTagIds(tagId))
+        }
+        return expanded
+    }
+
     /** Finds an existing tag by name (case-insensitive) or creates it; blank names are skipped. */
     private suspend fun findOrCreateTagIds(names: List<String>): List<String> =
         names.map { it.trim() }.filter { it.isNotBlank() }.distinct().map { name ->
@@ -44,5 +81,33 @@ class TagRepository @Inject constructor(
 
     suspend fun setFoodTagsByName(foodItemId: String, names: List<String>) {
         tagDao.replaceFoodTags(foodItemId, findOrCreateTagIds(names))
+    }
+
+    suspend fun updateTagName(tagId: String, newName: String) {
+        tagDao.updateTagName(tagId, newName)
+    }
+
+    suspend fun addTagHierarchy(parentTagId: String, childTagId: String) {
+        tagDao.insertHierarchy(TagHierarchy(parentTagId, childTagId))
+    }
+
+    suspend fun removeTagHierarchy(parentTagId: String, childTagId: String) {
+        tagDao.deleteHierarchy(parentTagId, childTagId)
+    }
+
+    /** Filter tags to show only the most specific ones. If a tag is a parent of another in the list, exclude it. */
+    private fun filterToMostSpecificTags(tags: List<Tag>, hierarchy: List<TagHierarchy>): List<Tag> {
+        if (tags.isEmpty()) return emptyList()
+
+        val tagIds = tags.map { it.id }.toSet()
+        val tagsToExclude = mutableSetOf<String>()
+
+        hierarchy.forEach { relation ->
+            if (relation.parentTagId in tagIds && relation.childTagId in tagIds) {
+                tagsToExclude.add(relation.parentTagId)
+            }
+        }
+
+        return tags.filter { it.id !in tagsToExclude }
     }
 }

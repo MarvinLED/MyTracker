@@ -24,7 +24,7 @@ sealed class DiaryPickerItem {
     }
 }
 
-fun List<DiaryPickerItem>.filteredForPicker(mode: DiaryPickerMode, tagId: String?): List<DiaryPickerItem> {
+fun List<DiaryPickerItem>.filteredForPicker(mode: DiaryPickerMode, tagId: String?, expandedTagIds: Set<String> = emptySet()): List<DiaryPickerItem> {
     var result = this
 
     when (mode) {
@@ -34,8 +34,9 @@ fun List<DiaryPickerItem>.filteredForPicker(mode: DiaryPickerMode, tagId: String
     }
 
     if (tagId != null) {
+        val matchTagIds = expandedTagIds.ifEmpty { setOf(tagId) }
         result = result.filter { item ->
-            item.tags.any { it.id == tagId }
+            item.tags.any { it.id in matchTagIds }
         }
     }
 

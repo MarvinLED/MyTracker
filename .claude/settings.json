@@ -14,7 +14,8 @@
       "Bash(./gradlew compileDebugAndroidTestKotlin)",
       "Bash(grep -E \"\\\\.\\(kt|xml\\)$\")",
       "Bash(./gradlew assembleDebug --no-daemon)",
-      "Bash(grep -E \"\\\\.kt$\")"
+      "Bash(grep -E \"\\\\.kt$\")",
+      "Bash(grep -E \"\\\\.\\(kt|java\\)$\")"
     ]
   }
 }
