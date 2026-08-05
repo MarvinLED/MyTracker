@@ -13,18 +13,13 @@ class TagRepository @Inject constructor(
 ) {
     fun observeAllTags(): Flow<List<Tag>> = tagDao.observeAll()
 
-    /** Every food's currently attached tags, keyed by foodItemId — for the Bibliothek list.
-     * Only shows the most specific tags (excluding parent tags if children are present). */
+    /** Every food's currently attached tags, keyed by foodItemId — for the Bibliothek list. */
     fun observeTagsByFoodId(): Flow<Map<String, List<Tag>>> =
-        combine(tagDao.observeAll(), tagDao.observeAllFoodItemTags(), tagDao.observeAllHierarchy()) { tags, crossRefs, hierarchy ->
+        combine(tagDao.observeAll(), tagDao.observeAllFoodItemTags()) { tags, crossRefs ->
             val tagById = tags.associateBy { it.id }
-            val tagsByFood = crossRefs
+            crossRefs
                 .groupBy({ it.foodItemId }) { tagById[it.tagId] }
                 .mapValues { (_, tagList) -> tagList.filterNotNull() }
-
-            tagsByFood.mapValues { (_, tagList) ->
-                filterToMostSpecificTags(tagList, hierarchy)
-            }
         }
 
     suspend fun getTagsForFoodOnce(foodItemId: String): List<Tag> {
