@@ -24,21 +24,6 @@ interface TagDao {
     @Upsert
     suspend fun upsert(tag: Tag)
 
-    @Query("UPDATE tags SET name = :newName WHERE id = :tagId")
-    suspend fun updateTagName(tagId: String, newName: String)
-
-    @Query("SELECT * FROM tag_hierarchy WHERE parentTagId = :parentTagId OR childTagId = :parentTagId")
-    suspend fun getHierarchyForTag(parentTagId: String): List<TagHierarchy>
-
-    @Query("SELECT * FROM tag_hierarchy")
-    fun observeAllHierarchy(): Flow<List<TagHierarchy>>
-
-    @Insert
-    suspend fun insertHierarchy(hierarchy: TagHierarchy)
-
-    @Query("DELETE FROM tag_hierarchy WHERE parentTagId = :parentTagId AND childTagId = :childTagId")
-    suspend fun deleteHierarchy(parentTagId: String, childTagId: String)
-
     @Query("SELECT * FROM food_item_tags")
     fun observeAllFoodItemTags(): Flow<List<FoodItemTag>>
 

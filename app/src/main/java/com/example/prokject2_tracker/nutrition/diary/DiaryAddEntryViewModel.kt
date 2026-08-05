@@ -76,9 +76,6 @@ class DiaryAddEntryViewModel @Inject constructor(
     private val _selectedTagId = MutableStateFlow<String?>(null)
     val selectedTagId: StateFlow<String?> = _selectedTagId.asStateFlow()
 
-    private val _expandedTagIds = MutableStateFlow<Set<String>>(emptySet())
-    val expandedTagIds: StateFlow<Set<String>> = _expandedTagIds.asStateFlow()
-
     private val _mealType = MutableStateFlow(route.mealType)
     val mealType: StateFlow<MealType> = _mealType.asStateFlow()
 
@@ -116,8 +113,8 @@ class DiaryAddEntryViewModel @Inject constructor(
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     private val filteredItems: StateFlow<List<DiaryPickerItem>> =
-        combine(unifiedItems, _mode, _selectedTagId, _expandedTagIds) { items, mode, tagId, expanded ->
-            items.filteredForPicker(mode, tagId, expanded)
+        combine(unifiedItems, _mode, _selectedTagId) { items, mode, tagId ->
+            items.filteredForPicker(mode, tagId)
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val pickerItems: StateFlow<List<DiaryPickerItem>> =
@@ -164,17 +161,7 @@ class DiaryAddEntryViewModel @Inject constructor(
 
     fun onSortChange(sort: DiaryPickerSort) { _sort.value = sort }
 
-    fun onTagSelected(tagId: String?) {
-        _selectedTagId.value = tagId
-        if (tagId != null) {
-            viewModelScope.launch {
-                val expanded = tagRepository.expandTagsWithParents(setOf(tagId))
-                _expandedTagIds.value = expanded
-            }
-        } else {
-            _expandedTagIds.value = emptySet()
-        }
-    }
+    fun onTagSelected(tagId: String?) { _selectedTagId.value = tagId }
 
     fun onRowTapped(item: DiaryPickerItem) {
         if (_expandedItem.value?.id == item.id && _expandedItem.value?.sourceType == item.sourceType) {
