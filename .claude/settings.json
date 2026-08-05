@@ -9,7 +9,9 @@
       "Bash(./gradlew testDebugUnitTest --tests '*TaskScheduleTest*')",
       "Bash(~/Android/Sdk/emulator/emulator -avd Pixel_10 -no-snapshot-save -no-audio)",
       "Bash(git -C /home/user/Dokumente/Projects/Project1 status --short)",
-      "Bash(./gradlew testDebugUnitTest connectedDebugAndroidTest)"
+      "Bash(./gradlew testDebugUnitTest connectedDebugAndroidTest)",
+      "Bash(./gradlew connectedDebugAndroidTest --tests \"*DiaryLastLoggedTest*\")",
+      "Bash(./gradlew compileDebugAndroidTestKotlin)"
     ]
   }
 }

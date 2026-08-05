@@ -121,7 +121,7 @@ fun DiaryAddEntryScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            // Mode chips
+            // Mode and MealType chips combined
             androidx.compose.foundation.layout.FlowRow(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -136,15 +136,6 @@ fun DiaryAddEntryScreen(
                         } else null,
                     )
                 }
-            }
-
-            HorizontalDivider(thickness = 2.dp, color = AppDomain.DIARY.accent())
-
-            // MealType chips
-            androidx.compose.foundation.layout.FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
                 MealType.entries.forEach { type ->
                     FilterChip(
                         selected = mealType == type,
@@ -477,7 +468,7 @@ private fun QuickEntryForm(state: QuickEntryState, viewModel: DiaryAddEntryViewM
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
     ) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(
                 "Einmaliger Eintrag — keine Angaben pro 100 g, nur die Gesamtwerte. Es wird nichts in der Bibliothek angelegt.",
                 style = MaterialTheme.typography.bodySmall,
@@ -490,38 +481,48 @@ private fun QuickEntryForm(state: QuickEntryState, viewModel: DiaryAddEntryViewM
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
             )
-            OutlinedTextField(
-                value = state.kcal,
-                onValueChange = viewModel::onQuickKcalChange,
-                label = { Text("Kalorien (kcal)", fontWeight = FontWeight.Bold) },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Next),
-                singleLine = true,
+            Row(
                 modifier = Modifier.fillMaxWidth(),
-            )
-            OutlinedTextField(
-                value = state.protein,
-                onValueChange = viewModel::onQuickProteinChange,
-                label = { Text("Protein (g), optional") },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Next),
-                singleLine = true,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                OutlinedTextField(
+                    value = state.kcal,
+                    onValueChange = viewModel::onQuickKcalChange,
+                    label = { Text("Kalorien (kcal)", fontWeight = FontWeight.Bold) },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Next),
+                    singleLine = true,
+                    modifier = Modifier.weight(1f),
+                )
+                OutlinedTextField(
+                    value = state.protein,
+                    onValueChange = viewModel::onQuickProteinChange,
+                    label = { Text("Protein (g)") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Next),
+                    singleLine = true,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+            Row(
                 modifier = Modifier.fillMaxWidth(),
-            )
-            OutlinedTextField(
-                value = state.carbs,
-                onValueChange = viewModel::onQuickCarbsChange,
-                label = { Text("Kohlenhydrate (g), optional") },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Next),
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-            )
-            OutlinedTextField(
-                value = state.fat,
-                onValueChange = viewModel::onQuickFatChange,
-                label = { Text("Fett (g), optional") },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Done),
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-            )
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                OutlinedTextField(
+                    value = state.carbs,
+                    onValueChange = viewModel::onQuickCarbsChange,
+                    label = { Text("Kohlenhydrate (g)") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Next),
+                    singleLine = true,
+                    modifier = Modifier.weight(1f),
+                )
+                OutlinedTextField(
+                    value = state.fat,
+                    onValueChange = viewModel::onQuickFatChange,
+                    label = { Text("Fett (g)") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Done),
+                    singleLine = true,
+                    modifier = Modifier.weight(1f),
+                )
+            }
             OutlinedButton(
                 onClick = dismissingKeyboard { viewModel.confirmQuick() },
                 enabled = state.isValid,

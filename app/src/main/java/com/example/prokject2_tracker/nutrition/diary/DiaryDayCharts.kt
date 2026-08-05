@@ -25,6 +25,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -84,6 +85,74 @@ fun goalTargetLabel(min: Double?, max: Double?): String? = when {
     max != null -> max.formatCompact()
     min != null -> "≥${min.formatCompact()}"
     else -> null
+}
+
+/**
+ * Berechnet die Farbe eines Nährwert-Balkens basierend auf dem Zielbereich:
+ * - Min + Max: Grün im Range, Gelb davor, Rot über Max
+ * - Nur Min: Gelb kurz davor (bei ~90% von min), Grün wenn erreicht
+ * - Nur Max: Gradient (grüner je kleiner), Gelb bei Max, Rot wenn über Max
+ */
+fun nutritionBarColor(
+    consumed: Double,
+    goal: NutrientGoal?,
+    baseColor: Color,
+    greenColor: Color = Color(0xFF4CAF50),
+    yellowColor: Color = Color(0xFFFFC107),
+    redColor: Color = Color(0xFFF44336),
+): Color {
+    if (goal == null || goal.isEmpty) return baseColor
+
+    val min = goal.min
+    val max = goal.max
+
+    return when {
+        min != null && max != null -> {
+            // Min + Max vorhanden
+            when {
+                consumed >= min && consumed <= max -> greenColor
+                consumed < min -> yellowColor
+                else -> redColor // consumed > max
+            }
+        }
+        min != null -> {
+            // Nur Minimum
+            val warningThreshold = min * 0.9
+            when {
+                consumed >= min -> greenColor
+                consumed >= warningThreshold -> yellowColor
+                else -> {
+                    // Gradient: je weiter weg vom Ziel, desto mehr Rot
+                    val progress = (consumed / warningThreshold).coerceIn(0.0, 1.0).toFloat()
+                    interpolateColor(redColor, yellowColor, progress)
+                }
+            }
+        }
+        max != null -> {
+            // Nur Maximum
+            when {
+                consumed > max -> redColor
+                consumed >= max * 0.95 -> yellowColor
+                else -> {
+                    // Gradient: je kleiner, desto grüner
+                    val progress = (consumed / max).coerceIn(0.0, 1.0).toFloat()
+                    interpolateColor(greenColor, yellowColor, progress)
+                }
+            }
+        }
+        else -> baseColor
+    }
+}
+
+/** Interpoliert zwischen zwei Farben. [progress] sollte zwischen 0 und 1 liegen. */
+private fun interpolateColor(start: Color, end: Color, progress: Float): Color {
+    val p = progress.coerceIn(0f, 1f).toDouble()
+    return Color(
+        red = (start.red * (1.0 - p) + end.red * p).toFloat(),
+        green = (start.green * (1.0 - p) + end.green * p).toFloat(),
+        blue = (start.blue * (1.0 - p) + end.blue * p).toFloat(),
+        alpha = (start.alpha * (1.0 - p) + end.alpha * p).toFloat(),
+    )
 }
 
 /** Widths of a fluid bar as fractions of its full width; [segments] plus [open] always make 1. */
@@ -173,6 +242,8 @@ private fun MacroBar(
     modifier: Modifier = Modifier,
 ) {
     val target = goalTargetLabel(goal?.min, goal?.max)
+    val baseColor = NutrientColors.getValue(nutrient)
+    val barColor = nutritionBarColor(consumed, goal, baseColor)
 
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(3.dp)) {
         Text(
@@ -184,7 +255,7 @@ private fun MacroBar(
         )
         Bar(
             fraction = macroBarFraction(consumed, goal?.barTarget, peerMax),
-            color = NutrientColors.getValue(nutrient),
+            color = barColor,
             height = MacroBarHeight,
             markerFraction = goal?.minMarkerFraction,
         )
@@ -207,6 +278,7 @@ private fun MacroBar(
 @Composable
 fun CalorieBar(consumedKcal: Double, goal: NutrientGoal, modifier: Modifier = Modifier) {
     val target = goalTargetLabel(goal.min, goal.max)
+    val barColor = nutritionBarColor(consumedKcal, goal, MaterialTheme.colorScheme.primary)
 
     ValueBar(
         label = "Kalorien",
@@ -216,7 +288,7 @@ fun CalorieBar(consumedKcal: Double, goal: NutrientGoal, modifier: Modifier = Mo
             "${consumedKcal.formatCompact()} kcal"
         },
         fraction = goal.fractionOf(consumedKcal),
-        color = MaterialTheme.colorScheme.primary,
+        color = barColor,
         markerFraction = goal.minMarkerFraction,
         modifier = modifier,
     )

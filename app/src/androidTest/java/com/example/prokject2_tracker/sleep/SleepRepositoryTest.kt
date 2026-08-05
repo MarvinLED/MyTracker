@@ -142,7 +142,7 @@ class SleepRepositoryTest {
         assertEquals(455.0, points[0].value, 0.001)
         assertEquals(90.0, points[1].value, 0.001)
         assertEquals(
-            repository.getForDay(day)!!.durationMinutes.toDouble(),
+            repository.getForDay(day)?.durationMinutes?.toDouble() ?: 0.0,
             points[0].value,
             0.001,
         )

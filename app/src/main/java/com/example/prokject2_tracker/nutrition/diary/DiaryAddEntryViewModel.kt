@@ -57,7 +57,7 @@ data class QuickEntryState(
 class DiaryAddEntryViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val diaryRepository: DiaryRepository,
-    foodRepository: FoodRepository,
+    private val foodRepository: FoodRepository,
     recipeRepository: RecipeRepository,
     private val tagRepository: TagRepository,
 ) : ViewModel() {
@@ -177,7 +177,8 @@ class DiaryAddEntryViewModel @Inject constructor(
                         if (lastLogged != null) {
                             _amountText.value = lastLogged.unitCount?.let { it.formatDecimal(1) } ?: lastLogged.quantity.formatDecimal(1)
                             _selectedUnitId.value = if (lastLogged.unitName != null) {
-                                foodUnits.value.firstOrNull { it.name == lastLogged.unitName }?.id
+                                val units = foodRepository.getUnits(item.food.id)
+                                units.firstOrNull { it.name == lastLogged.unitName }?.id
                             } else {
                                 null
                             }
