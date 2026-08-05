@@ -1,9 +1,11 @@
 package com.example.prokject2_tracker.nutrition.diary
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -19,6 +21,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -26,9 +29,6 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AllInclusive
 import androidx.compose.material.icons.filled.Bolt
-import androidx.compose.material.icons.filled.Brightness1
-import androidx.compose.material.icons.filled.Brightness5
-import androidx.compose.material.icons.filled.Brightness7
 import androidx.compose.material.icons.filled.Cake
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
@@ -61,6 +61,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -146,11 +148,10 @@ fun DiaryAddEntryScreen(
                     )
                 }
                 MealType.entries.forEach { type ->
-                    IconButtonWithTooltip(
+                    MealTypeIconButton(
+                        mealType = type,
                         isSelected = mealType == type,
                         onClick = { viewModel.onMealTypeChange(type) },
-                        icon = getMealTypeIcon(type),
-                        label = type.label(),
                     )
                 }
             }
@@ -597,6 +598,21 @@ private fun IconButtonWithTooltip(
     }
 }
 
+@Composable
+private fun MealTypeIcon(mealType: MealType, color: Color, label: String) {
+    when (mealType) {
+        MealType.BREAKFAST -> AnalogClockIcon(hour = 9, color = color)
+        MealType.LUNCH -> AnalogClockIcon(hour = 12, color = color)
+        MealType.DINNER -> AnalogClockIcon(hour = 15, color = color)
+        MealType.SNACK -> Icon(
+            Icons.Filled.Cake,
+            contentDescription = label,
+            tint = color,
+            modifier = Modifier.size(24.dp),
+        )
+    }
+}
+
 private fun getModeIcon(mode: DiaryPickerMode) = when (mode) {
     DiaryPickerMode.ALL -> Icons.Filled.AllInclusive
     DiaryPickerMode.FOOD -> Icons.Filled.Flatware
@@ -604,9 +620,56 @@ private fun getModeIcon(mode: DiaryPickerMode) = when (mode) {
     DiaryPickerMode.QUICK -> Icons.Filled.Bolt
 }
 
-private fun getMealTypeIcon(type: MealType) = when (type) {
-    MealType.BREAKFAST -> Icons.Filled.Brightness5
-    MealType.LUNCH -> Icons.Filled.Brightness7
-    MealType.DINNER -> Icons.Filled.Brightness1
-    MealType.SNACK -> Icons.Filled.Cake
+@Composable
+private fun MealTypeIconButton(
+    mealType: MealType,
+    isSelected: Boolean,
+    onClick: () -> Unit,
+) {
+    val showTooltip = remember { mutableStateOf(false) }
+    val label = mealType.label()
+    val iconColor = if (isSelected) {
+        MaterialTheme.colorScheme.onPrimaryContainer
+    } else {
+        MaterialTheme.colorScheme.onSurfaceVariant
+    }
+
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .background(
+                    color = if (isSelected) {
+                        MaterialTheme.colorScheme.primaryContainer
+                    } else {
+                        androidx.compose.ui.graphics.Color.Transparent
+                    },
+                    shape = androidx.compose.foundation.shape.CircleShape,
+                )
+                .clip(androidx.compose.foundation.shape.CircleShape)
+                .combinedClickable(
+                    onClick = onClick,
+                    onLongClick = { showTooltip.value = true },
+                ),
+            contentAlignment = Alignment.Center,
+        ) {
+            MealTypeIcon(mealType, iconColor, label)
+        }
+
+        if (showTooltip.value) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelSmall,
+                modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            LaunchedEffect(Unit) {
+                kotlinx.coroutines.delay(1500)
+                showTooltip.value = false
+            }
+        }
+    }
 }

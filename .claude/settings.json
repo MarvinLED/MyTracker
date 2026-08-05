@@ -12,7 +12,8 @@
       "Bash(./gradlew testDebugUnitTest connectedDebugAndroidTest)",
       "Bash(./gradlew connectedDebugAndroidTest --tests \"*DiaryLastLoggedTest*\")",
       "Bash(./gradlew compileDebugAndroidTestKotlin)",
-      "Bash(grep -E \"\\\\.\\(kt|xml\\)$\")"
+      "Bash(grep -E \"\\\\.\\(kt|xml\\)$\")",
+      "Bash(./gradlew assembleDebug --no-daemon)"
     ]
   }
 }
