@@ -11,7 +11,8 @@
       "Bash(git -C /home/user/Dokumente/Projects/Project1 status --short)",
       "Bash(./gradlew testDebugUnitTest connectedDebugAndroidTest)",
       "Bash(./gradlew connectedDebugAndroidTest --tests \"*DiaryLastLoggedTest*\")",
-      "Bash(./gradlew compileDebugAndroidTestKotlin)"
+      "Bash(./gradlew compileDebugAndroidTestKotlin)",
+      "Bash(grep -E \"\\\\.\\(kt|xml\\)$\")"
     ]
   }
 }

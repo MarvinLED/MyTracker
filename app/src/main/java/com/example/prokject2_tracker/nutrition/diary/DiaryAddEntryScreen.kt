@@ -1,6 +1,7 @@
 package com.example.prokject2_tracker.nutrition.diary
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -23,10 +24,16 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.AllInclusive
 import androidx.compose.material.icons.filled.Bolt
+import androidx.compose.material.icons.filled.Brightness1
+import androidx.compose.material.icons.filled.Brightness5
+import androidx.compose.material.icons.filled.Brightness7
+import androidx.compose.material.icons.filled.Cake
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.LocalDrink
+import androidx.compose.material.icons.filled.Flatware
+import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -50,6 +57,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -121,26 +129,28 @@ fun DiaryAddEntryScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            // Mode and MealType chips combined
-            androidx.compose.foundation.layout.FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+            // Mode and MealType icon buttons
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
                 DiaryPickerMode.entries.forEach { m ->
-                    FilterChip(
-                        selected = mode == m,
+                    IconButtonWithTooltip(
+                        isSelected = mode == m,
                         onClick = { viewModel.onModeChange(m) },
-                        label = { Text(m.label()) },
-                        leadingIcon = if (m == DiaryPickerMode.QUICK) {
-                            { Icon(Icons.Filled.Bolt, contentDescription = null, modifier = Modifier.size(18.dp)) }
-                        } else null,
+                        icon = getModeIcon(m),
+                        label = m.label(),
                     )
                 }
                 MealType.entries.forEach { type ->
-                    FilterChip(
-                        selected = mealType == type,
+                    IconButtonWithTooltip(
+                        isSelected = mealType == type,
                         onClick = { viewModel.onMealTypeChange(type) },
-                        label = { Text(type.label()) },
+                        icon = getMealTypeIcon(type),
+                        label = type.label(),
                     )
                 }
             }
@@ -536,4 +546,67 @@ private fun QuickEntryForm(state: QuickEntryState, viewModel: DiaryAddEntryViewM
             }
         }
     }
+}
+
+@Composable
+private fun IconButtonWithTooltip(
+    isSelected: Boolean,
+    onClick: () -> Unit,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+) {
+    val showTooltip = remember { mutableStateOf(false) }
+
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        IconButton(
+            onClick = onClick,
+            modifier = Modifier
+                .size(40.dp)
+                .combinedClickable(
+                    onClick = onClick,
+                    onLongClick = { showTooltip.value = true },
+                ),
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = label,
+                tint = if (isSelected) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                },
+                modifier = Modifier.size(24.dp),
+            )
+        }
+
+        if (showTooltip.value) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelSmall,
+                modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            LaunchedEffect(Unit) {
+                kotlinx.coroutines.delay(1500)
+                showTooltip.value = false
+            }
+        }
+    }
+}
+
+private fun getModeIcon(mode: DiaryPickerMode) = when (mode) {
+    DiaryPickerMode.ALL -> Icons.Filled.AllInclusive
+    DiaryPickerMode.FOOD -> Icons.Filled.Flatware
+    DiaryPickerMode.RECIPE -> Icons.Filled.Restaurant
+    DiaryPickerMode.QUICK -> Icons.Filled.Bolt
+}
+
+private fun getMealTypeIcon(type: MealType) = when (type) {
+    MealType.BREAKFAST -> Icons.Filled.Brightness5
+    MealType.LUNCH -> Icons.Filled.Brightness7
+    MealType.DINNER -> Icons.Filled.Brightness1
+    MealType.SNACK -> Icons.Filled.Cake
 }

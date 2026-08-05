@@ -92,6 +92,7 @@ fun goalTargetLabel(min: Double?, max: Double?): String? = when {
  * - Min + Max: Grün im Range, Gelb davor, Rot über Max
  * - Nur Min: Gelb kurz davor (bei ~90% von min), Grün wenn erreicht
  * - Nur Max: Gradient (grüner je kleiner), Gelb bei Max, Rot wenn über Max
+ * - Kein Ziel: Blau
  */
 fun nutritionBarColor(
     consumed: Double,
@@ -100,8 +101,9 @@ fun nutritionBarColor(
     greenColor: Color = Color(0xFF4CAF50),
     yellowColor: Color = Color(0xFFFFC107),
     redColor: Color = Color(0xFFF44336),
+    noGoalColor: Color = Color(0xFF2196F3),
 ): Color {
-    if (goal == null || goal.isEmpty) return baseColor
+    if (goal == null || goal.isEmpty) return noGoalColor
 
     val min = goal.min
     val max = goal.max
