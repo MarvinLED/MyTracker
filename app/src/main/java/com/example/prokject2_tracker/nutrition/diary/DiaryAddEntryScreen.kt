@@ -65,6 +65,7 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -87,6 +88,7 @@ fun DiaryAddEntryScreen(
     viewModel: DiaryAddEntryViewModel = hiltViewModel(),
 ) {
     val mode by viewModel.mode.collectAsState()
+    val listMode by viewModel.listMode.collectAsState()
     val query by viewModel.query.collectAsState()
     val sort by viewModel.sort.collectAsState()
     val selectedTagId by viewModel.selectedTagId.collectAsState()
@@ -137,14 +139,22 @@ fun DiaryAddEntryScreen(
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                DiaryPickerMode.entries.forEach { m ->
-                    IconButtonWithTooltip(
-                        isSelected = mode == m,
-                        onClick = { viewModel.onModeChange(m) },
-                        icon = getModeIcon(m),
-                        label = m.label(),
-                    )
-                }
+                // Alle, Lebensmittel and Rezept share one button that cycles through them. Its label
+                // stays visible: with no sibling buttons left to compare against, the icon on its own
+                // would not say which of the three is currently on.
+                IconButtonWithTooltip(
+                    isSelected = mode != DiaryPickerMode.QUICK,
+                    onClick = viewModel::cycleListMode,
+                    icon = getModeIcon(listMode),
+                    label = listMode.label(),
+                    alwaysShowLabel = true,
+                )
+                IconButtonWithTooltip(
+                    isSelected = mode == DiaryPickerMode.QUICK,
+                    onClick = { viewModel.onModeChange(DiaryPickerMode.QUICK) },
+                    icon = getModeIcon(DiaryPickerMode.QUICK),
+                    label = DiaryPickerMode.QUICK.label(),
+                )
                 MealType.entries.forEach { type ->
                     IconButtonWithTooltip(
                         isSelected = mealType == type,
@@ -554,6 +564,8 @@ private fun IconButtonWithTooltip(
     onClick: () -> Unit,
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     label: String,
+    /** Keeps the label under the icon permanently, for a button whose icon changes as it is tapped. */
+    alwaysShowLabel: Boolean = false,
 ) {
     val showTooltip = remember { mutableStateOf(false) }
 
@@ -581,14 +593,21 @@ private fun IconButtonWithTooltip(
             )
         }
 
-        if (showTooltip.value) {
+        if (alwaysShowLabel || showTooltip.value) {
             Text(
                 text = label,
                 style = MaterialTheme.typography.labelSmall,
-                modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
+                textAlign = TextAlign.Center,
+                modifier = Modifier
+                    // A permanent label gets a fixed slot, so the buttons to the right of a cycling
+                    // one do not shift as its label changes length from tap to tap.
+                    .then(if (alwaysShowLabel) Modifier.width(88.dp) else Modifier)
+                    .padding(horizontal = 4.dp, vertical = 2.dp),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
+        }
+        if (showTooltip.value) {
             LaunchedEffect(Unit) {
                 kotlinx.coroutines.delay(1500)
                 showTooltip.value = false

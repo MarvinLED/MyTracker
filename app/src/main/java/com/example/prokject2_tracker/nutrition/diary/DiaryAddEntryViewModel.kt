@@ -67,6 +67,13 @@ class DiaryAddEntryViewModel @Inject constructor(
     private val _mode = MutableStateFlow(DiaryPickerMode.ALL)
     val mode: StateFlow<DiaryPickerMode> = _mode.asStateFlow()
 
+    /**
+     * What the combined Alle/Lebensmittel/Rezept button shows. Kept apart from [mode] so it survives
+     * a detour through Schnelleintrag: the button still names the list the user last had open.
+     */
+    private val _listMode = MutableStateFlow(DiaryPickerMode.ALL)
+    val listMode: StateFlow<DiaryPickerMode> = _listMode.asStateFlow()
+
     private val _query = MutableStateFlow("")
     val query: StateFlow<String> = _query.asStateFlow()
 
@@ -150,11 +157,22 @@ class DiaryAddEntryViewModel @Inject constructor(
 
     fun onModeChange(mode: DiaryPickerMode) {
         _mode.value = mode
+        if (mode != DiaryPickerMode.QUICK) _listMode.value = mode
         _query.value = ""
         _selectedTagId.value = null
         _expandedItem.value = null
         _amountText.value = ""
         _selectedUnitId.value = null
+    }
+
+    /**
+     * The combined button: one tap moves on to Alle → Lebensmittel → Rezept. Coming back from
+     * Schnelleintrag it only reopens the list in the state the button is already showing — cycling
+     * on from a state the user never got to see would make the icon a lie.
+     */
+    fun cycleListMode() {
+        val current = _listMode.value
+        onModeChange(if (_mode.value == DiaryPickerMode.QUICK) current else current.nextListMode())
     }
 
     fun onQueryChange(value: String) { _query.value = value }
