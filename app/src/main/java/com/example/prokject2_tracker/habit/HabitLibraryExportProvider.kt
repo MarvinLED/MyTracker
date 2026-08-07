@@ -1,6 +1,7 @@
 package com.example.prokject2_tracker.habit
 
-import com.example.prokject2_tracker.core.backup.LibraryExportProvider
+import com.example.prokject2_tracker.core.backup.BackupExportProvider
+import com.example.prokject2_tracker.core.backup.BackupScope
 import com.example.prokject2_tracker.core.util.GoalPeriod
 import java.time.Instant
 import javax.inject.Inject
@@ -46,12 +47,16 @@ private fun HabitDto.toEntity() = Habit(
     type = type,
 )
 
-/** Exports/imports habit *definitions* (including goals) only — check-ins are tracked data and never included. */
+/**
+ * Exports/imports habit *definitions* (including goals) only. The check-ins are tracked data and
+ * travel in [BackupScope.DAILY_ENTRIES] instead, see [HabitCheckInExportProvider].
+ */
 class HabitLibraryExportProvider @Inject constructor(
     private val habitDao: HabitDao,
     private val habitGoalDao: HabitGoalDao,
-) : LibraryExportProvider {
+) : BackupExportProvider {
     override val key = "habits"
+    override val scope = BackupScope.LIBRARY
 
     private val json = Json { ignoreUnknownKeys = true }
 
@@ -83,5 +88,10 @@ class HabitLibraryExportProvider @Inject constructor(
                 },
             )
         }
+    }
+
+    /** The Ziele cascade with the Habits; the Check-ins are a different scope and stay. */
+    override suspend fun clear() {
+        habitDao.deleteAll()
     }
 }

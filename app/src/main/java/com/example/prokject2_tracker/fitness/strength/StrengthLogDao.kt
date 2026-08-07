@@ -43,4 +43,11 @@ interface StrengthLogDao {
 
     @Delete
     suspend fun delete(entry: StrengthLogEntry)
+
+    @Query("SELECT * FROM strength_log_entries ORDER BY epochDay, createdAt")
+    suspend fun getAllOnce(): List<StrengthLogEntry>
+
+    /** Wipes the Krafttraining log for a replacing import; the Sätze cascade with the entries. */
+    @Query("DELETE FROM strength_log_entries")
+    suspend fun deleteAll()
 }

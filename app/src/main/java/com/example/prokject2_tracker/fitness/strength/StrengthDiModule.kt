@@ -1,6 +1,6 @@
 package com.example.prokject2_tracker.fitness.strength
 
-import com.example.prokject2_tracker.core.backup.LibraryExportProvider
+import com.example.prokject2_tracker.core.backup.BackupExportProvider
 import com.example.prokject2_tracker.core.metrics.MetricSeriesProvider
 import dagger.Binds
 import dagger.Module
@@ -13,11 +13,15 @@ import dagger.multibindings.IntoSet
 interface StrengthDiModule {
     @Binds
     @IntoSet
-    fun bindStrengthExerciseLibraryExportProvider(impl: StrengthExerciseLibraryExportProvider): LibraryExportProvider
+    fun bindStrengthExerciseLibraryExportProvider(impl: StrengthExerciseLibraryExportProvider): BackupExportProvider
 
     @Binds
     @IntoSet
-    fun bindMuscleGroupLibraryExportProvider(impl: MuscleGroupLibraryExportProvider): LibraryExportProvider
+    fun bindMuscleGroupLibraryExportProvider(impl: MuscleGroupLibraryExportProvider): BackupExportProvider
+
+    @Binds
+    @IntoSet
+    fun bindStrengthLogExportProvider(impl: StrengthLogExportProvider): BackupExportProvider
 
     @Binds
     @IntoSet

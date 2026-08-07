@@ -52,4 +52,20 @@ interface RecipeDao {
 
     @Delete
     suspend fun deleteRecipe(recipe: Recipe)
+
+    /**
+     * Wipes the Rezepte for a replacing import. The ingredients go first and by hand rather than by
+     * cascade, so the join table can never outlive the recipes that explain it.
+     */
+    @Transaction
+    suspend fun deleteAll() {
+        deleteAllIngredients()
+        deleteAllRecipes()
+    }
+
+    @Query("DELETE FROM recipe_ingredients")
+    suspend fun deleteAllIngredients()
+
+    @Query("DELETE FROM recipes")
+    suspend fun deleteAllRecipes()
 }

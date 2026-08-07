@@ -9,6 +9,8 @@ import com.example.prokject2_tracker.analyse.AnalyseRoute
 import com.example.prokject2_tracker.analyse.AnalyseScreen
 import com.example.prokject2_tracker.bloodpressure.BloodPressureRoute
 import com.example.prokject2_tracker.bloodpressure.BloodPressureScreen
+import com.example.prokject2_tracker.core.backup.BackupRoute
+import com.example.prokject2_tracker.core.backup.BackupScreen
 import com.example.prokject2_tracker.core.util.DateUtils
 import com.example.prokject2_tracker.fitness.FitnessRoute
 import com.example.prokject2_tracker.fitness.FitnessScreen
@@ -52,8 +54,6 @@ import com.example.prokject2_tracker.nutrition.diary.DiaryRoute
 import com.example.prokject2_tracker.nutrition.diary.DiaryScreen
 import com.example.prokject2_tracker.nutrition.food.FoodEditRoute
 import com.example.prokject2_tracker.nutrition.food.FoodEditScreen
-import com.example.prokject2_tracker.nutrition.library.LibraryBackupRoute
-import com.example.prokject2_tracker.nutrition.library.LibraryBackupScreen
 import com.example.prokject2_tracker.nutrition.library.LibraryRoute
 import com.example.prokject2_tracker.nutrition.library.LibraryScreen
 import com.example.prokject2_tracker.nutrition.recipe.RecipeEditRoute
@@ -156,7 +156,6 @@ fun AppNavHost(
                 onEditFood = { foodId -> navController.navigate(FoodEditRoute(foodId = foodId)) },
                 onAddRecipe = { navController.navigate(RecipeEditRoute()) },
                 onEditRecipe = { recipeId -> navController.navigate(RecipeEditRoute(recipeId = recipeId)) },
-                onOpenBackup = { navController.navigate(LibraryBackupRoute) },
                 onOpenDrawer = onOpenDrawer,
             )
         }
@@ -166,8 +165,8 @@ fun AppNavHost(
         composable<RecipeEditRoute> {
             RecipeEditScreen(onDone = { navController.popBackStack() })
         }
-        composable<LibraryBackupRoute> {
-            LibraryBackupScreen(onDone = { navController.popBackStack() })
+        composable<BackupRoute> {
+            BackupScreen(onOpenDrawer = onOpenDrawer)
         }
         composable<AnalyseRoute> {
             AnalyseScreen(onOpenDrawer = onOpenDrawer)

@@ -15,4 +15,14 @@ interface FitnessGoalDao {
 
     @Query("DELETE FROM fitness_goals WHERE id = :id")
     suspend fun delete(id: String)
+
+    @Query("SELECT * FROM fitness_goals")
+    suspend fun getAllOnce(): List<FitnessGoal>
+
+    @Query("SELECT * FROM fitness_goals WHERE id = :id")
+    suspend fun getById(id: String): FitnessGoal?
+
+    /** Wipes the Fitness-Ziele for a replacing import. */
+    @Query("DELETE FROM fitness_goals")
+    suspend fun deleteAll()
 }

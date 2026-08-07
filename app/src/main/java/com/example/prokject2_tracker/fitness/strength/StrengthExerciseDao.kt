@@ -48,4 +48,8 @@ interface StrengthExerciseDao {
             insertExerciseMuscleGroups(muscleGroupIds.map { StrengthExerciseMuscleGroup(exerciseId = exerciseId, muscleGroupId = it) })
         }
     }
+
+    /** Wipes the Übungen for a replacing import; their muscle-group cross-refs cascade with them. */
+    @Query("DELETE FROM strength_exercises")
+    suspend fun deleteAll()
 }

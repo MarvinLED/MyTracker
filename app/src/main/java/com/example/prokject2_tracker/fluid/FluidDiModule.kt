@@ -1,6 +1,6 @@
 package com.example.prokject2_tracker.fluid
 
-import com.example.prokject2_tracker.core.backup.LibraryExportProvider
+import com.example.prokject2_tracker.core.backup.BackupExportProvider
 import com.example.prokject2_tracker.core.metrics.MetricSeriesProvider
 import dagger.Binds
 import dagger.Module
@@ -17,13 +17,17 @@ interface FluidDiModule {
 
     @Binds
     @IntoSet
-    fun bindFluidTypeLibraryExportProvider(impl: FluidTypeLibraryExportProvider): LibraryExportProvider
+    fun bindFluidTypeLibraryExportProvider(impl: FluidTypeLibraryExportProvider): BackupExportProvider
 
     @Binds
     @IntoSet
-    fun bindFluidUnitLibraryExportProvider(impl: FluidUnitLibraryExportProvider): LibraryExportProvider
+    fun bindFluidUnitLibraryExportProvider(impl: FluidUnitLibraryExportProvider): BackupExportProvider
 
     @Binds
     @IntoSet
-    fun bindFluidQuickAddLibraryExportProvider(impl: FluidQuickAddLibraryExportProvider): LibraryExportProvider
+    fun bindFluidQuickAddLibraryExportProvider(impl: FluidQuickAddLibraryExportProvider): BackupExportProvider
+
+    @Binds
+    @IntoSet
+    fun bindFluidEntriesExportProvider(impl: FluidEntriesExportProvider): BackupExportProvider
 }

@@ -1,5 +1,6 @@
 package com.example.prokject2_tracker.nutrition.diary
 
+import com.example.prokject2_tracker.core.backup.BackupExportProvider
 import com.example.prokject2_tracker.core.metrics.MetricSeriesProvider
 import dagger.Binds
 import dagger.Module
@@ -25,4 +26,8 @@ interface DiaryDiModule {
     @Binds
     @IntoSet
     fun bindFatDiaryMetricSeriesProvider(impl: FatDiaryMetricSeriesProvider): MetricSeriesProvider
+
+    @Binds
+    @IntoSet
+    fun bindDiaryEntriesExportProvider(impl: DiaryEntriesExportProvider): BackupExportProvider
 }

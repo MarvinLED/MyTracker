@@ -41,4 +41,8 @@ interface FoodDao {
             "OR EXISTS(SELECT 1 FROM diary_recipe_ingredients WHERE foodId = :foodId)",
     )
     suspend fun isUsedInAnyRecipe(foodId: String): Boolean
+
+    /** Wipes the Lebensmittel for a replacing import; `food_units` and `food_item_tags` cascade with them. */
+    @Query("DELETE FROM food_items")
+    suspend fun deleteAll()
 }

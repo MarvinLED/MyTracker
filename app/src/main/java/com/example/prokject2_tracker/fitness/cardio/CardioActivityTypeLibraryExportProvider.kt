@@ -1,6 +1,7 @@
 package com.example.prokject2_tracker.fitness.cardio
 
-import com.example.prokject2_tracker.core.backup.LibraryExportProvider
+import com.example.prokject2_tracker.core.backup.BackupExportProvider
+import com.example.prokject2_tracker.core.backup.BackupScope
 import java.time.Instant
 import javax.inject.Inject
 import kotlinx.serialization.Serializable
@@ -34,8 +35,9 @@ private fun CardioActivityTypeDto.toEntity() = CardioActivityType(
 /** Exports/imports cardio activity-type definitions only — logged cardio sessions are tracked data and never included. */
 class CardioActivityTypeLibraryExportProvider @Inject constructor(
     private val cardioActivityTypeDao: CardioActivityTypeDao,
-) : LibraryExportProvider {
+) : BackupExportProvider {
     override val key = "cardioActivityTypes"
+    override val scope = BackupScope.LIBRARY
 
     private val json = Json { ignoreUnknownKeys = true }
 
@@ -50,5 +52,9 @@ class CardioActivityTypeLibraryExportProvider @Inject constructor(
                 cardioActivityTypeDao.upsert(dto.toEntity())
             }
         }
+    }
+
+    override suspend fun clear() {
+        cardioActivityTypeDao.deleteAll()
     }
 }

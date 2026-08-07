@@ -22,4 +22,8 @@ interface BodySiteDao {
 
     @Delete
     suspend fun delete(site: BodySite)
+
+    /** Wipes the Körperstellen for a replacing import; their measurements cascade with them. */
+    @Query("DELETE FROM body_sites")
+    suspend fun deleteAll()
 }

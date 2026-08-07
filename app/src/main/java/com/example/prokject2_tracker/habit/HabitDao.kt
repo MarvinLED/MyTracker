@@ -22,4 +22,8 @@ interface HabitDao {
 
     @Delete
     suspend fun delete(habit: Habit)
+
+    /** Wipes the Habits for a replacing import; their goals cascade with them. */
+    @Query("DELETE FROM habits")
+    suspend fun deleteAll()
 }

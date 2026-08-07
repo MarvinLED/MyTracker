@@ -1,6 +1,7 @@
 package com.example.prokject2_tracker.fitness.strength
 
-import com.example.prokject2_tracker.core.backup.LibraryExportProvider
+import com.example.prokject2_tracker.core.backup.BackupExportProvider
+import com.example.prokject2_tracker.core.backup.BackupScope
 import java.time.Instant
 import javax.inject.Inject
 import kotlinx.serialization.Serializable
@@ -47,8 +48,9 @@ private fun StrengthExerciseDto.toEntity() = StrengthExercise(
 /** Imported after `"muscleGroups"` (see [importPriority]) since [StrengthExerciseDto.muscleGroupIds] are foreign keys into that data. */
 class StrengthExerciseLibraryExportProvider @Inject constructor(
     private val strengthExerciseDao: StrengthExerciseDao,
-) : LibraryExportProvider {
+) : BackupExportProvider {
     override val key = "strengthExercises"
+    override val scope = BackupScope.LIBRARY
     override val importPriority = 5
 
     private val json = Json { ignoreUnknownKeys = true }
@@ -70,5 +72,10 @@ class StrengthExerciseLibraryExportProvider @Inject constructor(
                 strengthExerciseDao.replaceMuscleGroupsForExercise(dto.id, dto.muscleGroupIds)
             }
         }
+    }
+
+    /** The muscle-group cross-refs cascade with the Übungen. */
+    override suspend fun clear() {
+        strengthExerciseDao.deleteAll()
     }
 }

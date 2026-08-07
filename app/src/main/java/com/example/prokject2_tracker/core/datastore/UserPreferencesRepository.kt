@@ -23,6 +23,13 @@ enum class WeightUnit { KG, LB }
 /** Falls back to 2000 kcal when the user has never set a calorie goal. */
 private const val DEFAULT_CALORIE_GOAL_KCAL = 2000.0
 
+/**
+ * What the water goal is before anyone sets one. Public because the backup has to be able to tell
+ * "never configured" from "deliberately set to 2000" — see
+ * `com.example.prokject2_tracker.goals.GoalsExportProvider`.
+ */
+const val DEFAULT_WATER_GOAL_ML = 2000.0
+
 data class UserPreferences(
     val dailyWaterGoalMl: Double,
     val weightUnit: WeightUnit,
@@ -105,7 +112,7 @@ class UserPreferencesRepository @Inject constructor(
 
     val userPreferences: Flow<UserPreferences> = context.userPreferencesDataStore.data.map { prefs ->
         UserPreferences(
-            dailyWaterGoalMl = prefs[Keys.WATER_GOAL] ?: 2000.0,
+            dailyWaterGoalMl = prefs[Keys.WATER_GOAL] ?: DEFAULT_WATER_GOAL_ML,
             weightUnit = prefs[Keys.WEIGHT_UNIT]?.let { WeightUnit.valueOf(it) } ?: WeightUnit.KG,
             nutrientGoals = Nutrient.entries.mapNotNull { nutrient ->
                 val min = prefs[Keys.min(nutrient)]

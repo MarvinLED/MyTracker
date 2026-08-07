@@ -35,4 +35,8 @@ interface CardioActivityTypeDao {
 
     @Query("SELECT EXISTS(SELECT 1 FROM cardio_sessions WHERE activityTypeId = :id)")
     suspend fun isUsedInAnyEntry(id: String): Boolean
+
+    /** Wipes the Kardio-Arten for a replacing import. */
+    @Query("DELETE FROM cardio_activity_types")
+    suspend fun deleteAll()
 }

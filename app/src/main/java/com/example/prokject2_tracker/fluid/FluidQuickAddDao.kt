@@ -22,4 +22,8 @@ interface FluidQuickAddDao {
 
     @Delete
     suspend fun delete(quickAdd: FluidQuickAdd)
+
+    /** Wipes the Schnellauswahl for a replacing import. */
+    @Query("DELETE FROM fluid_quick_adds")
+    suspend fun deleteAll()
 }

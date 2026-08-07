@@ -2,6 +2,7 @@ package com.example.prokject2_tracker.core.navigation
 
 import androidx.annotation.StringRes
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Backup
 import androidx.compose.material.icons.filled.Checklist
 import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.Insights
@@ -15,6 +16,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import com.example.prokject2_tracker.R
 import com.example.prokject2_tracker.analyse.AnalyseRoute
 import com.example.prokject2_tracker.bloodpressure.BloodPressureRoute
+import com.example.prokject2_tracker.core.backup.BackupRoute
 import com.example.prokject2_tracker.goals.GoalsRoute
 import com.example.prokject2_tracker.habit.HabitRoute
 import com.example.prokject2_tracker.measurement.MeasurementRoute
@@ -97,5 +99,15 @@ enum class DrawerDestination(
         labelRes = R.string.nav_blood_pressure,
         icon = Icons.Filled.MonitorHeart,
         domain = AppDomain.BLOOD_PRESSURE,
+    ),
+
+    // Last on purpose: it is the only entry that is about the app rather than about a kind of data,
+    // so it sits below the areas it backs up instead of among them.
+    BACKUP(
+        route = BackupRoute,
+        routeQualifiedName = BackupRoute::class.qualifiedName!!,
+        labelRes = R.string.nav_backup,
+        icon = Icons.Filled.Backup,
+        domain = AppDomain.BACKUP,
     ),
 }

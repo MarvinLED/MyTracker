@@ -171,4 +171,7 @@ interface StrengthSetDao {
         startInclusive: Long,
         endInclusive: Long,
     ): Flow<List<DailySetsTotal>>
+
+    @Query("SELECT * FROM strength_sets ORDER BY epochDay, setIndex")
+    suspend fun getAllOnce(): List<StrengthSet>
 }

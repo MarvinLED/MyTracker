@@ -4,6 +4,3 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 data object LibraryRoute
-
-@Serializable
-data object LibraryBackupRoute

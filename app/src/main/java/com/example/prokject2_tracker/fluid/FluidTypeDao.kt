@@ -28,4 +28,8 @@ interface FluidTypeDao {
 
     @Query("SELECT EXISTS(SELECT 1 FROM fluid_entries WHERE fluidTypeId = :typeId)")
     suspend fun isUsedInAnyEntry(typeId: String): Boolean
+
+    /** Wipes the Getränkearten for a replacing import. */
+    @Query("DELETE FROM fluid_types")
+    suspend fun deleteAll()
 }

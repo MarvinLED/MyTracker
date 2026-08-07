@@ -1,6 +1,6 @@
 package com.example.prokject2_tracker.habit
 
-import com.example.prokject2_tracker.core.backup.LibraryExportProvider
+import com.example.prokject2_tracker.core.backup.BackupExportProvider
 import com.example.prokject2_tracker.core.metrics.MetricSeriesProvider
 import dagger.Binds
 import dagger.Module
@@ -13,7 +13,11 @@ import dagger.multibindings.IntoSet
 interface HabitDiModule {
     @Binds
     @IntoSet
-    fun bindHabitLibraryExportProvider(impl: HabitLibraryExportProvider): LibraryExportProvider
+    fun bindHabitLibraryExportProvider(impl: HabitLibraryExportProvider): BackupExportProvider
+
+    @Binds
+    @IntoSet
+    fun bindHabitCheckInExportProvider(impl: HabitCheckInExportProvider): BackupExportProvider
 
     @Binds
     @IntoSet

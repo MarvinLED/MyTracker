@@ -1,6 +1,7 @@
 package com.example.prokject2_tracker.measurement
 
-import com.example.prokject2_tracker.core.backup.LibraryExportProvider
+import com.example.prokject2_tracker.core.backup.BackupExportProvider
+import com.example.prokject2_tracker.core.backup.BackupScope
 import java.time.Instant
 import javax.inject.Inject
 import kotlinx.serialization.Serializable
@@ -36,13 +37,14 @@ private fun BodySiteDto.toEntity() = BodySite(
 
 /**
  * Exports/imports the Körperstellen definitions — including their measuring hints, which are the
- * part that is actually laborious to re-type. The measurements themselves are tracked data and stay
- * out, like body weight and diary entries.
+ * part that is actually laborious to re-type. The measurements themselves are tracked data and
+ * travel in [BackupScope.DAILY_ENTRIES] instead, see [BodyMeasurementExportProvider].
  */
 class BodySiteLibraryExportProvider @Inject constructor(
     private val bodySiteDao: BodySiteDao,
-) : LibraryExportProvider {
+) : BackupExportProvider {
     override val key = "bodySites"
+    override val scope = BackupScope.LIBRARY
 
     private val json = Json { ignoreUnknownKeys = true }
 
@@ -56,5 +58,10 @@ class BodySiteLibraryExportProvider @Inject constructor(
                 bodySiteDao.upsert(dto.toEntity())
             }
         }
+    }
+
+    /** The measurements cascade with the Körperstellen. */
+    override suspend fun clear() {
+        bodySiteDao.deleteAll()
     }
 }

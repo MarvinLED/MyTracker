@@ -47,4 +47,8 @@ interface TagDao {
             insertFoodItemTags(tagIds.map { FoodItemTag(foodItemId = foodItemId, tagId = it) })
         }
     }
+
+    /** Wipes the Tags for a replacing import; the `food_item_tags` rows cascade with them. */
+    @Query("DELETE FROM tags")
+    suspend fun deleteAll()
 }

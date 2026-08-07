@@ -90,4 +90,11 @@ interface CardioDao {
 
     @Query("SELECT COALESCE(SUM(durationMinutes),0) FROM cardio_sessions WHERE epochDay BETWEEN :startInclusive AND :endInclusive")
     suspend fun sumDurationMinutesBetween(startInclusive: Long, endInclusive: Long): Double
+
+    @Query("SELECT * FROM cardio_sessions ORDER BY epochDay, createdAt")
+    suspend fun getAllOnce(): List<CardioSession>
+
+    /** Wipes the Kardio-Einheiten for a replacing import; the Kardio-Arten themselves stay. */
+    @Query("DELETE FROM cardio_sessions")
+    suspend fun deleteAll()
 }

@@ -35,4 +35,14 @@ interface FluidDao {
 
     @Delete
     suspend fun delete(entry: FluidEntry)
+
+    @Query("SELECT * FROM fluid_entries ORDER BY epochDay, createdAt")
+    suspend fun getAllOnce(): List<FluidEntry>
+
+    @Query("SELECT * FROM fluid_entries WHERE id = :id")
+    suspend fun getById(id: String): FluidEntry?
+
+    /** Wipes the getrunkenen Mengen for a replacing import. */
+    @Query("DELETE FROM fluid_entries")
+    suspend fun deleteAll()
 }

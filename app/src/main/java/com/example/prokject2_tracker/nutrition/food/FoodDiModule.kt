@@ -1,6 +1,6 @@
 package com.example.prokject2_tracker.nutrition.food
 
-import com.example.prokject2_tracker.core.backup.LibraryExportProvider
+import com.example.prokject2_tracker.core.backup.BackupExportProvider
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -12,9 +12,9 @@ import dagger.multibindings.IntoSet
 interface FoodDiModule {
     @Binds
     @IntoSet
-    fun bindFoodLibraryExportProvider(impl: FoodLibraryExportProvider): LibraryExportProvider
+    fun bindFoodLibraryExportProvider(impl: FoodLibraryExportProvider): BackupExportProvider
 
     @Binds
     @IntoSet
-    fun bindTagLibraryExportProvider(impl: TagLibraryExportProvider): LibraryExportProvider
+    fun bindTagLibraryExportProvider(impl: TagLibraryExportProvider): BackupExportProvider
 }

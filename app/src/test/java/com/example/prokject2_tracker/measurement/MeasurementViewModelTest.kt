@@ -33,6 +33,9 @@ private class FakeBodySiteDao : BodySiteDao {
     override suspend fun delete(site: BodySite) {
         sites.value = sites.value.filterNot { it.id == site.id }
     }
+    override suspend fun deleteAll() {
+        sites.value = emptyList()
+    }
 }
 
 private class FakeBodyMeasurementDao : BodyMeasurementDao {
@@ -40,11 +43,17 @@ private class FakeBodyMeasurementDao : BodyMeasurementDao {
 
     override fun observeAll(): Flow<List<BodyMeasurement>> = measurements.map { list -> list.sortedBy { it.epochDay } }
     override suspend fun countForSite(bodySiteId: String): Int = measurements.value.count { it.bodySiteId == bodySiteId }
+    override suspend fun getAllOnce(): List<BodyMeasurement> = measurements.value.sortedBy { it.epochDay }
+    override suspend fun getForSiteAndDay(bodySiteId: String, epochDay: Long) =
+        measurements.value.firstOrNull { it.bodySiteId == bodySiteId && it.epochDay == epochDay }
     override suspend fun upsert(measurement: BodyMeasurement) {
         measurements.value = measurements.value.filterNot { it.id == measurement.id } + measurement
     }
     override suspend fun delete(measurement: BodyMeasurement) {
         measurements.value = measurements.value.filterNot { it.id == measurement.id }
+    }
+    override suspend fun deleteAll() {
+        measurements.value = emptyList()
     }
 }
 

@@ -28,4 +28,8 @@ interface MuscleGroupDao {
 
     @Query("SELECT EXISTS(SELECT 1 FROM strength_exercise_muscle_groups WHERE muscleGroupId = :id)")
     suspend fun isUsedInAnyEntry(id: String): Boolean
+
+    /** Wipes the Muskelgruppen for a replacing import; the exercise cross-refs cascade with them. */
+    @Query("DELETE FROM muscle_groups")
+    suspend fun deleteAll()
 }

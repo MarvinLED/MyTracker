@@ -28,4 +28,15 @@ interface HabitCheckInDao {
             "GROUP BY epochDay ORDER BY epochDay",
     )
     fun observeDailyCompletedCounts(startInclusive: Long, endInclusive: Long): Flow<List<DailyCompletedCount>>
+
+    @Query("SELECT * FROM habit_check_ins ORDER BY epochDay")
+    suspend fun getAllOnce(): List<HabitCheckIn>
+
+    /** The (Habit, Tag) slot — unique, so it and not the id is what an import matches on. */
+    @Query("SELECT * FROM habit_check_ins WHERE habitId = :habitId AND epochDay = :epochDay")
+    suspend fun getForHabitAndDay(habitId: String, epochDay: Long): HabitCheckIn?
+
+    /** Wipes the Check-ins for a replacing import; the Habits themselves stay. */
+    @Query("DELETE FROM habit_check_ins")
+    suspend fun deleteAll()
 }

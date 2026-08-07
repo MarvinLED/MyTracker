@@ -1,6 +1,7 @@
 package com.example.prokject2_tracker.nutrition.recipe
 
-import com.example.prokject2_tracker.core.backup.LibraryExportProvider
+import com.example.prokject2_tracker.core.backup.BackupExportProvider
+import com.example.prokject2_tracker.core.backup.BackupScope
 import com.example.prokject2_tracker.core.util.IdGenerator
 import java.time.Instant
 import javax.inject.Inject
@@ -37,8 +38,9 @@ data class RecipeExportDto(
  */
 class RecipeLibraryExportProvider @Inject constructor(
     private val recipeDao: RecipeDao,
-) : LibraryExportProvider {
+) : BackupExportProvider {
     override val key = "recipes"
+    override val scope = BackupScope.LIBRARY
     override val importPriority = 10
 
     private val jsonCodec = Json { ignoreUnknownKeys = true }
@@ -94,5 +96,10 @@ class RecipeLibraryExportProvider @Inject constructor(
                 recipeDao.replaceRecipeWithIngredients(recipe, ingredients)
             }
         }
+    }
+
+    /** Ingredients included. */
+    override suspend fun clear() {
+        recipeDao.deleteAll()
     }
 }

@@ -1,6 +1,7 @@
 package com.example.prokject2_tracker.nutrition.food
 
-import com.example.prokject2_tracker.core.backup.LibraryExportProvider
+import com.example.prokject2_tracker.core.backup.BackupExportProvider
+import com.example.prokject2_tracker.core.backup.BackupScope
 import java.time.Instant
 import javax.inject.Inject
 import kotlinx.serialization.Serializable
@@ -26,8 +27,9 @@ private fun TagDto.toEntity() = Tag(id = id, name = name, createdAt = Instant.of
  */
 class TagLibraryExportProvider @Inject constructor(
     private val tagDao: TagDao,
-) : LibraryExportProvider {
+) : BackupExportProvider {
     override val key = "tags"
+    override val scope = BackupScope.LIBRARY
 
     private val json = Json { ignoreUnknownKeys = true }
 
@@ -41,5 +43,10 @@ class TagLibraryExportProvider @Inject constructor(
                 tagDao.upsert(dto.toEntity())
             }
         }
+    }
+
+    /** The links to Lebensmittel cascade with the Tags. */
+    override suspend fun clear() {
+        tagDao.deleteAll()
     }
 }

@@ -26,11 +26,17 @@ private class FakeBloodPressureDao : BloodPressureDao {
     val entries = MutableStateFlow<List<BloodPressureEntry>>(emptyList())
 
     override fun observeAll(): Flow<List<BloodPressureEntry>> = entries.map { list -> list.sortedBy { it.epochDay } }
+    override suspend fun getAllOnce(): List<BloodPressureEntry> = entries.value.sortedBy { it.epochDay }
+    override suspend fun getForDayAndTime(epochDay: Long, timeOfDay: BloodPressureTimeOfDay) =
+        entries.value.firstOrNull { it.epochDay == epochDay && it.timeOfDay == timeOfDay }
     override suspend fun upsert(entry: BloodPressureEntry) {
         entries.value = entries.value.filterNot { it.id == entry.id } + entry
     }
     override suspend fun delete(entry: BloodPressureEntry) {
         entries.value = entries.value.filterNot { it.id == entry.id }
+    }
+    override suspend fun deleteAll() {
+        entries.value = emptyList()
     }
 }
 

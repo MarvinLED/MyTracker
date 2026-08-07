@@ -19,9 +19,9 @@ import androidx.compose.ui.graphics.luminance
  * ≥ 3:1 contrast). Nav items and headings always carry their label too, so identity is never on
  * colour alone.
  *
- * [ANALYSE], [GOALS] and [LIBRARY] deliberately stay on the theme primary: they are cross-cutting
- * views over the other areas' data, so claiming a hue of their own would imply a peer relationship
- * that isn't there — and red, the only slot left, reads as an error state.
+ * [ANALYSE], [GOALS], [LIBRARY] and [BACKUP] deliberately stay on the theme primary: they are
+ * cross-cutting views over the other areas' data, so claiming a hue of their own would imply a peer
+ * relationship that isn't there — and red, the only slot left, reads as an error state.
  */
 enum class AppDomain(private val accent: Color?) {
     DIARY(Color(0xFF199E70)), // aqua
@@ -44,6 +44,7 @@ enum class AppDomain(private val accent: Color?) {
     ANALYSE(null),
     GOALS(null),
     LIBRARY(null),
+    BACKUP(null),
     ;
 
     /** The area's hue, falling back to the theme primary for the cross-cutting views. */

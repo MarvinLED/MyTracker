@@ -5,9 +5,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -17,11 +14,10 @@ import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import com.example.prokject2_tracker.nutrition.food.FoodListContent
 import com.example.prokject2_tracker.nutrition.recipe.RecipeListContent
@@ -35,12 +31,10 @@ fun LibraryScreen(
     onEditFood: (String) -> Unit,
     onAddRecipe: () -> Unit,
     onEditRecipe: (String) -> Unit,
-    onOpenBackup: () -> Unit,
     onOpenDrawer: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var selectedTab by remember { mutableIntStateOf(0) }
-    var showMenu by remember { mutableStateOf(false) }
     val tabs = listOf("Lebensmittel", "Rezepte")
 
     Scaffold(
@@ -53,21 +47,9 @@ fun LibraryScreen(
                         Icon(Icons.Filled.Menu, contentDescription = "Menü")
                     }
                 },
+                // No Export/Import here any more: backing up is its own drawer destination now, and
+                // it covers all three categories rather than only what this screen happens to show.
                 title = { Text("Bibliothek") },
-                actions = {
-                    IconButton(onClick = { showMenu = true }) {
-                        Icon(Icons.Filled.MoreVert, contentDescription = "Mehr")
-                    }
-                    DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
-                        DropdownMenuItem(
-                            text = { Text("Export / Import") },
-                            onClick = {
-                                showMenu = false
-                                onOpenBackup()
-                            },
-                        )
-                    }
-                },
             )
         },
     ) { padding ->

@@ -71,6 +71,33 @@ interface SleepDao {
             insertEntryTags(tagIds.map { SleepEntryTag(sleepEntryId = sleepEntryId, tagId = it) })
         }
     }
+
+    @Query("SELECT * FROM sleep_entries ORDER BY epochDay")
+    suspend fun getAllOnce(): List<SleepEntry>
+
+    @Query("SELECT * FROM sleep_entry_tags")
+    suspend fun getAllEntryTagsOnce(): List<SleepEntryTag>
+
+    /**
+     * The Mittagsschlaf rows. `nap_entries` has no repository behind it yet (see the TODO in
+     * `SleepRepository`), so the table is empty today — it travels with the backup regardless, so
+     * that naps are not the one thing missing from every older file once the feature lands.
+     */
+    @Query("SELECT * FROM nap_entries ORDER BY epochDay")
+    suspend fun getAllNapsOnce(): List<NapEntry>
+
+    @Query("SELECT * FROM nap_entries WHERE id = :id")
+    suspend fun getNapById(id: String): NapEntry?
+
+    @Upsert
+    suspend fun upsertNap(nap: NapEntry)
+
+    /** Wipes the Nächte for a replacing import; the per-night tag links cascade with them. */
+    @Query("DELETE FROM sleep_entries")
+    suspend fun deleteAll()
+
+    @Query("DELETE FROM nap_entries")
+    suspend fun deleteAllNaps()
 }
 
 @Dao
@@ -96,4 +123,8 @@ interface SleepTagDao {
     /** How many nights carry this tag — what the delete confirmation says out loud. */
     @Query("SELECT COUNT(*) FROM sleep_entry_tags WHERE tagId = :tagId")
     suspend fun usageCount(tagId: String): Int
+
+    /** Wipes the Schlaf-Tags for a replacing import; the per-night links cascade with them. */
+    @Query("DELETE FROM sleep_tags")
+    suspend fun deleteAll()
 }

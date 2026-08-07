@@ -1,6 +1,7 @@
 package com.example.prokject2_tracker.fluid
 
-import com.example.prokject2_tracker.core.backup.LibraryExportProvider
+import com.example.prokject2_tracker.core.backup.BackupExportProvider
+import com.example.prokject2_tracker.core.backup.BackupScope
 import java.time.Instant
 import javax.inject.Inject
 import kotlinx.serialization.Serializable
@@ -46,8 +47,9 @@ private fun FluidTypeDto.toEntity() = FluidType(
 /** Exports/imports drink-type definitions only — logged fluid entries are tracked data and never included. */
 class FluidTypeLibraryExportProvider @Inject constructor(
     private val fluidTypeDao: FluidTypeDao,
-) : LibraryExportProvider {
+) : BackupExportProvider {
     override val key = "fluidTypes"
+    override val scope = BackupScope.LIBRARY
 
     private val json = Json { ignoreUnknownKeys = true }
 
@@ -62,5 +64,9 @@ class FluidTypeLibraryExportProvider @Inject constructor(
                 fluidTypeDao.upsert(dto.toEntity())
             }
         }
+    }
+
+    override suspend fun clear() {
+        fluidTypeDao.deleteAll()
     }
 }

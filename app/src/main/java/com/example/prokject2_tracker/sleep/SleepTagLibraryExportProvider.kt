@@ -1,6 +1,7 @@
 package com.example.prokject2_tracker.sleep
 
-import com.example.prokject2_tracker.core.backup.LibraryExportProvider
+import com.example.prokject2_tracker.core.backup.BackupExportProvider
+import com.example.prokject2_tracker.core.backup.BackupScope
 import java.time.Instant
 import javax.inject.Inject
 import kotlinx.serialization.Serializable
@@ -37,8 +38,9 @@ private fun SleepTagDto.toEntity() = SleepTag(
  */
 class SleepTagLibraryExportProvider @Inject constructor(
     private val sleepTagDao: SleepTagDao,
-) : LibraryExportProvider {
+) : BackupExportProvider {
     override val key = "sleepTags"
+    override val scope = BackupScope.LIBRARY
 
     private val json = Json { ignoreUnknownKeys = true }
 
@@ -55,5 +57,10 @@ class SleepTagLibraryExportProvider @Inject constructor(
                 sleepTagDao.upsert(dto.toEntity())
             }
         }
+    }
+
+    /** The per-night links cascade with the Tags. */
+    override suspend fun clear() {
+        sleepTagDao.deleteAll()
     }
 }

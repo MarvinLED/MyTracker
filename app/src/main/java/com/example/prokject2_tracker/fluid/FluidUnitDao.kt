@@ -28,4 +28,8 @@ interface FluidUnitDao {
 
     @Query("SELECT EXISTS(SELECT 1 FROM fluid_entries WHERE fluidUnitId = :unitId)")
     suspend fun isUsedInAnyEntry(unitId: String): Boolean
+
+    /** Wipes the Maßeinheiten for a replacing import. */
+    @Query("DELETE FROM fluid_units")
+    suspend fun deleteAll()
 }

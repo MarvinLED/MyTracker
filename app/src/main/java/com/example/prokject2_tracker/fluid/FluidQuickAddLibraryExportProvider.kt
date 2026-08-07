@@ -1,6 +1,7 @@
 package com.example.prokject2_tracker.fluid
 
-import com.example.prokject2_tracker.core.backup.LibraryExportProvider
+import com.example.prokject2_tracker.core.backup.BackupExportProvider
+import com.example.prokject2_tracker.core.backup.BackupScope
 import java.time.Instant
 import javax.inject.Inject
 import kotlinx.serialization.Serializable
@@ -47,8 +48,9 @@ private fun FluidQuickAddDto.toEntity(symbol: FluidQuickAddSymbol) = FluidQuickA
 class FluidQuickAddLibraryExportProvider @Inject constructor(
     private val fluidQuickAddDao: FluidQuickAddDao,
     private val fluidTypeDao: FluidTypeDao,
-) : LibraryExportProvider {
+) : BackupExportProvider {
     override val key = "fluidQuickAdds"
+    override val scope = BackupScope.LIBRARY
 
     override val importPriority = 5
 
@@ -72,5 +74,9 @@ class FluidQuickAddLibraryExportProvider @Inject constructor(
             fluidQuickAddDao.upsert(dto.toEntity(symbol))
             count++
         }
+    }
+
+    override suspend fun clear() {
+        fluidQuickAddDao.deleteAll()
     }
 }

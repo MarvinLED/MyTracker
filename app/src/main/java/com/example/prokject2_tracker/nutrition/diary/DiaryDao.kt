@@ -141,4 +141,24 @@ interface DiaryDao {
             insertRecipeIngredients(ingredients)
         }
     }
+
+    @Query("SELECT * FROM diary_entries ORDER BY epochDay, mealType, createdAt")
+    suspend fun getAllOnce(): List<DiaryEntry>
+
+    /** Every per-day recipe breakdown there is, for a backup — read in one go instead of per entry. */
+    @Query("SELECT * FROM diary_recipe_ingredients ORDER BY diaryEntryId, sortOrder")
+    suspend fun getAllRecipeIngredientsOnce(): List<DiaryRecipeIngredient>
+
+    /** Wipes the Tagebuch for a replacing import, breakdowns before the entries that own them. */
+    @Transaction
+    suspend fun deleteAll() {
+        deleteAllRecipeIngredients()
+        deleteAllEntries()
+    }
+
+    @Query("DELETE FROM diary_recipe_ingredients")
+    suspend fun deleteAllRecipeIngredients()
+
+    @Query("DELETE FROM diary_entries")
+    suspend fun deleteAllEntries()
 }

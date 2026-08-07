@@ -1,6 +1,7 @@
 package com.example.prokject2_tracker.nutrition.food
 
-import com.example.prokject2_tracker.core.backup.LibraryExportProvider
+import com.example.prokject2_tracker.core.backup.BackupExportProvider
+import com.example.prokject2_tracker.core.backup.BackupScope
 import java.time.Instant
 import javax.inject.Inject
 import kotlinx.serialization.Serializable
@@ -132,8 +133,9 @@ class FoodLibraryExportProvider @Inject constructor(
     private val foodDao: FoodDao,
     private val tagDao: TagDao,
     private val foodUnitDao: FoodUnitDao,
-) : LibraryExportProvider {
+) : BackupExportProvider {
     override val key = "foods"
+    override val scope = BackupScope.LIBRARY
     override val importPriority = 5
 
     private val json = Json { ignoreUnknownKeys = true }
@@ -156,5 +158,10 @@ class FoodLibraryExportProvider @Inject constructor(
                 foodUnitDao.replaceForFood(dto.id, dto.unitEntities())
             }
         }
+    }
+
+    /** The units and tag links cascade with the Lebensmittel. */
+    override suspend fun clear() {
+        foodDao.deleteAll()
     }
 }
