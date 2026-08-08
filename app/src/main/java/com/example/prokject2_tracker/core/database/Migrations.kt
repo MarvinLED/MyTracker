@@ -830,3 +830,25 @@ object MIGRATION_21_22 : Migration(21, 22) {
         db.execSQL("CREATE INDEX IF NOT EXISTS `index_nap_entries_epochDay` ON `nap_entries` (`epochDay`)")
     }
 }
+
+object MIGRATION_22_23 : Migration(22, 23) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        // Tags become editable objects: they get a colour of their own, and they can declare that
+        // they imply another tag ("vegan" ⇒ "vegetarisch") so a filter on the broader tag also
+        // finds the narrower one. Nullable with no default — null means "automatisch", i.e. the
+        // palette slot for the tag's position, which is what every existing tag should keep.
+        db.execSQL("ALTER TABLE `tags` ADD COLUMN `colorArgb` INTEGER")
+
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `tag_implications` (`childTagId` TEXT NOT NULL, " +
+                "`parentTagId` TEXT NOT NULL, PRIMARY KEY(`childTagId`, `parentTagId`), " +
+                "FOREIGN KEY(`childTagId`) REFERENCES `tags`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE , " +
+                "FOREIGN KEY(`parentTagId`) REFERENCES `tags`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        )
+        // Only parentTagId needs its own index; childTagId is the primary key's leading column.
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS `index_tag_implications_parentTagId` " +
+                "ON `tag_implications` (`parentTagId`)",
+        )
+    }
+}

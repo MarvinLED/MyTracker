@@ -11,9 +11,13 @@ import com.example.prokject2_tracker.fluid.FluidQuickAdd
 import com.example.prokject2_tracker.fluid.FluidRepository
 import com.example.prokject2_tracker.fluid.FluidType
 import com.example.prokject2_tracker.nutrition.NutritionTotals
+import com.example.prokject2_tracker.nutrition.food.Tag
+import com.example.prokject2_tracker.nutrition.food.TagRepository
+import com.example.prokject2_tracker.nutrition.recipe.RecipeRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -37,6 +41,14 @@ data class DiaryDayUiState(
     val fluidEntries: List<FluidEntry> = emptyList(),
     val fluidTypes: List<FluidType> = emptyList(),
     val fluidGoalMl: Double = 2000.0,
+    /**
+     * The tags behind each logged entry, keyed by what the entry points at. A [DiaryEntry] snapshots
+     * only `sourceType`/`sourceId`, so the link has to be re-made here rather than read off the row;
+     * a [DiarySourceType.QUICK] entry has no source and is simply absent from the map.
+     */
+    val tagsBySource: Map<Pair<DiarySourceType, String>, List<Tag>> = emptyMap(),
+    /** The full library order, which decides each tag's palette slot — see `Tag.displayColor`. */
+    val tagOrder: List<String> = emptyList(),
 ) {
     val totalKcal: Double get() = totals.kcal
 
@@ -50,10 +62,40 @@ class DiaryViewModel @Inject constructor(
     private val diaryRepository: DiaryRepository,
     private val fluidRepository: FluidRepository,
     private val mealClipboard: MealClipboard,
+    tagRepository: TagRepository,
+    recipeRepository: RecipeRepository,
     userPreferencesRepository: UserPreferencesRepository,
 ) : ViewModel() {
     private val _selectedEpochDay = MutableStateFlow(DateUtils.todayEpochDay())
     val selectedEpochDay: StateFlow<Long> = _selectedEpochDay.asStateFlow()
+
+    /**
+     * Tags for both kinds of source in one flow. Rezepte carry no tags of their own — theirs are
+     * derived from their ingredients, which [RecipeRepository.observeAllWithNutrition] has already
+     * done. Bundled here rather than passed to the day's `combine` separately, which would push it
+     * past the typed overloads.
+     */
+    private val tagContext: Flow<Pair<Map<Pair<DiarySourceType, String>, List<Tag>>, List<String>>> =
+        combine(
+            tagRepository.observeAllTags(),
+            tagRepository.observeTagsByFoodId(),
+            recipeRepository.observeAllWithNutrition(),
+        ) { allTags, tagsByFood, recipes ->
+            val bySource = buildMap<Pair<DiarySourceType, String>, List<Tag>> {
+                tagsByFood.forEach { (foodId, tags) -> put(DiarySourceType.FOOD to foodId, tags) }
+                recipes.forEach { recipe ->
+                    if (recipe.tags.isNotEmpty()) put(DiarySourceType.RECIPE to recipe.recipe.id, recipe.tags)
+                }
+            }
+            bySource to allTags.map { it.id }
+        }
+
+    /** The day's drinks as one flow, so the state below stays inside `combine`'s typed overloads. */
+    private val fluidDay: (Long) -> Flow<Pair<List<FluidEntry>, List<FluidType>>> = { epochDay ->
+        combine(fluidRepository.observeForDay(epochDay), fluidRepository.observeTypes()) { entries, types ->
+            entries to types
+        }
+    }
 
     val uiState: StateFlow<DiaryDayUiState> = _selectedEpochDay
         .flatMapLatest { epochDay ->
@@ -61,9 +103,10 @@ class DiaryViewModel @Inject constructor(
                 diaryRepository.observeForDay(epochDay),
                 diaryRepository.observeDayNutritionTotals(epochDay),
                 userPreferencesRepository.userPreferences,
-                fluidRepository.observeForDay(epochDay),
-                fluidRepository.observeTypes(),
-            ) { entries, totals, prefs, fluidEntries, fluidTypes ->
+                fluidDay(epochDay),
+                tagContext,
+            ) { entries, totals, prefs, fluid, (tagsBySource, tagOrder) ->
+                val (fluidEntries, fluidTypes) = fluid
                 DiaryDayUiState(
                     epochDay = epochDay,
                     entriesByMeal = entries.groupBy { it.mealType },
@@ -72,6 +115,8 @@ class DiaryViewModel @Inject constructor(
                     fluidEntries = fluidEntries,
                     fluidTypes = fluidTypes,
                     fluidGoalMl = prefs.dailyWaterGoalMl,
+                    tagsBySource = tagsBySource,
+                    tagOrder = tagOrder,
                 )
             }
         }

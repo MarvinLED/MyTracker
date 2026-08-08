@@ -1,6 +1,7 @@
 package com.example.prokject2_tracker.nutrition.food
 
 import androidx.room.Dao
+import androidx.room.Delete
 import androidx.room.Insert
 import androidx.room.Query
 import androidx.room.Transaction
@@ -23,6 +24,13 @@ interface TagDao {
 
     @Upsert
     suspend fun upsert(tag: Tag)
+
+    @Delete
+    suspend fun delete(tag: Tag)
+
+    /** How many Lebensmittel carry this tag — what the delete confirmation says out loud. */
+    @Query("SELECT COUNT(*) FROM food_item_tags WHERE tagId = :tagId")
+    suspend fun usageCount(tagId: String): Int
 
     @Query("SELECT * FROM food_item_tags")
     fun observeAllFoodItemTags(): Flow<List<FoodItemTag>>
@@ -47,6 +55,21 @@ interface TagDao {
             insertFoodItemTags(tagIds.map { FoodItemTag(foodItemId = foodItemId, tagId = it) })
         }
     }
+
+    @Query("SELECT * FROM tag_implications")
+    fun observeAllImplications(): Flow<List<TagImplication>>
+
+    @Query("SELECT * FROM tag_implications")
+    suspend fun getAllImplicationsOnce(): List<TagImplication>
+
+    @Upsert
+    suspend fun upsertImplication(row: TagImplication)
+
+    @Query("DELETE FROM tag_implications WHERE childTagId = :childTagId AND parentTagId = :parentTagId")
+    suspend fun deleteImplication(childTagId: String, parentTagId: String)
+
+    @Query("DELETE FROM tag_implications")
+    suspend fun deleteAllImplications()
 
     /** Wipes the Tags for a replacing import; the `food_item_tags` rows cascade with them. */
     @Query("DELETE FROM tags")

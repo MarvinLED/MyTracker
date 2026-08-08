@@ -2,6 +2,8 @@ package com.example.prokject2_tracker.nutrition.diary
 
 import com.example.prokject2_tracker.nutrition.food.FoodItem
 import com.example.prokject2_tracker.nutrition.food.Tag
+import com.example.prokject2_tracker.nutrition.food.TagImplication
+import com.example.prokject2_tracker.nutrition.food.tagFilterClosure
 import com.example.prokject2_tracker.nutrition.recipe.RecipeWithNutrition
 
 sealed class DiaryPickerItem {
@@ -24,7 +26,17 @@ sealed class DiaryPickerItem {
     }
 }
 
-fun List<DiaryPickerItem>.filteredForPicker(mode: DiaryPickerMode, tagId: String?): List<DiaryPickerItem> {
+/**
+ * [implications] widens the tag filter downwards: picking "vegetarisch" also keeps items that only
+ * carry "vegan", because vegan implies vegetarisch. Only the filter widens — an item's own
+ * [DiaryPickerItem.tags] stay exactly what the user assigned, so nothing grows a label it was never
+ * given.
+ */
+fun List<DiaryPickerItem>.filteredForPicker(
+    mode: DiaryPickerMode,
+    tagId: String?,
+    implications: List<TagImplication> = emptyList(),
+): List<DiaryPickerItem> {
     var result = this
 
     when (mode) {
@@ -34,8 +46,9 @@ fun List<DiaryPickerItem>.filteredForPicker(mode: DiaryPickerMode, tagId: String
     }
 
     if (tagId != null) {
+        val matching = tagFilterClosure(tagId, implications)
         result = result.filter { item ->
-            item.tags.any { it.id == tagId }
+            item.tags.any { it.id in matching }
         }
     }
 

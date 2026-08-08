@@ -10,6 +10,7 @@ import com.example.prokject2_tracker.nutrition.food.FoodItem
 import com.example.prokject2_tracker.nutrition.food.FoodRepository
 import com.example.prokject2_tracker.nutrition.food.FoodUnit
 import com.example.prokject2_tracker.nutrition.food.Tag
+import com.example.prokject2_tracker.nutrition.food.TagImplication
 import com.example.prokject2_tracker.nutrition.food.TagRepository
 import com.example.prokject2_tracker.nutrition.food.amountInBaseUnits
 import com.example.prokject2_tracker.nutrition.food.defaultAmountText
@@ -77,6 +78,13 @@ class DiaryAddEntryViewModel @Inject constructor(
     private val _query = MutableStateFlow("")
     val query: StateFlow<String> = _query.asStateFlow()
 
+    /**
+     * Whether the search field is unfolded. Kept here rather than in the composable so it survives a
+     * rotation, and so the mode buttons can fold it away along with the query they already clear.
+     */
+    private val _searchExpanded = MutableStateFlow(false)
+    val searchExpanded: StateFlow<Boolean> = _searchExpanded.asStateFlow()
+
     private val _sort = MutableStateFlow(DiaryPickerSort.LAST_EATEN)
     val sort: StateFlow<DiaryPickerSort> = _sort.asStateFlow()
 
@@ -87,6 +95,10 @@ class DiaryAddEntryViewModel @Inject constructor(
     val mealType: StateFlow<MealType> = _mealType.asStateFlow()
 
     val allTags: StateFlow<List<Tag>> = tagRepository.observeAllTags()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    /** Widens the tag filter: picking "vegetarisch" also keeps the vegan-only items. */
+    private val tagImplications: StateFlow<List<TagImplication>> = tagRepository.observeAllImplications()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     private val foodResults: StateFlow<List<FoodItem>> = _query
@@ -120,8 +132,8 @@ class DiaryAddEntryViewModel @Inject constructor(
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     private val filteredItems: StateFlow<List<DiaryPickerItem>> =
-        combine(unifiedItems, _mode, _selectedTagId) { items, mode, tagId ->
-            items.filteredForPicker(mode, tagId)
+        combine(unifiedItems, _mode, _selectedTagId, tagImplications) { items, mode, tagId, implications ->
+            items.filteredForPicker(mode, tagId, implications)
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val pickerItems: StateFlow<List<DiaryPickerItem>> =
@@ -159,6 +171,7 @@ class DiaryAddEntryViewModel @Inject constructor(
         _mode.value = mode
         if (mode != DiaryPickerMode.QUICK) _listMode.value = mode
         _query.value = ""
+        _searchExpanded.value = false
         _selectedTagId.value = null
         _expandedItem.value = null
         _amountText.value = ""
@@ -176,6 +189,17 @@ class DiaryAddEntryViewModel @Inject constructor(
     }
 
     fun onQueryChange(value: String) { _query.value = value }
+
+    /**
+     * Folding the field away also clears what was typed in it. A search that keeps filtering the
+     * list from behind a collapsed button would be a trap: the list would be short and nothing on
+     * screen would say why.
+     */
+    fun onSearchToggle() {
+        val expanded = !_searchExpanded.value
+        _searchExpanded.value = expanded
+        if (!expanded) _query.value = ""
+    }
 
     fun onSortChange(sort: DiaryPickerSort) { _sort.value = sort }
 

@@ -3,6 +3,7 @@ package com.example.prokject2_tracker.nutrition.diary
 import com.example.prokject2_tracker.nutrition.food.BaseUnit
 import com.example.prokject2_tracker.nutrition.food.FoodItem
 import com.example.prokject2_tracker.nutrition.food.Tag
+import com.example.prokject2_tracker.nutrition.food.TagImplication
 import com.example.prokject2_tracker.nutrition.recipe.Recipe
 import com.example.prokject2_tracker.nutrition.recipe.RecipeWithNutrition
 import com.example.prokject2_tracker.nutrition.NutritionTotals
@@ -111,6 +112,53 @@ class DiaryPickerItemTest {
         val result = items.filteredForPicker(DiaryPickerMode.ALL, "tag-nonexistent")
 
         assertEquals(0, result.size)
+    }
+
+    @Test
+    fun filteredForPicker_byTag_widensToTagsThatImplyIt() {
+        // vegan ⇒ vegetarisch: asking for vegetarisch has to turn up the vegan-only food too.
+        val vegetarisch = Tag(id = "vegetarisch", name = "vegetarisch", createdAt = now)
+        val vegan = Tag(id = "vegan", name = "vegan", createdAt = now)
+        val items = listOf(
+            DiaryPickerItem.Food(food1, listOf(vegan)),
+            DiaryPickerItem.Food(food2, listOf(vegetarisch)),
+            DiaryPickerItem.Recipe(recipe1),  // has tag1 only
+        )
+        val implications = listOf(TagImplication(childTagId = vegan.id, parentTagId = vegetarisch.id))
+
+        val result = items.filteredForPicker(DiaryPickerMode.ALL, vegetarisch.id, implications)
+
+        assertEquals(setOf("Banana", "Apple"), result.map { it.name }.toSet())
+    }
+
+    @Test
+    fun filteredForPicker_byTag_doesNotWidenTheOtherWay() {
+        // Not every vegetarian food is vegan — filtering the narrower tag must stay narrow.
+        val vegetarisch = Tag(id = "vegetarisch", name = "vegetarisch", createdAt = now)
+        val vegan = Tag(id = "vegan", name = "vegan", createdAt = now)
+        val items = listOf(
+            DiaryPickerItem.Food(food1, listOf(vegan)),
+            DiaryPickerItem.Food(food2, listOf(vegetarisch)),
+        )
+        val implications = listOf(TagImplication(childTagId = vegan.id, parentTagId = vegetarisch.id))
+
+        val result = items.filteredForPicker(DiaryPickerMode.ALL, vegan.id, implications)
+
+        assertEquals(listOf("Banana"), result.map { it.name })
+    }
+
+    @Test
+    fun filteredForPicker_byTag_ignoresImplicationsOfOtherTags() {
+        // An unrelated implication in the graph must not widen this filter at all.
+        val items = listOf(
+            DiaryPickerItem.Food(food1, listOf(tag1)),
+            DiaryPickerItem.Food(food2, listOf(tag2)),
+        )
+        val implications = listOf(TagImplication(childTagId = "vegan", parentTagId = "vegetarisch"))
+
+        val result = items.filteredForPicker(DiaryPickerMode.ALL, tag1.id, implications)
+
+        assertEquals(listOf("Banana"), result.map { it.name })
     }
 
     @Test

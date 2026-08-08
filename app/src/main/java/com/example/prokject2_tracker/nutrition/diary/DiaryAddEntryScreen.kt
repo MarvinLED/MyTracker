@@ -4,6 +4,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -25,6 +26,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AllInclusive
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Brightness1
 import androidx.compose.material.icons.filled.Brightness5
@@ -37,6 +39,8 @@ import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FloatingActionButton
@@ -59,8 +63,11 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -73,7 +80,11 @@ import com.example.prokject2_tracker.core.ui.dismissingKeyboard
 import com.example.prokject2_tracker.core.util.formatCompact
 import com.example.prokject2_tracker.core.util.toLocaleDoubleOrNull
 import com.example.prokject2_tracker.nutrition.food.FoodAmountInput
+import com.example.prokject2_tracker.nutrition.food.Tag
+import com.example.prokject2_tracker.nutrition.food.TagDot
+import com.example.prokject2_tracker.nutrition.food.TagDots
 import com.example.prokject2_tracker.nutrition.food.amountInBaseUnits
+import com.example.prokject2_tracker.nutrition.food.displayColor
 import com.example.prokject2_tracker.nutrition.recipe.RecipeWithNutrition
 import com.example.prokject2_tracker.ui.theme.AppDomain
 import kotlinx.coroutines.launch
@@ -90,9 +101,12 @@ fun DiaryAddEntryScreen(
     val mode by viewModel.mode.collectAsState()
     val listMode by viewModel.listMode.collectAsState()
     val query by viewModel.query.collectAsState()
+    val searchExpanded by viewModel.searchExpanded.collectAsState()
     val sort by viewModel.sort.collectAsState()
     val selectedTagId by viewModel.selectedTagId.collectAsState()
     val allTags by viewModel.allTags.collectAsState()
+    // The library order behind every tag colour on this screen — see TagColors.displayColor.
+    val tagOrder = remember(allTags) { allTags.map { it.id } }
     val pickerItems by viewModel.pickerItems.collectAsState()
     val expandedItem by viewModel.expandedItem.collectAsState()
     val amountText by viewModel.amountText.collectAsState()
@@ -104,11 +118,18 @@ fun DiaryAddEntryScreen(
     val focusManager = LocalFocusManager.current
     val snackbarHostState = remember { SnackbarHostState() }
     val listState = rememberLazyListState()
+    val searchFocusRequester = remember { FocusRequester() }
 
     LaunchedEffect(Unit) {
         viewModel.addedConfirmation.collect { name ->
             snackbarHostState.showSnackbar("\"$name\" hinzugefügt")
         }
+    }
+
+    // Unfolding the field is the whole gesture — asking for a second tap to start typing would
+    // make the button worse than the always-visible field it replaced.
+    LaunchedEffect(searchExpanded) {
+        if (searchExpanded) searchFocusRequester.requestFocus()
     }
 
     Scaffold(
@@ -155,6 +176,17 @@ fun DiaryAddEntryScreen(
                     icon = getModeIcon(DiaryPickerMode.QUICK),
                     label = DiaryPickerMode.QUICK.label(),
                 )
+                // Sits with the list controls rather than among the four Tageszeiten, which are a
+                // different kind of choice: these three say what the list shows, those say which
+                // meal the entry lands in.
+                if (mode != DiaryPickerMode.QUICK) {
+                    IconButtonWithTooltip(
+                        isSelected = searchExpanded,
+                        onClick = viewModel::onSearchToggle,
+                        icon = Icons.Filled.Search,
+                        label = "Suche",
+                    )
+                }
                 MealType.entries.forEach { type ->
                     IconButtonWithTooltip(
                         isSelected = mealType == type,
@@ -169,28 +201,35 @@ fun DiaryAddEntryScreen(
             if (mode == DiaryPickerMode.QUICK) {
                 QuickEntryForm(state = quick, viewModel = viewModel)
             } else {
-                // Search field
-                OutlinedTextField(
-                    value = query,
-                    onValueChange = viewModel::onQueryChange,
-                    label = { Text("Suche") },
-                    leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
-                    trailingIcon = {
-                        if (query.isNotBlank()) {
-                            IconButton(onClick = { viewModel.onQueryChange("") }) {
-                                Icon(Icons.Filled.Close, contentDescription = "Suche leeren")
+                // Search field — only while unfolded, so the list starts higher up the rest of the
+                // time. Folding it back clears the query (see the ViewModel), so what is on screen
+                // always accounts for how short the list is.
+                if (searchExpanded) {
+                    OutlinedTextField(
+                        value = query,
+                        onValueChange = viewModel::onQueryChange,
+                        label = { Text("Suche") },
+                        leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
+                        trailingIcon = {
+                            if (query.isNotBlank()) {
+                                IconButton(onClick = { viewModel.onQueryChange("") }) {
+                                    Icon(Icons.Filled.Close, contentDescription = "Suche leeren")
+                                }
                             }
-                        }
-                    },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                    modifier = Modifier.fillMaxWidth(),
-                )
+                        },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .focusRequester(searchFocusRequester),
+                    )
+                }
 
-                // Sort chips
-                androidx.compose.foundation.layout.FlowRow(
+                // Sort chips and the tag filter share one row.
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
                     DiaryPickerSort.entries.forEach { s ->
                         FilterChip(
@@ -199,28 +238,15 @@ fun DiaryAddEntryScreen(
                             label = { Text(s.label()) },
                         )
                     }
-                }
-
-                // Tag chips (horizontally scrolling)
-                if (allTags.isNotEmpty()) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .horizontalScroll(rememberScrollState()),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        FilterChip(
-                            selected = selectedTagId == null,
-                            onClick = { viewModel.onTagSelected(null) },
-                            label = { Text("Alle") },
+                    if (allTags.isNotEmpty()) {
+                        TagFilterDropdown(
+                            tags = allTags,
+                            selectedTagId = selectedTagId,
+                            onTagSelected = viewModel::onTagSelected,
+                            // Gives way before the sort chips do, and only as far as it needs to —
+                            // a long tag name ellipsizes instead of pushing the row off screen.
+                            modifier = Modifier.weight(1f, fill = false),
                         )
-                        allTags.forEach { tag ->
-                            FilterChip(
-                                selected = selectedTagId == tag.id,
-                                onClick = { viewModel.onTagSelected(tag.id) },
-                                label = { Text(tag.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                            )
-                        }
                     }
                 }
 
@@ -238,6 +264,7 @@ fun DiaryAddEntryScreen(
                             item = item,
                             isExpanded = expandedItem?.id == item.id && expandedItem?.sourceType == item.sourceType,
                             showTypeLabel = mode == DiaryPickerMode.ALL,
+                            tagOrder = tagOrder,
                             onClick = { viewModel.onRowTapped(item) },
                         )
 
@@ -296,11 +323,74 @@ fun DiaryAddEntryScreen(
     }
 }
 
+/**
+ * The tag filter as one chip that opens a menu, rather than a scrolling row of chips. Single
+ * selection: "Alle" clears it, any other entry replaces what was picked.
+ *
+ * A plain [DropdownMenu] anchored on the chip, not an `ExposedDropdownMenuBox` — that one expects a
+ * text field as its anchor, and this row has no room for one.
+ */
+@Composable
+private fun TagFilterDropdown(
+    tags: List<Tag>,
+    selectedTagId: String?,
+    onTagSelected: (String?) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val selectedTag = tags.firstOrNull { it.id == selectedTagId }
+    val tagOrder = tags.map { it.id }
+
+    Box(modifier = modifier) {
+        FilterChip(
+            selected = selectedTagId != null,
+            onClick = { expanded = true },
+            label = {
+                Text(
+                    selectedTag?.name ?: "Tags",
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            },
+            leadingIcon = selectedTag?.let { tag ->
+                { TagDot(color = tag.displayColor(tagOrder.indexOf(tag.id).coerceAtLeast(0)), size = 12) }
+            },
+            trailingIcon = { Icon(Icons.Filled.ArrowDropDown, contentDescription = "Tag wählen") },
+        )
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            DropdownMenuItem(
+                text = { Text("Alle") },
+                onClick = {
+                    onTagSelected(null)
+                    expanded = false
+                },
+                trailingIcon = {
+                    if (selectedTagId == null) Icon(Icons.Filled.Check, contentDescription = null)
+                },
+            )
+            tags.forEachIndexed { index, tag ->
+                DropdownMenuItem(
+                    text = { Text(tag.name) },
+                    onClick = {
+                        onTagSelected(tag.id)
+                        expanded = false
+                    },
+                    leadingIcon = { TagDot(color = tag.displayColor(index), size = 12) },
+                    trailingIcon = {
+                        if (selectedTagId == tag.id) Icon(Icons.Filled.Check, contentDescription = null)
+                    },
+                )
+            }
+        }
+    }
+}
+
 @Composable
 private fun ItemRow(
     item: DiaryPickerItem,
     isExpanded: Boolean,
     showTypeLabel: Boolean,
+    tagOrder: List<String>,
     onClick: () -> Unit,
 ) {
     Card(
@@ -350,12 +440,23 @@ private fun ItemRow(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                // Names *and* dots here: the row has the width for both, and it is where the user
+                // learns which colour belongs to which tag before meeting the dots alone in the
+                // Tagebuch.
                 if (item.tags.isNotEmpty()) {
-                    Text(
-                        item.tags.joinToString(" · ") { it.name },
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        TagDots(tags = item.tags, tagOrder = tagOrder)
+                        Text(
+                            item.tags.joinToString(" · ") { it.name },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
                 }
             }
             if (isExpanded) {

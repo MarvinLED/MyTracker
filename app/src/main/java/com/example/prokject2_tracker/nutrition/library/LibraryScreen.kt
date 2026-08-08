@@ -20,6 +20,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import com.example.prokject2_tracker.nutrition.food.FoodListContent
+import com.example.prokject2_tracker.nutrition.food.TagListContent
 import com.example.prokject2_tracker.nutrition.recipe.RecipeListContent
 import com.example.prokject2_tracker.ui.theme.AppDomain
 import com.example.prokject2_tracker.ui.theme.topAppBarColors
@@ -35,7 +36,7 @@ fun LibraryScreen(
     modifier: Modifier = Modifier,
 ) {
     var selectedTab by remember { mutableIntStateOf(0) }
-    val tabs = listOf("Lebensmittel", "Rezepte")
+    val tabs = listOf("Lebensmittel", "Rezepte", "Tags")
 
     Scaffold(
         modifier = modifier,
@@ -66,6 +67,7 @@ fun LibraryScreen(
             when (selectedTab) {
                 0 -> FoodListContent(onAddFood = onAddFood, onEditFood = onEditFood, modifier = Modifier.weight(1f))
                 1 -> RecipeListContent(onAddRecipe = onAddRecipe, onEditRecipe = onEditRecipe, modifier = Modifier.weight(1f))
+                2 -> TagListContent(modifier = Modifier.weight(1f))
             }
         }
     }

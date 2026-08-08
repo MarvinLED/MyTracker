@@ -48,6 +48,7 @@ import com.example.prokject2_tracker.nutrition.food.FoodUnit
 import com.example.prokject2_tracker.nutrition.food.FoodUnitDao
 import com.example.prokject2_tracker.nutrition.food.Tag
 import com.example.prokject2_tracker.nutrition.food.TagDao
+import com.example.prokject2_tracker.nutrition.food.TagImplication
 import com.example.prokject2_tracker.nutrition.recipe.Recipe
 import com.example.prokject2_tracker.nutrition.recipe.RecipeDao
 import com.example.prokject2_tracker.nutrition.recipe.RecipeIngredient
@@ -88,6 +89,7 @@ import com.example.prokject2_tracker.weight.BodyWeightEntry
         HabitGoal::class,
         Tag::class,
         FoodItemTag::class,
+        TagImplication::class,
         BodyWeightEntry::class,
         FitnessGoal::class,
         BodySite::class,
@@ -100,7 +102,7 @@ import com.example.prokject2_tracker.weight.BodyWeightEntry
         Task::class,
         TaskCompletion::class,
     ],
-    version = 22,
+    version = 23,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)

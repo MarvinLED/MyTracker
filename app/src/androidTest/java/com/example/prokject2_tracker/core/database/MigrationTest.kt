@@ -5,6 +5,7 @@ import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -693,6 +694,55 @@ class MigrationTest {
         // Deleting the task takes its history with it; nothing is left pointing at a gone rule.
         db.execSQL("DELETE FROM tasks WHERE id = 'task-1'")
         db.query("SELECT COUNT(*) FROM task_completions").use { cursor ->
+            cursor.moveToFirst()
+            assertEquals(0, cursor.getInt(0))
+        }
+        db.close()
+    }
+
+    @Test
+    fun migrate22To23_addsTagColourAndKeepsExistingTagsAutomatic() {
+        val v22 = helper.createDatabase(dbName, 22)
+        v22.execSQL("INSERT INTO tags (id, name, createdAt) VALUES ('tag-1', 'vegan', 1700000000000)")
+        v22.close()
+
+        val db = helper.runMigrationsAndValidate(dbName, 23, true, MIGRATION_22_23)
+
+        // A tag that predates colours has to come out as "automatisch", not as some stray argb.
+        db.query("SELECT colorArgb FROM tags WHERE id = 'tag-1'").use { cursor ->
+            cursor.moveToFirst()
+            assertTrue(cursor.isNull(0))
+        }
+
+        db.execSQL("UPDATE tags SET colorArgb = -16776961 WHERE id = 'tag-1'")
+        db.query("SELECT colorArgb FROM tags WHERE id = 'tag-1'").use { cursor ->
+            cursor.moveToFirst()
+            assertEquals(-16776961, cursor.getInt(0))
+        }
+        db.close()
+    }
+
+    @Test
+    fun migrate22To23_tagImplicationsCascadeWithTheirTags() {
+        helper.createDatabase(dbName, 22).close()
+
+        val db = helper.runMigrationsAndValidate(dbName, 23, true, MIGRATION_22_23)
+
+        db.execSQL("INSERT INTO tags (id, name, createdAt) VALUES ('vegan', 'vegan', 1700000000000)")
+        db.execSQL("INSERT INTO tags (id, name, createdAt) VALUES ('vegetarisch', 'vegetarisch', 1700000000000)")
+        db.execSQL("INSERT INTO tag_implications (childTagId, parentTagId) VALUES ('vegan', 'vegetarisch')")
+
+        db.query("SELECT childTagId, parentTagId FROM tag_implications").use { cursor ->
+            cursor.moveToFirst()
+            assertEquals("vegan", cursor.getString(0))
+            assertEquals("vegetarisch", cursor.getString(1))
+        }
+
+        db.execSQL("PRAGMA foreign_keys = ON")
+        // Deleting either end takes the dependency with it — no row may point at a gone tag. The
+        // parent is the interesting side: it is the second foreign key, not the primary key's own.
+        db.execSQL("DELETE FROM tags WHERE id = 'vegetarisch'")
+        db.query("SELECT COUNT(*) FROM tag_implications").use { cursor ->
             cursor.moveToFirst()
             assertEquals(0, cursor.getInt(0))
         }

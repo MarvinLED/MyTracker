@@ -59,6 +59,8 @@ import com.example.prokject2_tracker.core.util.formatCompact
 import com.example.prokject2_tracker.fluid.FluidQuickAddArea
 import com.example.prokject2_tracker.fluid.fluidDistributionSlices
 import com.example.prokject2_tracker.fluid.fluidQuickAddItems
+import com.example.prokject2_tracker.nutrition.food.Tag
+import com.example.prokject2_tracker.nutrition.food.TagDots
 import com.example.prokject2_tracker.nutrition.food.formatAmount
 import com.example.prokject2_tracker.ui.theme.DiaryBlue
 import java.time.LocalTime
@@ -234,6 +236,8 @@ fun DiaryScreen(
                                 MealBlock(
                                     mealType = mealType,
                                     entries = uiState.entriesByMeal[mealType].orEmpty(),
+                                    tagsBySource = uiState.tagsBySource,
+                                    tagOrder = uiState.tagOrder,
                                     canPaste = copiedMeal != null,
                                     onAddEntry = { onAddEntry(uiState.epochDay, mealType) },
                                     onCopyMeal = { viewModel.copyMeal(mealType) },
@@ -339,6 +343,8 @@ private fun DiaryCard(content: @Composable () -> Unit) {
 private fun MealBlock(
     mealType: MealType,
     entries: List<DiaryEntry>,
+    tagsBySource: Map<Pair<DiarySourceType, String>, List<Tag>>,
+    tagOrder: List<String>,
     canPaste: Boolean,
     onAddEntry: () -> Unit,
     onCopyMeal: () -> Unit,
@@ -401,6 +407,8 @@ private fun MealBlock(
             entries.forEach { entry ->
                 DiaryEntryRow(
                     entry = entry,
+                    tags = tagsBySource[entry.sourceType to entry.sourceId].orEmpty(),
+                    tagOrder = tagOrder,
                     onEdit = { onEditEntry(entry.id) },
                     onDelete = { onDeleteEntry(entry) },
                 )
@@ -410,7 +418,13 @@ private fun MealBlock(
 }
 
 @Composable
-private fun DiaryEntryRow(entry: DiaryEntry, onEdit: () -> Unit, onDelete: () -> Unit) {
+private fun DiaryEntryRow(
+    entry: DiaryEntry,
+    tags: List<Tag>,
+    tagOrder: List<String>,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit,
+) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
@@ -418,7 +432,15 @@ private fun DiaryEntryRow(entry: DiaryEntry, onEdit: () -> Unit, onDelete: () ->
         Column(modifier = Modifier.weight(1f).clickable(onClick = onEdit)) {
             // Smaller than the meal heading above it — it used to be the larger of the two, which
             // made the entries read as the headings.
-            Text(entry.sourceName, style = MaterialTheme.typography.bodyMedium)
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                // Dots rather than names: this row is already tight, and spelling the tags out
+                // would either wrap it or crowd out the food's own name.
+                TagDots(tags = tags, tagOrder = tagOrder)
+                Text(entry.sourceName, style = MaterialTheme.typography.bodyMedium)
+            }
             // A Schnelleintrag has no meaningful quantity — its "1 Schnelleintrag" would just be noise.
             val details = if (entry.sourceType == DiarySourceType.QUICK) {
                 "${entry.quantityUnit} · ${entry.kcal.formatCompact()} kcal"
