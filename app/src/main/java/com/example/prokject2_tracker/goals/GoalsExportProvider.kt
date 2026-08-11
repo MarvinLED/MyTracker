@@ -39,6 +39,16 @@ data class FitnessGoalDto(
 )
 
 @Serializable
+data class NutrientGoalChangeDto(
+    val id: String,
+    val nutrient: Nutrient,
+    val effectiveFromEpochDay: Long,
+    val min: Double? = null,
+    val max: Double? = null,
+    val changedAtEpochMillis: Long,
+)
+
+@Serializable
 data class GoalsDto(
     val dailyWaterGoalMl: Double = DEFAULT_WATER_GOAL_ML,
     val nutrientGoals: List<NutrientGoalDto> = emptyList(),
@@ -47,6 +57,30 @@ data class GoalsDto(
     val sleepDurationMaxMinutes: Double? = null,
     val bedtimeGoalMinuteOfDay: Int? = null,
     val fitnessGoals: List<FitnessGoalDto> = emptyList(),
+    /**
+     * When the nutrient goals were moved. Irreplaceable in a way the goals themselves are not: a
+     * lost target can be typed in again, a lost record of when it changed cannot be reconstructed
+     * from anything.
+     */
+    val nutrientGoalChanges: List<NutrientGoalChangeDto> = emptyList(),
+)
+
+private fun NutrientGoalChange.toDto() = NutrientGoalChangeDto(
+    id = id,
+    nutrient = nutrient,
+    effectiveFromEpochDay = effectiveFromEpochDay,
+    min = minValue,
+    max = maxValue,
+    changedAtEpochMillis = changedAt.toEpochMilli(),
+)
+
+private fun NutrientGoalChangeDto.toEntity() = NutrientGoalChange(
+    id = id,
+    nutrient = nutrient,
+    effectiveFromEpochDay = effectiveFromEpochDay,
+    minValue = min,
+    maxValue = max,
+    changedAt = Instant.ofEpochMilli(changedAtEpochMillis),
 )
 
 private fun FitnessGoal.toDto() = FitnessGoalDto(
@@ -86,6 +120,7 @@ private fun FitnessGoalDto.toEntity() = FitnessGoal(
 class GoalsExportProvider @Inject constructor(
     private val userPreferencesRepository: UserPreferencesRepository,
     private val fitnessGoalDao: FitnessGoalDao,
+    private val nutrientGoalChangeDao: NutrientGoalChangeDao,
 ) : BackupExportProvider {
     override val key = "goals"
     override val scope = BackupScope.LIBRARY
@@ -105,6 +140,7 @@ class GoalsExportProvider @Inject constructor(
                 sleepDurationMaxMinutes = prefs.sleepDurationGoalMinutes?.max,
                 bedtimeGoalMinuteOfDay = prefs.bedtimeGoalMinuteOfDay,
                 fitnessGoals = fitnessGoalDao.getAllOnce().map { it.toDto() },
+                nutrientGoalChanges = nutrientGoalChangeDao.getAllOnce().map { it.toDto() },
             ),
         )
     }
@@ -137,6 +173,12 @@ class GoalsExportProvider @Inject constructor(
                 fitnessGoalDao.upsert(goalDto.toEntity())
             }
         }
+        // Append-only log, so a merge is "add the rows this device does not have". Matching on the
+        // id is enough: a change row is never edited after the fact, so same id means same event.
+        val knownIds = nutrientGoalChangeDao.getAllOnce().mapTo(mutableSetOf()) { it.id }
+        nutrientGoalChangeDao.insertAll(
+            dto.nutrientGoalChanges.filterNot { it.id in knownIds }.map { it.toEntity() },
+        )
     }
 
     override suspend fun clear() {
@@ -145,5 +187,8 @@ class GoalsExportProvider @Inject constructor(
         userPreferencesRepository.setSleepDurationGoal(null)
         userPreferencesRepository.setBedtimeGoal(null)
         fitnessGoalDao.deleteAll()
+        // Goes with the goals: a replacing import that kept the old log would date this device's
+        // history of changes to targets that are no longer here.
+        nutrientGoalChangeDao.deleteAll()
     }
 }

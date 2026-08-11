@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -83,7 +82,9 @@ fun DiaryEditEntryScreen(
     }
 
     Scaffold(
-        modifier = modifier.imePadding(),
+        // No imePadding here: AppScaffold's contentWindowInsets are safeDrawing, which already
+        // includes the IME, so adding it again left a keyboard-high empty strip at the bottom.
+        modifier = modifier,
         topBar = {
             TopAppBar(
                 title = { Text("Eintrag bearbeiten") },

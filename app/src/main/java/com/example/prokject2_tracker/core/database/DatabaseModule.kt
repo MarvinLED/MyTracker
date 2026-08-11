@@ -14,6 +14,7 @@ import com.example.prokject2_tracker.fluid.FluidDao
 import com.example.prokject2_tracker.fluid.FluidTypeDao
 import com.example.prokject2_tracker.fluid.FluidQuickAddDao
 import com.example.prokject2_tracker.fluid.FluidUnitDao
+import com.example.prokject2_tracker.goals.NutrientGoalChangeDao
 import com.example.prokject2_tracker.habit.HabitCheckInDao
 import com.example.prokject2_tracker.habit.HabitDao
 import com.example.prokject2_tracker.habit.HabitGoalDao
@@ -66,6 +67,7 @@ object DatabaseModule {
                 MIGRATION_20_21,
                 MIGRATION_21_22,
                 MIGRATION_22_23,
+                MIGRATION_23_24,
             )
             // Upgrades now always go through a real, data-preserving Migration above — a missing
             // migration crashes loudly in development instead of silently wiping a real user's
@@ -154,4 +156,8 @@ object DatabaseModule {
 
     @Provides
     fun provideTaskCompletionDao(database: AppDatabase): TaskCompletionDao = database.taskCompletionDao()
+
+    @Provides
+    fun provideNutrientGoalChangeDao(database: AppDatabase): NutrientGoalChangeDao =
+        database.nutrientGoalChangeDao()
 }

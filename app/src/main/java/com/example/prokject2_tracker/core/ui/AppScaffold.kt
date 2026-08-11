@@ -76,6 +76,10 @@ fun AppScaffold() {
             // Each screen's own TopAppBar already handles the status bar inset; without this,
             // Scaffold's default insets reserve that space a second time, leaving an empty strip
             // above every screen's top bar.
+            //
+            // safeDrawing includes the **IME**, so this also lifts every screen above the open
+            // keyboard. Screens must therefore not add an `imePadding()` of their own — that
+            // subtracts the keyboard twice and leaves a keyboard-high empty strip at the bottom.
             contentWindowInsets = WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal),
             bottomBar = {
                 NavigationBar {

@@ -9,10 +9,9 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -42,6 +41,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
@@ -133,7 +133,9 @@ fun DiaryAddEntryScreen(
     }
 
     Scaffold(
-        modifier = modifier.imePadding(),
+        // No imePadding here: AppScaffold's contentWindowInsets are safeDrawing, which already
+        // includes the IME, so adding it again left a keyboard-high empty strip below the list.
+        modifier = modifier,
         topBar = {
             TopAppBar(
                 title = { Text("Eintrag hinzufügen") },
@@ -148,6 +150,7 @@ fun DiaryAddEntryScreen(
     ) { padding ->
         Column(
             modifier = Modifier
+                .fillMaxSize()
                 .padding(padding)
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -250,12 +253,14 @@ fun DiaryAddEntryScreen(
                     }
                 }
 
-                // Unified picker list
+                // Unified picker list. Takes the whole remaining height rather than only as much as
+                // its rows need, so the scrollable area always runs down to the bottom of the frame
+                // — which, with the keyboard open, is the top of the keyboard.
                 LazyColumn(
                     state = listState,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .heightIn(min = if (pickerItems.isNotEmpty()) 200.dp else 0.dp),
+                        .weight(1f),
                     verticalArrangement = Arrangement.spacedBy(4.dp),
                     contentPadding = PaddingValues(bottom = 8.dp),
                 ) {
@@ -500,18 +505,28 @@ private fun ExpandedItemPanel(
                         onUnitSelected = onUnitSelected,
                         baseUnit = item.food.baseUnit,
                         modifier = Modifier.fillMaxWidth(),
+                        trailingContent = { AddButton(onConfirm) },
                     )
                 }
                 is DiaryPickerItem.Recipe -> {
-                    OutlinedTextField(
-                        value = amountText,
-                        onValueChange = onAmountChange,
-                        label = { Text("Portionen") },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Done),
-                        keyboardActions = KeyboardActions(onDone = { }),
-                        singleLine = true,
+                    // Same row, same place as for a Lebensmittel — the button must not move just
+                    // because the amount is called "Portionen" here.
+                    Row(
                         modifier = Modifier.fillMaxWidth(),
-                    )
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        OutlinedTextField(
+                            value = amountText,
+                            onValueChange = onAmountChange,
+                            label = { Text("Portionen") },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Done),
+                            keyboardActions = KeyboardActions(onDone = { }),
+                            singleLine = true,
+                            modifier = Modifier.weight(1f),
+                        )
+                        AddButton(onConfirm)
+                    }
                 }
             }
 
@@ -546,18 +561,20 @@ private fun ExpandedItemPanel(
                     }
                 }
             }
-
-            OutlinedButton(
-                onClick = dismissingKeyboard(onConfirm),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(44.dp),
-            ) {
-                Icon(Icons.Filled.Add, contentDescription = null)
-                Spacer(Modifier.width(8.dp))
-                Text("Hinzufügen")
-            }
         }
+    }
+}
+
+/**
+ * Confirms the amount, from the amount field's own line. Filled rather than outlined: reduced to a
+ * bare "+" it is still the panel's main action, and an outlined one would read as a peer of the
+ * field's own outline. The content description is the only name it has left, so it carries the word
+ * the button used to show.
+ */
+@Composable
+private fun AddButton(onConfirm: () -> Unit) {
+    FilledIconButton(onClick = dismissingKeyboard(onConfirm)) {
+        Icon(Icons.Filled.Add, contentDescription = "Hinzufügen")
     }
 }
 

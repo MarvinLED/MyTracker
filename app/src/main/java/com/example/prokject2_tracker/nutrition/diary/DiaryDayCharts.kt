@@ -42,7 +42,7 @@ import com.example.prokject2_tracker.nutrition.NutritionTotals
  * normal-vision ΔE 19.3, all ≥ 3:1 on the card surface); the second row takes three of the palette's
  * remaining slots, and since the two rows sit above each other the six are all distinct as a set.
  */
-private val NutrientColors = mapOf(
+val NutrientColors = mapOf(
     Nutrient.PROTEIN to Color(0xFF3987E5), // blau
     Nutrient.CARBS to Color(0xFFC98500), // gelb
     Nutrient.FAT to Color(0xFFD55181), // magenta
@@ -50,6 +50,15 @@ private val NutrientColors = mapOf(
     Nutrient.FIBER to Color(0xFF199E70), // aqua
     Nutrient.SALT to Color(0xFF9085E9), // violett
 )
+
+/**
+ * The two palette slots [NutrientColors] leaves unused. Kalorien is not in that map because the
+ * day's calories are their own bar rather than one of the nutrient bars, and Gewicht is not a
+ * nutrient at all — but on the Verlauf chart both are lines beside the nutrients and need a hue out
+ * of the same eight, or they would collide with one.
+ */
+val KcalColor = Color(0xFFE66767) // rot
+val WeightColor = Color(0xFF0E9A2B) // grün
 
 /** The three macros, left to right — the row that is always visible. */
 private val MacroOrder = listOf(Nutrient.CARBS, Nutrient.PROTEIN, Nutrient.FAT)

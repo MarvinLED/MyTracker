@@ -7,11 +7,13 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -29,7 +31,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.style.TextAlign
@@ -47,7 +53,20 @@ data class ChartLine(
     val color: Color,
     val points: List<MetricPoint>,
     val zeroBased: Boolean = true,
+    /**
+     * Draws the series as a dashed stroke. For pairing two lines that belong together on one hue —
+     * a target and what was actually reached — where a second colour would claim they are unrelated
+     * and the palette would run out besides.
+     */
+    val dashed: Boolean = false,
 )
+
+/**
+ * Above this many series the overlaid mode stops giving each one a min/max column of its own: past
+ * three columns the gutter costs more plot width than the axis labels are worth. The ranges move
+ * into the legend instead, so every series still discloses its own scale.
+ */
+private const val MaxGutterColumns = 3
 
 /**
  * A line chart over dates, with a real date axis and a draggable crosshair that reads out the exact
@@ -132,8 +151,15 @@ fun DatedLineChart(
         DateAxisLabels(minDay = minDay, maxDay = maxDay)
 
         if (drawable.size >= 2) {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                drawable.forEach { LegendEntry(it) }
+            // Wraps: a dozen series would otherwise run off the side and the ones past the edge
+            // would be the only clue to which colour is which.
+            FlowRow(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                val showRanges = overlaid && drawable.size > MaxGutterColumns
+                drawable.forEach { LegendEntry(it, scale = if (showRanges) scaleOf(it) else null) }
             }
         }
     }
@@ -146,7 +172,9 @@ fun DatedLineChart(
 @Composable
 private fun SelectionReadout(lines: List<ChartLine>, selectedDay: Long?) {
     val dateFormatter = remember { DateTimeFormatter.ofPattern("EEE, d. MMM yyyy", Locale.GERMAN) }
-    Box(modifier = Modifier.fillMaxWidth().height(38.dp), contentAlignment = Alignment.CenterStart) {
+    // A floor rather than a fixed height: with a handful of series the box never changes size, and
+    // with a dozen it grows instead of cutting the values off.
+    Box(modifier = Modifier.fillMaxWidth().heightIn(min = 38.dp), contentAlignment = Alignment.CenterStart) {
         if (selectedDay == null) {
             Text(
                 "Tippe oder zieh im Diagramm für genaue Werte.",
@@ -163,11 +191,16 @@ private fun SelectionReadout(lines: List<ChartLine>, selectedDay: Long?) {
                         DateUtils.localDateOfEpochDay(selectedDay).format(dateFormatter),
                         style = MaterialTheme.typography.labelMedium,
                     )
-                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalArrangement = Arrangement.spacedBy(2.dp),
+                    ) {
                         lines.forEach { line ->
                             val value = line.points.firstOrNull { it.epochDay == selectedDay }?.value
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Box(modifier = Modifier.size(8.dp).background(line.color, CircleShape))
+                                // The same mark the legend uses, not a plain dot: two series may
+                                // share a hue and be told apart only by the dash.
+                                SeriesMark(line)
                                 Spacer(Modifier.width(4.dp))
                                 Text(
                                     value?.let { "${it.formatCompact()} ${line.unit}" } ?: "–",
@@ -218,27 +251,31 @@ private fun OverlaidPanel(
     val scales = remember(lines) { lines.map(::scaleOf) }
 
     Row(modifier = Modifier.fillMaxWidth().height(heightDp.dp)) {
-        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            lines.forEachIndexed { index, line ->
-                Column(
-                    modifier = Modifier.fillMaxHeight(),
-                    horizontalAlignment = Alignment.End,
-                ) {
-                    Text(
-                        scales[index].max.formatCompact(),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = line.color,
-                    )
-                    Spacer(Modifier.weight(1f))
-                    Text(
-                        scales[index].min.formatCompact(),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = line.color,
-                    )
+        // Past a few series the columns would leave no plot to speak of, so the ranges move to the
+        // legend instead — see [MaxGutterColumns].
+        if (lines.size <= MaxGutterColumns) {
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                lines.forEachIndexed { index, line ->
+                    Column(
+                        modifier = Modifier.fillMaxHeight(),
+                        horizontalAlignment = Alignment.End,
+                    ) {
+                        Text(
+                            scales[index].max.formatCompact(),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = line.color,
+                        )
+                        Spacer(Modifier.weight(1f))
+                        Text(
+                            scales[index].min.formatCompact(),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = line.color,
+                        )
+                    }
                 }
             }
+            Spacer(Modifier.width(6.dp))
         }
-        Spacer(Modifier.width(6.dp))
 
         Canvas(
             modifier = Modifier
@@ -272,15 +309,8 @@ private fun OverlaidPanel(
                 fun yFor(value: Double) =
                     size.height - (size.height * ((value - scale.min) / scale.range)).toFloat()
 
-                for (i in 0 until sorted.size - 1) {
-                    drawLine(
-                        color = line.color,
-                        start = Offset(xFor(sorted[i].epochDay), yFor(sorted[i].value)),
-                        end = Offset(xFor(sorted[i + 1].epochDay), yFor(sorted[i + 1].value)),
-                        strokeWidth = 4f,
-                        cap = StrokeCap.Round,
-                    )
-                }
+                drawSeries(line, sorted, ::xFor, ::yFor)
+
                 if (sorted.size <= 40) {
                     sorted.forEach { point ->
                         drawCircle(line.color, radius = 5f, center = Offset(xFor(point.epochDay), yFor(point.value)))
@@ -348,15 +378,7 @@ private fun LinePanel(
                 drawLine(crosshairColor, Offset(x, 0f), Offset(x, size.height), strokeWidth = 2f)
             }
 
-            for (i in 0 until sorted.size - 1) {
-                drawLine(
-                    color = line.color,
-                    start = Offset(xFor(sorted[i].epochDay), yFor(sorted[i].value)),
-                    end = Offset(xFor(sorted[i + 1].epochDay), yFor(sorted[i + 1].value)),
-                    strokeWidth = 4f,
-                    cap = StrokeCap.Round,
-                )
-            }
+            drawSeries(line, sorted, ::xFor, ::yFor)
 
             // Markers only when they'd stay distinguishable; a 365-day series would be a solid band.
             if (sorted.size <= 40) {
@@ -433,11 +455,64 @@ private fun DateAxisLabels(minDay: Long, maxDay: Long) {
     }
 }
 
+/**
+ * The whole series as one stroked path rather than a segment per pair of points. A dashed stroke
+ * needs it: applied per segment the pattern restarts at every point, which at a daily resolution
+ * renders as a solid line again. Round joins keep the solid case looking as it did when it was
+ * drawn as round-capped segments.
+ */
+private fun DrawScope.drawSeries(
+    line: ChartLine,
+    sorted: List<MetricPoint>,
+    xFor: (Long) -> Float,
+    yFor: (Double) -> Float,
+) {
+    if (sorted.size < 2) return
+    val path = Path().apply {
+        moveTo(xFor(sorted.first().epochDay), yFor(sorted.first().value))
+        sorted.drop(1).forEach { lineTo(xFor(it.epochDay), yFor(it.value)) }
+    }
+    drawPath(
+        path = path,
+        color = line.color,
+        style = Stroke(
+            width = 4f,
+            cap = StrokeCap.Round,
+            join = StrokeJoin.Round,
+            pathEffect = if (line.dashed) PathEffect.dashPathEffect(floatArrayOf(10f, 8f)) else null,
+        ),
+    )
+}
+
+/**
+ * A series' legend mark. Dashed series get a broken bar instead of a dot, because they share their
+ * hue with the solid series they belong to and the dot alone would make the two identical.
+ */
 @Composable
-private fun LegendEntry(line: ChartLine) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
+private fun SeriesMark(line: ChartLine) {
+    if (line.dashed) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(3.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            repeat(2) {
+                Box(modifier = Modifier.size(width = 5.dp, height = 3.dp).background(line.color, DashShape))
+            }
+        }
+    } else {
         Box(modifier = Modifier.size(10.dp).background(line.color, CircleShape))
+    }
+}
+
+private val DashShape = RoundedCornerShape(1.dp)
+
+/** [scale] non-null adds the series' own y range, for when the overlaid gutter is not drawing it. */
+@Composable
+private fun LegendEntry(line: ChartLine, scale: LineScale?) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        SeriesMark(line)
         Spacer(Modifier.width(6.dp))
-        Text("${line.label} (${line.unit})", style = MaterialTheme.typography.labelMedium)
+        val range = scale?.let { " ${it.min.formatCompact()}–${it.max.formatCompact()}" }.orEmpty()
+        Text("${line.label} (${line.unit})$range", style = MaterialTheme.typography.labelMedium)
     }
 }

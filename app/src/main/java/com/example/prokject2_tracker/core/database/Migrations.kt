@@ -852,3 +852,27 @@ object MIGRATION_22_23 : Migration(22, 23) {
         )
     }
 }
+
+object MIGRATION_23_24 : Migration(23, 24) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        // Nutrient goals live in DataStore, which overwrites in place — so until now, changing a
+        // target erased the previous one without trace and the Verlauf could only ever draw today's
+        // number backwards across all of history. This table logs the changes beside it.
+        //
+        // Nothing is backfilled, because there is nothing to backfill from: the DataStore holds
+        // exactly one undated value per nutrient. The log therefore starts empty and only becomes
+        // meaningful from the user's next goal change onwards, which the chart handles by running
+        // the oldest known value flat backwards.
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `nutrient_goal_changes` (`id` TEXT NOT NULL, " +
+                "`nutrient` TEXT NOT NULL, `effectiveFromEpochDay` INTEGER NOT NULL, " +
+                "`minValue` REAL, `maxValue` REAL, `changedAt` INTEGER NOT NULL, " +
+                "PRIMARY KEY(`id`))",
+        )
+        // Both columns together: every read is "this nutrient's rows, oldest first".
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS `index_nutrient_goal_changes_nutrient_effectiveFromEpochDay` " +
+                "ON `nutrient_goal_changes` (`nutrient`, `effectiveFromEpochDay`)",
+        )
+    }
+}

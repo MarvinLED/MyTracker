@@ -67,6 +67,7 @@ data class GoalsUiState(
 @HiltViewModel
 class GoalsViewModel @Inject constructor(
     private val userPreferencesRepository: UserPreferencesRepository,
+    private val nutrientGoalHistoryRepository: NutrientGoalHistoryRepository,
     private val fluidRepository: FluidRepository,
     private val fitnessGoalRepository: FitnessGoalRepository,
     private val strengthExerciseRepository: StrengthExerciseRepository,
@@ -200,15 +201,21 @@ class GoalsViewModel @Inject constructor(
         val s = _state.value
         viewModelScope.launch {
             s.waterGoal.toLocaleDoubleOrNull()?.let { userPreferencesRepository.setDailyWaterGoal(it) }
+            // Read once, before anything is written: the history needs the value each goal is
+            // moving away from, and it is about to be overwritten.
+            val previousGoals = userPreferencesRepository.userPreferences.first().nutrientGoals
             s.nutrientGoals.forEach { row ->
                 // Blank or unparseable clears that bound; both blank clears the goal outright.
                 val goal = NutrientGoal(
                     min = row.minText.toLocaleDoubleOrNull()?.takeIf { it > 0.0 },
                     max = row.maxText.toLocaleDoubleOrNull()?.takeIf { it > 0.0 },
                 )
-                userPreferencesRepository.setNutrientGoal(
+                // Goes through the history repository rather than straight to DataStore, so a
+                // changed target is written down as well as applied — see its KDoc.
+                nutrientGoalHistoryRepository.setGoal(
                     nutrient = row.nutrient,
-                    goal = goal.takeUnless { it.isEmpty },
+                    oldGoal = previousGoals[row.nutrient],
+                    newGoal = goal.takeUnless { it.isEmpty },
                 )
             }
             s.fluidTypeGoals.forEach { row ->

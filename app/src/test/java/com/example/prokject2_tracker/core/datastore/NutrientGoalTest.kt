@@ -60,6 +60,16 @@ class NutrientGoalTest {
     }
 
     @Test
+    fun lineTarget_isTheLowerBoundWhenThereIsOne() {
+        // The deliberate mirror image of barTarget: a bar ends at the upper bound, the Verlauf's
+        // Soll line follows what is being worked towards.
+        assertEquals(100.0, NutrientGoal(min = 100.0, max = 150.0).lineTarget)
+        assertEquals(100.0, NutrientGoal(min = 100.0).lineTarget)
+        assertEquals(50.0, NutrientGoal(max = 50.0).lineTarget)
+        assertNull(NutrientGoal().lineTarget)
+    }
+
+    @Test
     fun minMarker_sitsWhereTheLowerBoundFallsInsideTheUpperOne() {
         assertEquals(2f / 3f, NutrientGoal(min = 100.0, max = 150.0).minMarkerFraction!!, 0.0001f)
         // Nothing to mark: the bar already ends at the only bound there is.

@@ -20,6 +20,10 @@ interface BodyWeightDao {
     )
     fun observeRange(startInclusive: Long, endInclusive: Long): Flow<List<BodyWeightEntry>>
 
+    /** The first day a weight was logged, for a chart range that has to start at the beginning. */
+    @Query("SELECT MIN(epochDay) FROM body_weight_entries")
+    fun observeFirstLoggedDay(): Flow<Long?>
+
     @Upsert
     suspend fun upsert(entry: BodyWeightEntry)
 

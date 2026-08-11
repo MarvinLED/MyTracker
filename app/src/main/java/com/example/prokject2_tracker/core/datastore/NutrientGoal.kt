@@ -22,6 +22,14 @@ data class NutrientGoal(
     val barTarget: Double? get() = max ?: min
 
     /**
+     * The number the Verlauf's "Soll" line follows: the **lower** bound first. Deliberately the
+     * mirror image of [barTarget] — a bar runs to the upper bound because that is where it ends,
+     * while a trend line is read as "what am I working towards", and with "100 bis 150 g Protein"
+     * that is the 100.
+     */
+    val lineTarget: Double? get() = min ?: max
+
+    /**
      * Where the lower bound sits on a bar that runs to [barTarget], as a fraction of the bar's
      * width. Null when there is nothing to mark — no lower bound, or no upper bound for it to sit
      * inside of.

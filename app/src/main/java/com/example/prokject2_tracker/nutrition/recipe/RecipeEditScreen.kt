@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
@@ -81,9 +80,11 @@ fun RecipeEditScreen(
     }
 
     Scaffold(
-        // imePadding lifts the frame above the keyboard, so the row that just took the cursor stays
-        // visible instead of sitting behind the number pad.
-        modifier = modifier.imePadding(),
+        // The row that just took the cursor still has to stay above the keyboard rather than sit
+        // behind the number pad — but AppScaffold already does that for every screen, because its
+        // contentWindowInsets are safeDrawing and that includes the IME. An imePadding() here would
+        // subtract the keyboard a second time and leave a keyboard-high empty strip at the bottom.
+        modifier = modifier,
         topBar = {
             TopAppBar(
                 title = { Text(if (state.id == null) "Rezept hinzufügen" else "Rezept bearbeiten") },

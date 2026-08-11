@@ -28,6 +28,8 @@ import com.example.prokject2_tracker.fluid.FluidType
 import com.example.prokject2_tracker.fluid.FluidTypeDao
 import com.example.prokject2_tracker.fluid.FluidUnit
 import com.example.prokject2_tracker.fluid.FluidUnitDao
+import com.example.prokject2_tracker.goals.NutrientGoalChange
+import com.example.prokject2_tracker.goals.NutrientGoalChangeDao
 import com.example.prokject2_tracker.habit.Habit
 import com.example.prokject2_tracker.habit.HabitCheckIn
 import com.example.prokject2_tracker.habit.HabitCheckInDao
@@ -101,8 +103,9 @@ import com.example.prokject2_tracker.weight.BodyWeightEntry
         SleepEntryTag::class,
         Task::class,
         TaskCompletion::class,
+        NutrientGoalChange::class,
     ],
-    version = 23,
+    version = 24,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -134,4 +137,5 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun sleepTagDao(): SleepTagDao
     abstract fun taskDao(): TaskDao
     abstract fun taskCompletionDao(): TaskCompletionDao
+    abstract fun nutrientGoalChangeDao(): NutrientGoalChangeDao
 }

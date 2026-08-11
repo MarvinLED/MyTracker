@@ -3,6 +3,8 @@ package com.example.prokject2_tracker.nutrition.food
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -10,6 +12,7 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -55,6 +58,10 @@ fun formatAmount(amountBaseUnits: Double, unitName: String?, unitCount: Double?,
  * [selectedUnitId] is null, otherwise a count of that unit. Converting to base units is the caller's
  * job via [amountInBaseUnits], because only the caller knows what to do with the result; on a mode
  * switch the caller prefills the field via [defaultAmountText].
+ *
+ * [trailingContent] puts something beside the field, on its line — the Tagebuch's "+" confirms the
+ * amount from there. The unit chips stay above and full width either way: pulled into the same row
+ * they would only have part of the width left to wrap in.
  */
 @Composable
 fun FoodAmountInput(
@@ -68,6 +75,7 @@ fun FoodAmountInput(
     enabled: Boolean = true,
     focusRequester: FocusRequester? = null,
     fieldModifier: Modifier = Modifier.fillMaxWidth(),
+    trailingContent: (@Composable RowScope.() -> Unit)? = null,
 ) {
     val focusManager = LocalFocusManager.current
     val keyboardController = LocalSoftwareKeyboardController.current
@@ -102,28 +110,45 @@ fun FoodAmountInput(
             }
         }
 
-        OutlinedTextField(
-            value = amountText,
-            onValueChange = onAmountChange,
-            label = {
-                Text(
-                    if (selectedUnit == null) "Menge ($baseLabel)" else "Anzahl (${selectedUnit.name})",
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            },
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Done),
-            // "Bestätigen" on the number pad should put the keyboard away, not insert a newline.
-            keyboardActions = KeyboardActions(
-                onDone = {
-                    focusManager.clearFocus()
-                    keyboardController?.hide()
+        val field: @Composable (Modifier) -> Unit = { fieldOwnModifier ->
+            OutlinedTextField(
+                value = amountText,
+                onValueChange = onAmountChange,
+                label = {
+                    Text(
+                        if (selectedUnit == null) "Menge ($baseLabel)" else "Anzahl (${selectedUnit.name})",
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
                 },
-            ),
-            singleLine = true,
-            enabled = enabled,
-            modifier = focusRequester?.let { fieldModifier.focusRequester(it) } ?: fieldModifier,
-        )
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Done),
+                // "Bestätigen" on the number pad should put the keyboard away, not insert a newline.
+                keyboardActions = KeyboardActions(
+                    onDone = {
+                        focusManager.clearFocus()
+                        keyboardController?.hide()
+                    },
+                ),
+                singleLine = true,
+                enabled = enabled,
+                modifier = focusRequester?.let { fieldOwnModifier.focusRequester(it) } ?: fieldOwnModifier,
+            )
+        }
+
+        if (trailingContent == null) {
+            field(fieldModifier)
+        } else {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                // The field takes the row, so the trailing control keeps its intrinsic width no
+                // matter how long the unit's name made the label.
+                field(Modifier.weight(1f))
+                trailingContent()
+            }
+        }
     }
 }
 

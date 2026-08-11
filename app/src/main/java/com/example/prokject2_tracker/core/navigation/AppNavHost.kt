@@ -50,6 +50,8 @@ import com.example.prokject2_tracker.nutrition.diary.DiaryAddEntryRoute
 import com.example.prokject2_tracker.nutrition.diary.DiaryAddEntryScreen
 import com.example.prokject2_tracker.nutrition.diary.DiaryEditEntryRoute
 import com.example.prokject2_tracker.nutrition.diary.DiaryEditEntryScreen
+import com.example.prokject2_tracker.nutrition.diary.DiaryHistoryRoute
+import com.example.prokject2_tracker.nutrition.diary.DiaryHistoryScreen
 import com.example.prokject2_tracker.nutrition.diary.DiaryRoute
 import com.example.prokject2_tracker.nutrition.diary.DiaryScreen
 import com.example.prokject2_tracker.nutrition.food.FoodEditRoute
@@ -84,6 +86,7 @@ fun AppNavHost(
                     navController.navigate(DiaryAddEntryRoute(epochDay, mealType))
                 },
                 onEditEntry = { entryId -> navController.navigate(DiaryEditEntryRoute(entryId)) },
+                onOpenHistory = { navController.navigate(DiaryHistoryRoute) },
                 // Same navigation as the drawer entry, not a plain navigate: the Bibliothek is a
                 // top-level destination, and pushing one of those as if it were a detail screen
                 // leaves the bottom bar unable to switch away from it again (see
@@ -92,6 +95,9 @@ fun AppNavHost(
                 onManageFluidQuickAdds = { navController.navigate(FluidQuickAddManageRoute) },
                 onOpenDrawer = onOpenDrawer,
             )
+        }
+        composable<DiaryHistoryRoute> {
+            DiaryHistoryScreen(onBack = { navController.popBackStack() })
         }
         composable<FluidRoute> {
             FluidScreen(

@@ -748,4 +748,71 @@ class MigrationTest {
         }
         db.close()
     }
+
+    @Test
+    fun migrate23To24_addsAnEmptyNutrientGoalChangeLog() {
+        val v23 = helper.createDatabase(dbName, 23)
+        v23.execSQL(
+            "INSERT INTO diary_entries (id, epochDay, createdAt, mealType, sourceType, sourceId, " +
+                "sourceName, quantity, quantityUnit, kcal, protein, carbs, fat, saturatedFat, " +
+                "sugar, fiber, salt) VALUES ('entry-1', 20000, 1700000000000, 'BREAKFAST', 'QUICK', " +
+                "'', 'Müsli', 1.0, 'g', 400.0, 10.0, 60.0, 8.0, 2.0, 12.0, 5.0, 0.5)",
+        )
+        v23.close()
+
+        val db = helper.runMigrationsAndValidate(dbName, 24, true, MIGRATION_23_24)
+
+        // Nothing can be backfilled — the goals live in DataStore with no dates — so the log has to
+        // start empty rather than invent a first entry.
+        db.query("SELECT COUNT(*) FROM nutrient_goal_changes").use { cursor ->
+            cursor.moveToFirst()
+            assertEquals(0, cursor.getInt(0))
+        }
+        // The new table must not have cost the diary anything on the way.
+        db.query("SELECT sugar, salt FROM diary_entries WHERE id = 'entry-1'").use { cursor ->
+            cursor.moveToFirst()
+            assertEquals(12.0, cursor.getDouble(0), 0.001)
+            assertEquals(0.5, cursor.getDouble(1), 0.001)
+        }
+        db.close()
+    }
+
+    @Test
+    fun migrate23To24_logsSeveralChangesPerNutrientAndAllowsClearedBounds() {
+        helper.createDatabase(dbName, 23).close()
+
+        val db = helper.runMigrationsAndValidate(dbName, 24, true, MIGRATION_23_24)
+
+        db.execSQL(
+            "INSERT INTO nutrient_goal_changes (id, nutrient, effectiveFromEpochDay, minValue, " +
+                "maxValue, changedAt) VALUES ('seed', 'KCAL', 0, 1800.0, NULL, 1700000000000)",
+        )
+        db.execSQL(
+            "INSERT INTO nutrient_goal_changes (id, nutrient, effectiveFromEpochDay, minValue, " +
+                "maxValue, changedAt) VALUES ('bump', 'KCAL', 20000, 2400.0, 2600.0, 1700000001000)",
+        )
+        // Clearing a goal is itself a change, so both bounds have to be nullable.
+        db.execSQL(
+            "INSERT INTO nutrient_goal_changes (id, nutrient, effectiveFromEpochDay, minValue, " +
+                "maxValue, changedAt) VALUES ('drop', 'SALT', 20001, NULL, NULL, 1700000002000)",
+        )
+
+        db.query(
+            "SELECT id, minValue FROM nutrient_goal_changes WHERE nutrient = 'KCAL' " +
+                "ORDER BY effectiveFromEpochDay",
+        ).use { cursor ->
+            cursor.moveToFirst()
+            assertEquals("seed", cursor.getString(0))
+            assertEquals(1800.0, cursor.getDouble(1), 0.001)
+            cursor.moveToNext()
+            assertEquals("bump", cursor.getString(0))
+            assertEquals(2400.0, cursor.getDouble(1), 0.001)
+        }
+        db.query("SELECT minValue, maxValue FROM nutrient_goal_changes WHERE id = 'drop'").use { cursor ->
+            cursor.moveToFirst()
+            assertTrue(cursor.isNull(0))
+            assertTrue(cursor.isNull(1))
+        }
+        db.close()
+    }
 }

@@ -22,6 +22,7 @@ import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Kitchen
+import androidx.compose.material.icons.filled.Timeline
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Undo
 import androidx.compose.material3.AlertDialog
@@ -52,6 +53,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.prokject2_tracker.core.util.DateUtils
@@ -76,6 +78,7 @@ import java.util.Locale
 fun DiaryScreen(
     onAddEntry: (Long, MealType) -> Unit,
     onEditEntry: (String) -> Unit,
+    onOpenHistory: () -> Unit,
     onOpenLibrary: () -> Unit,
     onManageFluidQuickAdds: () -> Unit,
     onOpenDrawer: () -> Unit,
@@ -187,28 +190,41 @@ fun DiaryScreen(
                     containerColor = MaterialTheme.colorScheme.surfaceContainer,
                     contentColor = MaterialTheme.colorScheme.onSurface,
                 )
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                // Three across, so the labels are down to a single word each and the icon carries
+                // the rest of the meaning — "Lebensmittel hinzufügen" had already lost its verb at
+                // half the width.
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Button(
                         // Read at tap time, not at composition: the screen can sit open across the
                         // boundary between two meals.
                         onClick = { onAddEntry(uiState.epochDay, defaultMealType(LocalTime.now())) },
                         colors = buttonColors,
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
                         modifier = Modifier.weight(1f),
                     ) {
                         Icon(Icons.Filled.Add, contentDescription = null)
-                        Spacer(Modifier.width(8.dp))
-                        // Half the width no longer fits the full "Lebensmittel hinzufügen"; the
-                        // plus carries the "add" half of the meaning.
-                        Text("Lebensmittel")
+                        Spacer(Modifier.width(4.dp))
+                        Text("Lebensmittel", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                    Button(
+                        onClick = onOpenHistory,
+                        colors = buttonColors,
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        Icon(Icons.Filled.Timeline, contentDescription = null)
+                        Spacer(Modifier.width(4.dp))
+                        Text("Verlauf", maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                     Button(
                         onClick = onOpenLibrary,
                         colors = buttonColors,
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
                         modifier = Modifier.weight(1f),
                     ) {
                         Icon(Icons.Filled.Kitchen, contentDescription = null)
-                        Spacer(Modifier.width(8.dp))
-                        Text("Bibliothek")
+                        Spacer(Modifier.width(4.dp))
+                        Text("Bibliothek", maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                 }
             }

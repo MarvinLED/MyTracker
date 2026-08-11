@@ -2,6 +2,7 @@ package com.example.prokject2_tracker.nutrition.diary
 
 import androidx.room.Dao
 import androidx.room.Delete
+import androidx.room.Embedded
 import androidx.room.Insert
 import androidx.room.Query
 import androidx.room.Transaction
@@ -15,6 +16,9 @@ data class DailyKcalTotal(val epochDay: Long, val value: Double)
 data class DailyProteinTotal(val epochDay: Long, val value: Double)
 data class DailyCarbsTotal(val epochDay: Long, val value: Double)
 data class DailyFatTotal(val epochDay: Long, val value: Double)
+
+/** A day's totals across every goal-able nutrient, for charts that draw several of them at once. */
+data class DailyNutritionTotals(val epochDay: Long, @Embedded val totals: NutritionTotals)
 
 /** One source's most recent logging: which day, and under which MealType — the "Zuletzt gegessen" signal. */
 data class LastLoggedSource(
@@ -85,6 +89,29 @@ interface DiaryDao {
             "GROUP BY epochDay ORDER BY epochDay",
     )
     fun observeDailyFatTotals(startInclusive: Long, endInclusive: Long): Flow<List<DailyFatTotal>>
+
+    /**
+     * Every nutrient of every day in the range at once — the ranged counterpart of
+     * [observeDayNutritionTotals]. One query rather than one per nutrient because the Verlauf can
+     * have six of them on screen together, and six flows over the same table would be six scans and
+     * six recompositions for one write.
+     *
+     * Entries logged before sugar and salt were snapshotted onto the row carry 0 for them, so an old
+     * day reads as "none" rather than as missing — see [DiaryEntry]'s KDoc.
+     */
+    @Query(
+        "SELECT epochDay, COALESCE(SUM(kcal), 0) AS kcal, COALESCE(SUM(protein), 0) AS protein, " +
+            "COALESCE(SUM(carbs), 0) AS carbs, COALESCE(SUM(fat), 0) AS fat, " +
+            "COALESCE(SUM(saturatedFat), 0) AS saturatedFat, COALESCE(SUM(sugar), 0) AS sugar, " +
+            "COALESCE(SUM(fiber), 0) AS fiber, COALESCE(SUM(salt), 0) AS salt " +
+            "FROM diary_entries WHERE epochDay BETWEEN :startInclusive AND :endInclusive " +
+            "GROUP BY epochDay ORDER BY epochDay",
+    )
+    fun observeDailyNutritionTotals(startInclusive: Long, endInclusive: Long): Flow<List<DailyNutritionTotals>>
+
+    /** The first day anything was logged, for a chart range that has to start at the beginning. */
+    @Query("SELECT MIN(epochDay) FROM diary_entries")
+    fun observeFirstLoggedDay(): Flow<Long?>
 
     /**
      * The most recent diary_entries row per (sourceType, sourceId), Schnelleinträge excluded (they have
