@@ -27,6 +27,8 @@ data class DiaryHistoryUiState(
     val lines: List<ChartLine> = emptyList(),
     /** What one point stands for, so the y values are never ambiguous once the range coarsens. */
     val granularity: Granularity = Granularity.DAILY,
+    /** One nutrient on screen: all lines share a scale with finely labelled steps. */
+    val sharedScale: Boolean = false,
 )
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -79,6 +81,7 @@ class DiaryHistoryViewModel @Inject constructor(
                         currentGoals = prefs.nutrientGoals,
                     ),
                     granularity = granularity,
+                    sharedScale = isSingleNutrientSelection(settings.selectedSeries),
                 )
             }
         }

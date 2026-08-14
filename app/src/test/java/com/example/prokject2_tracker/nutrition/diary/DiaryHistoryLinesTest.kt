@@ -4,6 +4,7 @@ import com.example.prokject2_tracker.core.datastore.Nutrient
 import com.example.prokject2_tracker.core.datastore.NutrientGoal
 import com.example.prokject2_tracker.core.metrics.EpochDayRange
 import com.example.prokject2_tracker.core.metrics.Granularity
+import com.example.prokject2_tracker.core.ui.ChartLineStyle
 import com.example.prokject2_tracker.goals.NutrientGoalChange
 import com.example.prokject2_tracker.nutrition.NutritionTotals
 import com.example.prokject2_tracker.weight.BodyWeightEntry
@@ -48,13 +49,76 @@ class DiaryHistoryLinesTest {
     }
 
     @Test
-    fun aPairSharesItsHueAndIsToldApartByTheDash() {
-        val result = lines(setOf(DiaryHistorySeries.KCAL_GOAL, DiaryHistorySeries.KCAL_ACTUAL))
-        val (goal, actual) = result
+    fun aNutrientsLinesShareItsHueAndAreToldApartByTheStroke() {
+        val result = lines(
+            setOf(
+                DiaryHistorySeries.KCAL_GOAL,
+                DiaryHistorySeries.KCAL_ACTUAL,
+                DiaryHistorySeries.KCAL_AVERAGE,
+            ),
+        )
+        val (goal, actual, average) = result
 
         assertEquals(goal.color, actual.color)
-        assertTrue(goal.dashed)
-        assertFalse(actual.dashed)
+        assertEquals(goal.color, average.color)
+        assertEquals(
+            listOf(ChartLineStyle.DASHED, ChartLineStyle.SOLID, ChartLineStyle.DOTTED),
+            result.map { it.style },
+        )
+    }
+
+    @Test
+    fun onlyTheMeasuredLineGetsADotPerDay() {
+        val result = lines(
+            setOf(
+                DiaryHistorySeries.KCAL_GOAL,
+                DiaryHistorySeries.KCAL_ACTUAL,
+                DiaryHistorySeries.KCAL_AVERAGE,
+            ),
+        )
+
+        assertEquals(listOf(false, true, false), result.map { it.markers })
+    }
+
+    @Test
+    fun theAverageIsTheWeeksMeanHeldAcrossItsDays() {
+        // Epoch day 10 is a Sunday: it closes one week on its own, 11 and 12 open the next.
+        val result = lines(setOf(DiaryHistorySeries.KCAL_AVERAGE))
+
+        val points = result.single().points
+        assertEquals(listOf(10L, 11L, 12L), points.map { it.epochDay })
+        assertEquals(listOf(2000.0, 2000.0, 2000.0), points.map { it.value })
+    }
+
+    @Test
+    fun aWeekWithoutALoggedDayGetsNoAveragePoint() {
+        // Only day 11 is logged, so day 10's week — a different one — stays empty rather than 0.
+        val result = lines(setOf(DiaryHistorySeries.KCAL_AVERAGE), totals = listOf(day(11, 2400.0)))
+
+        assertEquals(listOf(11L, 12L), result.single().points.map { it.epochDay })
+        assertEquals(listOf(2400.0, 2400.0), result.single().points.map { it.value })
+    }
+
+    @Test
+    fun oneNutrientsLinesShareAScaleButAMixedSelectionDoesNot() {
+        assertTrue(
+            isSingleNutrientSelection(
+                setOf(DiaryHistorySeries.KCAL_GOAL, DiaryHistorySeries.KCAL_AVERAGE),
+            ),
+        )
+        assertFalse(
+            isSingleNutrientSelection(
+                setOf(DiaryHistorySeries.KCAL_ACTUAL, DiaryHistorySeries.SALT_ACTUAL),
+            ),
+        )
+        // Gewicht is not a nutrient, so it can never share a nutrient's axis.
+        assertFalse(
+            isSingleNutrientSelection(
+                setOf(DiaryHistorySeries.KCAL_ACTUAL, DiaryHistorySeries.WEIGHT),
+            ),
+        )
+        assertFalse(isSingleNutrientSelection(setOf(DiaryHistorySeries.WEIGHT)))
+        assertFalse(isSingleNutrientSelection(emptySet()))
     }
 
     @Test

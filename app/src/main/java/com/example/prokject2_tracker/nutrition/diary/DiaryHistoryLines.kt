@@ -8,6 +8,7 @@ import com.example.prokject2_tracker.core.metrics.MetricAggregation
 import com.example.prokject2_tracker.core.metrics.MetricPoint
 import com.example.prokject2_tracker.core.metrics.bucketBy
 import com.example.prokject2_tracker.core.ui.ChartLine
+import com.example.prokject2_tracker.core.util.DateUtils
 import com.example.prokject2_tracker.goals.NutrientGoalChange
 import com.example.prokject2_tracker.goals.nutrientGoalTimeline
 import com.example.prokject2_tracker.weight.BodyWeightEntry
@@ -32,6 +33,10 @@ fun diaryHistoryLines(
 ): List<ChartLine> = DiaryHistorySeries.entries
     .filter { it in selected }
     .map { series ->
+        fun actualPoints() = nutritionTotals.mapNotNull { day ->
+            day.totals.byNutrient()[series.nutrient]?.let { MetricPoint(day.epochDay, it) }
+        }
+
         val points = when {
             series == DiaryHistorySeries.WEIGHT ->
                 weights.map { MetricPoint(it.epochDay, it.weightKg) }
@@ -42,12 +47,9 @@ fun diaryHistoryLines(
                 currentGoal = currentGoals[series.nutrient],
             )
 
-            else -> {
-                val nutrient = series.nutrient
-                nutritionTotals.mapNotNull { day ->
-                    day.totals.byNutrient()[nutrient]?.let { MetricPoint(day.epochDay, it) }
-                }
-            }
+            series.kind == DiaryHistorySeriesKind.AVERAGE -> weeklyAverages(range, actualPoints())
+
+            else -> actualPoints()
         }
         ChartLine(
             label = series.label,
@@ -57,6 +59,27 @@ fun diaryHistoryLines(
             // Body weight is the one series whose day-to-day movement is tiny next to its absolute
             // value; anchored at zero it would flatten into a straight edge.
             zeroBased = series != DiaryHistorySeries.WEIGHT,
-            dashed = series.dashed,
+            style = series.style,
+            markers = series.showsMarkers,
         )
     }
+
+/**
+ * The Ist values as one figure per calendar week, repeated on every day of that week: a step that
+ * holds while the week does and changes on Monday. Repeating it rather than plotting one point per
+ * week is what makes it readable against the daily Ist line — a weekly point joined to the next
+ * would slope across days whose average it never was.
+ *
+ * Only logged days count towards the mean, and a week without a single logged day gets no points
+ * at all: a zero there would read as "ate nothing", not "did not log".
+ */
+private fun weeklyAverages(range: EpochDayRange, daily: List<MetricPoint>): List<MetricPoint> {
+    if (daily.isEmpty()) return emptyList()
+    val meanByWeek = daily
+        .groupBy { DateUtils.startOfWeekEpochDay(it.epochDay) }
+        .mapValues { (_, points) -> points.sumOf { it.value } / points.size }
+
+    return (range.startInclusive..range.endInclusive).mapNotNull { day ->
+        meanByWeek[DateUtils.startOfWeekEpochDay(day)]?.let { MetricPoint(day, it) }
+    }
+}

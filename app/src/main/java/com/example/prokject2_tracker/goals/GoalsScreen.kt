@@ -1,6 +1,7 @@
 package com.example.prokject2_tracker.goals
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -10,8 +11,11 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
@@ -35,6 +39,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -63,6 +68,9 @@ fun GoalsScreen(
 ) {
     val state by viewModel.state.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
+    // Only one section at a time by default — all four at once is more than fits on a screen.
+    // null means "Alle". Pure view state: the whole form stays loaded and is saved either way.
+    var selectedCategory by rememberSaveable { mutableStateOf<GoalCategory?>(GoalCategory.NUTRITION) }
 
     LaunchedEffect(Unit) {
         viewModel.saved.collect { snackbarHostState.showSnackbar("Ziele gespeichert") }
@@ -86,127 +94,212 @@ fun GoalsScreen(
             )
         },
     ) { padding ->
-        Column(
-            modifier = Modifier
-                .padding(padding)
-                .padding(16.dp)
-                .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            Text("Ernährung", style = MaterialTheme.typography.titleMedium)
-            Text(
-                "Minimum, Maximum oder beides — leer lassen heißt \"kein Ziel\". Der Balken im " +
-                    "Tagebuch läuft bis zum Maximum und markiert das Minimum darin.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+        Column(modifier = Modifier.padding(padding)) {
+            // Outside the scrolling column on purpose: the filter stays reachable while a long
+            // section is scrolled.
+            GoalCategoryFilter(
+                selected = selectedCategory,
+                onSelected = { selectedCategory = it },
+                modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp),
             )
-            state.nutrientGoals.forEach { row ->
-                NutrientGoalRow(
-                    row = row,
-                    onMinChange = { viewModel.onNutrientGoalMinChange(row.nutrient, it) },
-                    onMaxChange = { viewModel.onNutrientGoalMaxChange(row.nutrient, it) },
-                )
-            }
+            Column(
+                modifier = Modifier
+                    .padding(16.dp)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                fun shows(category: GoalCategory) = selectedCategory == null || selectedCategory == category
 
-            Text("Schlaf", style = MaterialTheme.typography.titleMedium)
-            Text(
-                "Schlafdauer in Stunden (7,5 = 7 h 30 min) und die Uhrzeit, zu der du spätestens " +
-                    "schlafen willst. Leer lassen heißt \"kein Ziel\".",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                if (shows(GoalCategory.NUTRITION)) NutritionGoalsSection(state, viewModel)
+                if (shows(GoalCategory.SLEEP)) SleepGoalsSection(state, viewModel)
+                if (shows(GoalCategory.FLUID)) FluidGoalsSection(state, viewModel)
+                if (shows(GoalCategory.FITNESS)) FitnessGoalsSection(state, viewModel)
+            }
+        }
+    }
+}
+
+/**
+ * The category filter as one chip that opens a menu. Single selection: "Alle" shows every
+ * section again, any other entry replaces what was picked.
+ *
+ * Same shape as the Tagebuch's tag filter (`TagFilterDropdown` in `DiaryAddEntryScreen`): a plain
+ * [DropdownMenu] anchored on the chip rather than an `ExposedDropdownMenuBox`, which would want a
+ * text field as its anchor.
+ */
+@Composable
+private fun GoalCategoryFilter(
+    selected: GoalCategory?,
+    onSelected: (GoalCategory?) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    var expanded by remember { mutableStateOf(false) }
+
+    Box(modifier = modifier) {
+        FilterChip(
+            selected = selected != null,
+            onClick = { expanded = true },
+            label = { Text(selected?.label ?: "Alle") },
+            trailingIcon = { Icon(Icons.Filled.ArrowDropDown, contentDescription = "Kategorie wählen") },
+        )
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            DropdownMenuItem(
+                text = { Text("Alle") },
+                onClick = {
+                    onSelected(null)
+                    expanded = false
+                },
+                trailingIcon = {
+                    if (selected == null) Icon(Icons.Filled.Check, contentDescription = null)
+                },
             )
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(
-                    value = state.sleepDurationMinHours,
-                    onValueChange = viewModel::onSleepDurationMinChange,
-                    label = { Text("Mindestens (h)") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    singleLine = true,
-                    modifier = Modifier.weight(1f),
-                )
-                OutlinedTextField(
-                    value = state.sleepDurationMaxHours,
-                    onValueChange = viewModel::onSleepDurationMaxChange,
-                    label = { Text("Höchstens (h)") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    singleLine = true,
-                    modifier = Modifier.weight(1f),
+            GoalCategory.entries.forEach { category ->
+                DropdownMenuItem(
+                    text = { Text(category.label) },
+                    onClick = {
+                        onSelected(category)
+                        expanded = false
+                    },
+                    trailingIcon = {
+                        if (selected == category) Icon(Icons.Filled.Check, contentDescription = null)
+                    },
                 )
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                TimeOfDayField(
-                    label = "Schlafenszeit spätestens",
-                    value = state.bedtimeGoalMinuteOfDay,
-                    onValueChange = viewModel::onBedtimeGoalChange,
-                    emptyLabel = "kein Ziel",
-                    defaultMinuteOfDay = 23 * 60,
-                )
-                if (state.bedtimeGoalMinuteOfDay != null) {
-                    TextButton(onClick = { viewModel.onBedtimeGoalChange(null) }) { Text("Ziel entfernen") }
-                }
-            }
+        }
+    }
+}
 
-            Text("Flüssigkeiten", style = MaterialTheme.typography.titleMedium)
+@Composable
+private fun NutritionGoalsSection(state: GoalsUiState, viewModel: GoalsViewModel) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text(GoalCategory.NUTRITION.label, style = MaterialTheme.typography.titleMedium)
+        Text(
+            "Minimum, Maximum oder beides — leer lassen heißt \"kein Ziel\". Der Balken im " +
+                "Tagebuch läuft bis zum Maximum und markiert das Minimum darin.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        state.nutrientGoals.forEach { row ->
+            NutrientGoalRow(
+                row = row,
+                onMinChange = { viewModel.onNutrientGoalMinChange(row.nutrient, it) },
+                onMaxChange = { viewModel.onNutrientGoalMaxChange(row.nutrient, it) },
+            )
+        }
+    }
+}
+
+@Composable
+private fun SleepGoalsSection(state: GoalsUiState, viewModel: GoalsViewModel) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text(GoalCategory.SLEEP.label, style = MaterialTheme.typography.titleMedium)
+        Text(
+            "Schlafdauer in Stunden (7,5 = 7 h 30 min) und die Uhrzeit, zu der du spätestens " +
+                "schlafen willst. Leer lassen heißt \"kein Ziel\".",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedTextField(
-                value = state.waterGoal,
-                onValueChange = viewModel::onWaterGoalChange,
-                label = { Text("Gesamtziel pro Tag (ml)") },
+                value = state.sleepDurationMinHours,
+                onValueChange = viewModel::onSleepDurationMinChange,
+                label = { Text("Mindestens (h)") },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                modifier = Modifier.weight(1f),
             )
-            state.fluidTypeGoals.forEach { row ->
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text(row.type.name, style = MaterialTheme.typography.bodyMedium)
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        OutlinedTextField(
-                            value = row.minText,
-                            onValueChange = { viewModel.onFluidTypeMinChange(row.type.id, it) },
-                            label = { Text("Minimum (ml)") },
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                            modifier = Modifier.weight(1f),
-                        )
-                        OutlinedTextField(
-                            value = row.maxText,
-                            onValueChange = { viewModel.onFluidTypeMaxChange(row.type.id, it) },
-                            label = { Text("Maximum (ml)") },
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                            modifier = Modifier.weight(1f),
-                        )
-                    }
-                }
+            OutlinedTextField(
+                value = state.sleepDurationMaxHours,
+                onValueChange = viewModel::onSleepDurationMaxChange,
+                label = { Text("Höchstens (h)") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                singleLine = true,
+                modifier = Modifier.weight(1f),
+            )
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            TimeOfDayField(
+                label = "Schlafenszeit spätestens",
+                value = state.bedtimeGoalMinuteOfDay,
+                onValueChange = viewModel::onBedtimeGoalChange,
+                emptyLabel = "kein Ziel",
+                defaultMinuteOfDay = 23 * 60,
+            )
+            if (state.bedtimeGoalMinuteOfDay != null) {
+                TextButton(onClick = { viewModel.onBedtimeGoalChange(null) }) { Text("Ziel entfernen") }
             }
+        }
+    }
+}
 
-            Text("Fitness", style = MaterialTheme.typography.titleMedium)
-            state.fitnessGoals.forEach { row ->
+@Composable
+private fun FluidGoalsSection(state: GoalsUiState, viewModel: GoalsViewModel) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text(GoalCategory.FLUID.label, style = MaterialTheme.typography.titleMedium)
+        OutlinedTextField(
+            value = state.waterGoal,
+            onValueChange = viewModel::onWaterGoalChange,
+            label = { Text("Gesamtziel pro Tag (ml)") },
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+            modifier = Modifier.fillMaxWidth(),
+        )
+        state.fluidTypeGoals.forEach { row ->
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(row.type.name, style = MaterialTheme.typography.bodyMedium)
                 Row(
-                    verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    val scope = row.muscleGroupName ?: row.movementDirection?.label()
-                    Text(
-                        "${row.metric.label()} · ${row.period.label()}" + (scope?.let { " · $it" } ?: ""),
+                    OutlinedTextField(
+                        value = row.minText,
+                        onValueChange = { viewModel.onFluidTypeMinChange(row.type.id, it) },
+                        label = { Text("Minimum (ml)") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                         modifier = Modifier.weight(1f),
                     )
                     OutlinedTextField(
-                        value = row.targetText,
-                        onValueChange = { viewModel.onFitnessGoalTargetChange(row.id, it) },
-                        label = { Text("Ziel") },
+                        value = row.maxText,
+                        onValueChange = { viewModel.onFluidTypeMaxChange(row.type.id, it) },
+                        label = { Text("Maximum (ml)") },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                        modifier = Modifier.width(100.dp),
+                        modifier = Modifier.weight(1f),
                     )
-                    IconButton(onClick = { viewModel.removeFitnessGoal(row.id) }) {
-                        Icon(Icons.Filled.Delete, contentDescription = "Ziel löschen")
-                    }
                 }
             }
-            AddFitnessGoalRow(
-                availableMuscleGroups = state.availableMuscleGroups,
-                onAdd = viewModel::addFitnessGoal,
-            )
         }
+    }
+}
+
+@Composable
+private fun FitnessGoalsSection(state: GoalsUiState, viewModel: GoalsViewModel) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text(GoalCategory.FITNESS.label, style = MaterialTheme.typography.titleMedium)
+        state.fitnessGoals.forEach { row ->
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                val scope = row.muscleGroupName ?: row.movementDirection?.label()
+                Text(
+                    "${row.metric.label()} · ${row.period.label()}" + (scope?.let { " · $it" } ?: ""),
+                    modifier = Modifier.weight(1f),
+                )
+                OutlinedTextField(
+                    value = row.targetText,
+                    onValueChange = { viewModel.onFitnessGoalTargetChange(row.id, it) },
+                    label = { Text("Ziel") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    modifier = Modifier.width(100.dp),
+                )
+                IconButton(onClick = { viewModel.removeFitnessGoal(row.id) }) {
+                    Icon(Icons.Filled.Delete, contentDescription = "Ziel löschen")
+                }
+            }
+        }
+        AddFitnessGoalRow(
+            availableMuscleGroups = state.availableMuscleGroups,
+            onAdd = viewModel::addFitnessGoal,
+        )
     }
 }
 

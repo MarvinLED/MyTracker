@@ -97,7 +97,7 @@ fun AppNavHost(
             )
         }
         composable<DiaryHistoryRoute> {
-            DiaryHistoryScreen(onBack = { navController.popBackStack() })
+            DiaryHistoryScreen(onBack = { navController.popBackStackOnce() })
         }
         composable<FluidRoute> {
             FluidScreen(
@@ -108,13 +108,13 @@ fun AppNavHost(
             )
         }
         composable<FluidQuickAddManageRoute> {
-            FluidQuickAddManageScreen(onBack = { navController.popBackStack() })
+            FluidQuickAddManageScreen(onBack = { navController.popBackStackOnce() })
         }
         composable<FluidTypeManageRoute> {
-            FluidTypeManageScreen(onBack = { navController.popBackStack() })
+            FluidTypeManageScreen(onBack = { navController.popBackStackOnce() })
         }
         composable<FluidUnitManageRoute> {
-            FluidUnitManageScreen(onBack = { navController.popBackStack() })
+            FluidUnitManageScreen(onBack = { navController.popBackStackOnce() })
         }
         composable<HabitRoute> {
             HabitScreen(onOpenDrawer = onOpenDrawer)
@@ -141,20 +141,20 @@ fun AppNavHost(
             )
         }
         composable<SleepTagManageRoute> {
-            SleepTagManageScreen(onBack = { navController.popBackStack() })
+            SleepTagManageScreen(onBack = { navController.popBackStackOnce() })
         }
         composable<BodySiteManageRoute> {
-            BodySiteManageScreen(onBack = { navController.popBackStack() })
+            BodySiteManageScreen(onBack = { navController.popBackStackOnce() })
         }
         composable<DiaryAddEntryRoute> {
             DiaryAddEntryScreen(
-                onDone = { navController.popBackStack() },
+                onDone = { navController.popBackStackOnce() },
                 onCreateFood = { navController.navigate(FoodEditRoute()) },
                 onCreateRecipe = { navController.navigate(RecipeEditRoute()) },
             )
         }
         composable<DiaryEditEntryRoute> {
-            DiaryEditEntryScreen(onDone = { navController.popBackStack() })
+            DiaryEditEntryScreen(onDone = { navController.popBackStackOnce() })
         }
         composable<LibraryRoute> {
             LibraryScreen(
@@ -166,10 +166,10 @@ fun AppNavHost(
             )
         }
         composable<FoodEditRoute> {
-            FoodEditScreen(onDone = { navController.popBackStack() })
+            FoodEditScreen(onDone = { navController.popBackStackOnce() })
         }
         composable<RecipeEditRoute> {
-            RecipeEditScreen(onDone = { navController.popBackStack() })
+            RecipeEditScreen(onDone = { navController.popBackStackOnce() })
         }
         composable<BackupRoute> {
             BackupScreen(onOpenDrawer = onOpenDrawer)
@@ -212,7 +212,7 @@ fun AppNavHost(
         }
         composable<TrainingHistoryRoute> {
             TrainingHistoryScreen(
-                onBack = { navController.popBackStack() },
+                onBack = { navController.popBackStackOnce() },
                 // Navigating by (subject, day) rather than entry id, so the detail page can show
                 // the right "letztes Training" comparison relative to the day being edited.
                 onOpenStrengthSession = { exerciseId, epochDay ->
@@ -230,26 +230,26 @@ fun AppNavHost(
             )
         }
         composable<StrengthExerciseDetailRoute> {
-            StrengthExerciseDetailScreen(onBack = { navController.popBackStack() })
+            StrengthExerciseDetailScreen(onBack = { navController.popBackStackOnce() })
         }
         composable<CardioActivityDetailRoute> {
-            CardioActivityDetailScreen(onBack = { navController.popBackStack() })
+            CardioActivityDetailScreen(onBack = { navController.popBackStackOnce() })
         }
         composable<CardioActivityTypeManageRoute> {
-            CardioActivityTypeManageScreen(onBack = { navController.popBackStack() })
+            CardioActivityTypeManageScreen(onBack = { navController.popBackStackOnce() })
         }
         composable<MuscleGroupManageRoute> {
-            MuscleGroupManageScreen(onBack = { navController.popBackStack() })
+            MuscleGroupManageScreen(onBack = { navController.popBackStackOnce() })
         }
         composable<StrengthExerciseLibraryRoute> {
             StrengthExerciseLibraryScreen(
-                onBack = { navController.popBackStack() },
+                onBack = { navController.popBackStackOnce() },
                 onAddExercise = { navController.navigate(StrengthExerciseEditRoute()) },
                 onEditExercise = { exerciseId -> navController.navigate(StrengthExerciseEditRoute(exerciseId = exerciseId)) },
             )
         }
         composable<StrengthExerciseEditRoute> {
-            StrengthExerciseEditScreen(onDone = { navController.popBackStack() })
+            StrengthExerciseEditScreen(onDone = { navController.popBackStackOnce() })
         }
     }
 }

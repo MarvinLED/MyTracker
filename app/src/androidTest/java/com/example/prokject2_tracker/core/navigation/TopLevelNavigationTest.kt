@@ -114,6 +114,41 @@ class TopLevelNavigationTest {
         assertOn(DiaryRoute)
     }
 
+    /**
+     * The blank-page bug: two taps on a screen's own "Zurück" popped twice, the second one taking
+     * the start destination off the stack, after which the NavHost had nothing left to draw and the
+     * app showed the bottom bar over an empty background.
+     *
+     * Both presses go through in one UI-thread block, which is what a double tap amounts to — the
+     * second arrives before the first pop has settled.
+     */
+    @Test
+    fun aDoubleTapOnBackDoesNotSkipThePageBehindIt() {
+        startNavHost()
+
+        onNav { navigateToTopLevel(LibraryRoute) }
+        onNav { navigate(FoodEditRoute()) }
+
+        composeRule.runOnUiThread {
+            navController.popBackStackOnce()
+            navController.popBackStackOnce()
+        }
+        composeRule.waitForIdle()
+
+        assertOn(LibraryRoute)
+    }
+
+    /** Leaving the app is the system back button's job — a screen's own button must not empty it. */
+    @Test
+    fun aScreensBackButtonNeverPopsTheLastEntry() {
+        startNavHost()
+
+        onNav { popBackStackOnce() }
+
+        assertOn(DiaryRoute)
+        assertTrue(navController.currentDestination != null)
+    }
+
     @Test
     fun theDiaryTabIsNotStackedOnItselfWhenAlreadyThere() {
         startNavHost()

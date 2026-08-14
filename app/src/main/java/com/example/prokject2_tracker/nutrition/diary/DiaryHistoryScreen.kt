@@ -34,6 +34,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.prokject2_tracker.core.metrics.label
@@ -95,11 +96,22 @@ fun DiaryHistoryScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             } else {
-                DatedLineChart(lines = state.lines, panelHeight = 280, overlaid = true)
+                DatedLineChart(
+                    lines = state.lines,
+                    panelHeight = 280,
+                    overlaid = true,
+                    sharedScale = state.sharedScale,
+                )
                 // Spelled out rather than implied: once the range coarsens, a point is an average
-                // day of its week or month, and the goal line it is read against is too.
+                // day of its week or month, and the goal line it is read against is too. The Ø mark
+                // is explained here too — the legend has room for the sign, not for what it means.
+                val averageNote = if (state.selectedSeries.any { it.kind == DiaryHistorySeriesKind.AVERAGE }) {
+                    " · Ø: Durchschnitt der Kalenderwoche"
+                } else {
+                    ""
+                }
                 Text(
-                    "Ein Punkt: Durchschnitt pro ${state.granularity.label()}",
+                    "Ein Punkt: Durchschnitt pro ${state.granularity.label()}$averageNote",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -144,17 +156,32 @@ private fun SeriesPicker(
 
             if (expanded) {
                 Column(modifier = Modifier.padding(horizontal = 16.dp)) {
-                    NutrientRows.forEach { row ->
-                        val (goal, actual) = row
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            SeriesLabel(rowLabel(row), goal, modifier = Modifier.weight(1f))
-                            LabeledCheckbox("Soll", goal in selected) { onToggle(goal, it) }
-                            LabeledCheckbox("Ist", actual in selected) { onToggle(actual, it) }
+                    // Column headings instead of a label beside every checkbox: three labelled
+                    // checkboxes per row leave "Kohlenhydrate" no width to be read in.
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Spacer(Modifier.weight(1f))
+                        ColumnHeaders.forEach { heading ->
+                            Text(
+                                heading,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.width(CheckboxColumnWidth),
+                            )
                         }
                     }
 
-                    // Gewicht has no Soll to sit beside — the app has no weight goal — so it gets a
-                    // line of its own rather than a half-empty nutrient row.
+                    NutrientRows.forEach { row ->
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            SeriesLabel(row.label, row.actual, modifier = Modifier.weight(1f))
+                            listOf(row.goal, row.actual, row.average).forEach { series ->
+                                CheckboxCell(series in selected) { onToggle(series, it) }
+                            }
+                        }
+                    }
+
+                    // Gewicht has no Soll to sit beside — the app has no weight goal — and no Ø
+                    // either, so it gets a line of its own rather than a mostly empty nutrient row.
                     HorizontalDivider(
                         modifier = Modifier.padding(vertical = 8.dp),
                         color = MaterialTheme.colorScheme.surfaceContainerHighest,
@@ -162,10 +189,10 @@ private fun SeriesPicker(
                     val weight = DiaryHistorySeries.WEIGHT
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         SeriesLabel(weight.label, weight, modifier = Modifier.weight(1f))
-                        Checkbox(
-                            checked = weight in selected,
-                            onCheckedChange = { onToggle(weight, it) },
-                        )
+                        // In the Ist column: it is a measured value like the nutrients' Ist.
+                        Spacer(Modifier.width(CheckboxColumnWidth))
+                        CheckboxCell(weight in selected) { onToggle(weight, it) }
+                        Spacer(Modifier.width(CheckboxColumnWidth))
                     }
                 }
             }
@@ -183,10 +210,18 @@ private fun SeriesLabel(text: String, series: DiaryHistorySeries, modifier: Modi
     }
 }
 
+/**
+ * The three checkbox columns. "Ø" rather than "Durchschnitt": the heading has to fit a checkbox's
+ * width, and the same mark labels the line in the chart.
+ */
+private val ColumnHeaders = listOf("Soll", "Ist", "Ø")
+
+private val CheckboxColumnWidth = 48.dp
+
+/** A checkbox in its column, so the boxes line up under their heading down the whole table. */
 @Composable
-private fun LabeledCheckbox(label: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
+private fun CheckboxCell(checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
+    Box(modifier = Modifier.width(CheckboxColumnWidth), contentAlignment = Alignment.Center) {
         Checkbox(checked = checked, onCheckedChange = onCheckedChange)
-        Text(label, style = MaterialTheme.typography.bodySmall)
     }
 }

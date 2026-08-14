@@ -40,11 +40,20 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.example.prokject2_tracker.core.metrics.AxisTicks
 import com.example.prokject2_tracker.core.metrics.MetricPoint
+import com.example.prokject2_tracker.core.metrics.niceAxisTicks
 import com.example.prokject2_tracker.core.util.DateUtils
 import com.example.prokject2_tracker.core.util.formatCompact
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+
+/**
+ * How a series' stroke is drawn. For telling apart lines that belong together on one hue — a
+ * target, what was actually reached, and its average — where a second colour would claim they are
+ * unrelated and the palette would run out besides.
+ */
+enum class ChartLineStyle { SOLID, DASHED, DOTTED }
 
 /** One series on a [DatedLineChart]. [zeroBased] false is for series like body weight — see below. */
 data class ChartLine(
@@ -53,12 +62,13 @@ data class ChartLine(
     val color: Color,
     val points: List<MetricPoint>,
     val zeroBased: Boolean = true,
+    val style: ChartLineStyle = ChartLineStyle.SOLID,
     /**
-     * Draws the series as a dashed stroke. For pairing two lines that belong together on one hue —
-     * a target and what was actually reached — where a second colour would claim they are unrelated
-     * and the palette would run out besides.
+     * Draws a dot per point. False for series that are not measurements but a level carried across
+     * days — a target or a weekly mean — where a dot per day would suggest daily readings that were
+     * never taken.
      */
-    val dashed: Boolean = false,
+    val markers: Boolean = true,
 )
 
 /**
@@ -85,6 +95,12 @@ private const val MaxGutterColumns = 3
  * [zeroBased] per line controls the y floor: true anchors at 0, false uses min minus 10 % of the
  * range, for series like body weight where day-to-day variation is tiny next to the absolute value
  * and a zero-based axis would flatten the line to a straight edge.
+ *
+ * [sharedScale] is for the case where the overlaid series measure the same thing — one nutrient's
+ * target, intake and average. Then the per-series scales are wrong twice over: the lines can't be
+ * read against each other, and the gutter repeats the same kind of number three times. One scale
+ * with round, labelled steps replaces them, which is also the only way to tell where between the
+ * ends a point actually sits.
  */
 @Composable
 fun DatedLineChart(
@@ -92,6 +108,7 @@ fun DatedLineChart(
     modifier: Modifier = Modifier,
     panelHeight: Int = 140,
     overlaid: Boolean = false,
+    sharedScale: Boolean = false,
 ) {
     val drawable = lines.filter { it.points.size >= 2 }
     if (drawable.isEmpty()) {
@@ -130,6 +147,7 @@ fun DatedLineChart(
                 dayRange = dayRange,
                 selectedDay = selectedDay,
                 heightDp = panelHeight,
+                sharedScale = sharedScale,
                 onSelectFraction = { fraction ->
                     selectedDay = snap(drawable.flatMap { it.points }, fraction)
                 },
@@ -158,7 +176,8 @@ fun DatedLineChart(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
-                val showRanges = overlaid && drawable.size > MaxGutterColumns
+                // Not with a shared scale: the gutter's labelled axis already covers every series.
+                val showRanges = overlaid && !sharedScale && drawable.size > MaxGutterColumns
                 drawable.forEach { LegendEntry(it, scale = if (showRanges) scaleOf(it) else null) }
             }
         }
@@ -220,6 +239,17 @@ private data class LineScale(val min: Double, val max: Double) {
     val range: Double get() = (max - min).let { if (it > 0) it else 1.0 }
 }
 
+/**
+ * One scale across every series, snapped to round steps. The floor stays at 0 only if every line
+ * asks for it — one non-zero-based series in the set would otherwise be squashed flat.
+ */
+private fun sharedTicksOf(lines: List<ChartLine>): AxisTicks {
+    val values = lines.flatMap { line -> line.points.map { it.value } }
+    val rawMax = values.maxOrNull() ?: 1.0
+    val rawMin = if (lines.all { it.zeroBased }) 0.0 else values.minOrNull() ?: 0.0
+    return niceAxisTicks(min = rawMin, max = rawMax)
+}
+
 private fun scaleOf(line: ChartLine): LineScale {
     val rawMax = line.points.maxOf { it.value }
     val max = if (line.zeroBased) rawMax.coerceAtLeast(1.0) else rawMax
@@ -242,18 +272,45 @@ private fun OverlaidPanel(
     dayRange: Long,
     selectedDay: Long?,
     heightDp: Int,
+    sharedScale: Boolean,
     onSelectFraction: (Float) -> Unit,
 ) {
     val gridColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.35f)
     val crosshairColor = MaterialTheme.colorScheme.onSurfaceVariant
     val markerRing = MaterialTheme.colorScheme.surfaceContainer
     val series = remember(lines) { lines.map { it to it.points.sortedBy { p -> p.epochDay } } }
-    val scales = remember(lines) { lines.map(::scaleOf) }
+    val ticks = remember(lines, sharedScale) { if (sharedScale) sharedTicksOf(lines) else null }
+    val scales = remember(lines, ticks) {
+        ticks?.let { t -> lines.map { LineScale(t.min, t.max) } } ?: lines.map(::scaleOf)
+    }
+    // Grid at every labelled step when they are labelled, otherwise the recessive baseline/mid/top
+    // trio — enough to read a level off, not enough to compete.
+    val gridFractions = remember(ticks) {
+        ticks?.values?.map { value -> 1f - ((value - ticks.min) / (ticks.max - ticks.min)).toFloat() }
+            ?: listOf(0f, 0.5f, 1f)
+    }
 
     Row(modifier = Modifier.fillMaxWidth().height(heightDp.dp)) {
-        // Past a few series the columns would leave no plot to speak of, so the ranges move to the
-        // legend instead — see [MaxGutterColumns].
-        if (lines.size <= MaxGutterColumns) {
+        if (ticks != null) {
+            // One column for all of them: with a shared scale a second column would be the same
+            // numbers again. Evenly spaced, which is what makes the labels line up with the grid.
+            Column(
+                modifier = Modifier.fillMaxHeight(),
+                horizontalAlignment = Alignment.End,
+                verticalArrangement = Arrangement.SpaceBetween,
+            ) {
+                ticks.values.reversed().forEach { value ->
+                    Text(
+                        value.formatCompact(),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+            Spacer(Modifier.width(6.dp))
+        } else if (lines.size <= MaxGutterColumns) {
+            // Past a few series the columns would leave no plot to speak of, so the ranges move to
+            // the legend instead — see [MaxGutterColumns].
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 lines.forEachIndexed { index, line ->
                     Column(
@@ -294,7 +351,7 @@ private fun OverlaidPanel(
         ) {
             fun xFor(epochDay: Long) = size.width * (epochDay - minDay).toFloat() / dayRange
 
-            listOf(0f, 0.5f, 1f).forEach { fraction ->
+            gridFractions.forEach { fraction ->
                 val y = size.height * fraction
                 drawLine(gridColor, Offset(0f, y), Offset(size.width, y), strokeWidth = 1f)
             }
@@ -311,7 +368,7 @@ private fun OverlaidPanel(
 
                 drawSeries(line, sorted, ::xFor, ::yFor)
 
-                if (sorted.size <= 40) {
+                if (line.markers && sorted.size <= 40) {
                     sorted.forEach { point ->
                         drawCircle(line.color, radius = 5f, center = Offset(xFor(point.epochDay), yFor(point.value)))
                     }
@@ -381,7 +438,7 @@ private fun LinePanel(
             drawSeries(line, sorted, ::xFor, ::yFor)
 
             // Markers only when they'd stay distinguishable; a 365-day series would be a solid band.
-            if (sorted.size <= 40) {
+            if (line.markers && sorted.size <= 40) {
                 sorted.forEach { point ->
                     drawCircle(
                         color = line.color,
@@ -456,7 +513,7 @@ private fun DateAxisLabels(minDay: Long, maxDay: Long) {
 }
 
 /**
- * The whole series as one stroked path rather than a segment per pair of points. A dashed stroke
+ * The whole series as one stroked path rather than a segment per pair of points. A patterned stroke
  * needs it: applied per segment the pattern restarts at every point, which at a daily resolution
  * renders as a solid line again. Round joins keep the solid case looking as it did when it was
  * drawn as round-capped segments.
@@ -479,19 +536,25 @@ private fun DrawScope.drawSeries(
             width = 4f,
             cap = StrokeCap.Round,
             join = StrokeJoin.Round,
-            pathEffect = if (line.dashed) PathEffect.dashPathEffect(floatArrayOf(10f, 8f)) else null,
+            pathEffect = when (line.style) {
+                ChartLineStyle.SOLID -> null
+                ChartLineStyle.DASHED -> PathEffect.dashPathEffect(floatArrayOf(10f, 8f))
+                ChartLineStyle.DOTTED -> PathEffect.dashPathEffect(floatArrayOf(2f, 8f))
+            },
         ),
     )
 }
 
 /**
- * A series' legend mark. Dashed series get a broken bar instead of a dot, because they share their
- * hue with the solid series they belong to and the dot alone would make the two identical.
+ * A series' legend mark, patterned like its stroke. Series that share a hue with the one they
+ * belong to are told apart by the pattern alone, so a plain dot for all of them would make them
+ * identical in the legend.
  */
 @Composable
 private fun SeriesMark(line: ChartLine) {
-    if (line.dashed) {
-        Row(
+    when (line.style) {
+        ChartLineStyle.SOLID -> Box(modifier = Modifier.size(10.dp).background(line.color, CircleShape))
+        ChartLineStyle.DASHED -> Row(
             horizontalArrangement = Arrangement.spacedBy(3.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -499,8 +562,14 @@ private fun SeriesMark(line: ChartLine) {
                 Box(modifier = Modifier.size(width = 5.dp, height = 3.dp).background(line.color, DashShape))
             }
         }
-    } else {
-        Box(modifier = Modifier.size(10.dp).background(line.color, CircleShape))
+        ChartLineStyle.DOTTED -> Row(
+            horizontalArrangement = Arrangement.spacedBy(2.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            repeat(3) {
+                Box(modifier = Modifier.size(3.dp).background(line.color, CircleShape))
+            }
+        }
     }
 }
 
