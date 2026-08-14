@@ -9,4 +9,4 @@
   instrumentierte Tests (`connectedDebugAndroidTest`, z.B. `MigrationTest`).
 - Wenn sich etwas nur am laufenden Gerät prüfen ließe: sagen, was ungeprüft bleibt, statt es
   per Emulator-Eingaben nachzustellen.
-- Schlage mir am Ende eine kurze Github Change Message vor.  
+- Schlage mir am Ende eine kurze Github Change Message vor. Nur einen Satz.  
