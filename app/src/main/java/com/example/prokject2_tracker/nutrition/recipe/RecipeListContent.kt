@@ -14,6 +14,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.PostAdd
 import androidx.compose.material3.Card
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
@@ -33,6 +34,8 @@ import com.example.prokject2_tracker.core.util.formatCompact
 fun RecipeListContent(
     onAddRecipe: () -> Unit,
     onEditRecipe: (String) -> Unit,
+    /** Opens the "ins Tagebuch" dialog for this recipe — see LibraryQuickLogViewModel. */
+    onLogToDiary: (RecipeWithNutrition) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: RecipeListViewModel = hiltViewModel(),
 ) {
@@ -80,6 +83,9 @@ fun RecipeListContent(
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
                                 }
+                            }
+                            IconButton(onClick = { onLogToDiary(item) }) {
+                                Icon(Icons.Filled.PostAdd, contentDescription = "Ins Tagebuch")
                             }
                             IconButton(onClick = { viewModel.delete(item.recipe) }) {
                                 Icon(Icons.Filled.Delete, contentDescription = "Löschen")

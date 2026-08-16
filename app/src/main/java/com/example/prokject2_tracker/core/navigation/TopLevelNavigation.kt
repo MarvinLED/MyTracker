@@ -26,7 +26,13 @@ fun NavController.navigateToTopLevel(route: Any, topLevelRoutes: Set<String> = t
     // Drop any detail screen the user had open *before* popUpTo(saveState = true) snapshots this
     // tab's stack — otherwise coming back to the tab restores that detail screen instead of the
     // tab's own overview.
-    while (currentDestination?.route !in topLevelRoutes) {
+    //
+    // `previousBackStackEntry != null` is what keeps this from emptying the graph, and the
+    // `!popBackStack()` break cannot stand in for it: popBackStack() carries the pop out even when
+    // it returns false, so by the time it says "nothing left" the last entry is already gone and
+    // the NavHost has nothing to draw. Today the loop always stops on the start destination, which
+    // is top-level itself — the guard is what keeps that from being a coincidence.
+    while (currentDestination?.route !in topLevelRoutes && previousBackStackEntry != null) {
         if (!popBackStack()) break
     }
     navigate(route) {
