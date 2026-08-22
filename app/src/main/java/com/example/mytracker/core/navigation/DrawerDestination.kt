@@ -1,4 +1,4 @@
-package com.example.prokject2_tracker.core.navigation
+package com.example.mytracker.core.navigation
 
 import androidx.annotation.StringRes
 import androidx.compose.material.icons.Icons
@@ -13,21 +13,21 @@ import androidx.compose.material.icons.filled.Bedtime
 import androidx.compose.material.icons.filled.Straighten
 import androidx.compose.material.icons.filled.Task
 import androidx.compose.ui.graphics.vector.ImageVector
-import com.example.prokject2_tracker.R
-import com.example.prokject2_tracker.analyse.AnalyseRoute
-import com.example.prokject2_tracker.bloodpressure.BloodPressureRoute
-import com.example.prokject2_tracker.core.backup.BackupRoute
-import com.example.prokject2_tracker.fluid.FluidRoute
-import com.example.prokject2_tracker.goals.GoalsRoute
-import com.example.prokject2_tracker.habit.HabitRoute
-import com.example.prokject2_tracker.measurement.MeasurementRoute
-import com.example.prokject2_tracker.nutrition.library.LibraryRoute
-import com.example.prokject2_tracker.sleep.SleepRoute
-import com.example.prokject2_tracker.task.TaskRoute
-import com.example.prokject2_tracker.ui.theme.AppDomain
+import com.example.mytracker.R
+import com.example.mytracker.analyse.AnalyseRoute
+import com.example.mytracker.bloodpressure.BloodPressureRoute
+import com.example.mytracker.core.backup.BackupRoute
+import com.example.mytracker.fluid.FluidRoute
+import com.example.mytracker.goals.GoalsRoute
+import com.example.mytracker.habit.HabitRoute
+import com.example.mytracker.measurement.MeasurementRoute
+import com.example.mytracker.nutrition.library.LibraryRoute
+import com.example.mytracker.sleep.SleepRoute
+import com.example.mytracker.task.TaskRoute
+import com.example.mytracker.ui.theme.AppDomain
 
 /**
- * Destinations reachable from the [com.example.prokject2_tracker.core.ui.AppScaffold] navigation
+ * Destinations reachable from the [com.example.mytracker.core.ui.AppScaffold] navigation
  * drawer rather than the bottom-nav bar. Peers of [TopLevelDestination], just surfaced elsewhere.
  */
 enum class DrawerDestination(

@@ -1,4 +1,4 @@
-package com.example.prokject2_tracker.fitness.strength
+package com.example.mytracker.fitness.strength
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -37,8 +37,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import com.example.prokject2_tracker.core.util.formatDecimal
-import com.example.prokject2_tracker.core.util.toLocaleDoubleOrNull
+import com.example.mytracker.core.util.formatDecimal
+import com.example.mytracker.core.util.toLocaleDoubleOrNull
 
 /** The ± steps, in the order they appear. Chosen to cover plate maths and micro-loading in one row. */
 private val WEIGHT_STEPS = listOf(-5.0, -1.0, -0.25, 0.25, 1.0, 5.0)

@@ -1,9 +1,9 @@
-package com.example.prokject2_tracker.habit
+package com.example.mytracker.habit
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.prokject2_tracker.core.util.DateUtils
-import com.example.prokject2_tracker.core.util.GoalPeriod
+import com.example.mytracker.core.util.DateUtils
+import com.example.mytracker.core.util.GoalPeriod
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.SharingStarted

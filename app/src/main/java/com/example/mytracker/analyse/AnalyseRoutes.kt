@@ -1,4 +1,4 @@
-package com.example.prokject2_tracker.analyse
+package com.example.mytracker.analyse
 
 import kotlinx.serialization.Serializable
 

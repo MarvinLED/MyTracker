@@ -1,7 +1,7 @@
-package com.example.prokject2_tracker.core.di
+package com.example.mytracker.core.di
 
-import com.example.prokject2_tracker.core.backup.BackupExportProvider
-import com.example.prokject2_tracker.core.metrics.MetricSeriesProvider
+import com.example.mytracker.core.backup.BackupExportProvider
+import com.example.mytracker.core.metrics.MetricSeriesProvider
 import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent

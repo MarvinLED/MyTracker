@@ -1,7 +1,7 @@
-package com.example.prokject2_tracker.nutrition.diary
+package com.example.mytracker.nutrition.diary
 
-import com.example.prokject2_tracker.core.metrics.ChartRange
-import com.example.prokject2_tracker.core.metrics.EpochDayRange
+import com.example.mytracker.core.metrics.ChartRange
+import com.example.mytracker.core.metrics.EpochDayRange
 
 /** The three spans the Verlauf offers. Woche is left out — a week of daily bars is the Tagebuch. */
 val DiaryHistoryRanges: List<ChartRange> = listOf(ChartRange.MONTH, ChartRange.YEAR, ChartRange.ALL)

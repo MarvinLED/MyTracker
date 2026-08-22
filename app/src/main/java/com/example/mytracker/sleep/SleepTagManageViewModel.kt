@@ -1,4 +1,4 @@
-package com.example.prokject2_tracker.sleep
+package com.example.mytracker.sleep
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope

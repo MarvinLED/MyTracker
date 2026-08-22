@@ -1,6 +1,6 @@
-package com.example.prokject2_tracker.measurement
+package com.example.mytracker.measurement
 
-import com.example.prokject2_tracker.core.backup.BackupExportProvider
+import com.example.mytracker.core.backup.BackupExportProvider
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -8,7 +8,7 @@ import dagger.hilt.components.SingletonComponent
 import dagger.multibindings.IntoSet
 
 /**
- * Two providers, one per [com.example.prokject2_tracker.core.backup.BackupScope]: the site
+ * Two providers, one per [com.example.mytracker.core.backup.BackupScope]: the site
  * definitions are library data, the measurements taken against them are tracked data.
  */
 @Module

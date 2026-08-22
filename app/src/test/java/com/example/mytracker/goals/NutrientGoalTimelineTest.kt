@@ -1,8 +1,8 @@
-package com.example.prokject2_tracker.goals
+package com.example.mytracker.goals
 
-import com.example.prokject2_tracker.core.datastore.Nutrient
-import com.example.prokject2_tracker.core.datastore.NutrientGoal
-import com.example.prokject2_tracker.core.metrics.EpochDayRange
+import com.example.mytracker.core.datastore.Nutrient
+import com.example.mytracker.core.datastore.NutrientGoal
+import com.example.mytracker.core.metrics.EpochDayRange
 import java.time.Instant
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue

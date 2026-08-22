@@ -1,4 +1,4 @@
-package com.example.prokject2_tracker.nutrition.food
+package com.example.mytracker.nutrition.food
 
 /**
  * Traversal over the "implies" graph built from [TagImplication] rows — a child implies its parents,

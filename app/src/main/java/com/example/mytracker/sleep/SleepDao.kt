@@ -1,4 +1,4 @@
-package com.example.prokject2_tracker.sleep
+package com.example.mytracker.sleep
 
 import androidx.room.Dao
 import androidx.room.Delete
@@ -6,7 +6,7 @@ import androidx.room.Insert
 import androidx.room.Query
 import androidx.room.Transaction
 import androidx.room.Upsert
-import com.example.prokject2_tracker.core.metrics.MetricPoint
+import com.example.mytracker.core.metrics.MetricPoint
 import kotlinx.coroutines.flow.Flow
 
 @Dao

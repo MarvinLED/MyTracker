@@ -1,4 +1,4 @@
-package com.example.prokject2_tracker.fitness.cardio
+package com.example.mytracker.fitness.cardio
 
 import androidx.room.Dao
 import androidx.room.Delete
@@ -6,7 +6,7 @@ import androidx.room.Query
 import androidx.room.Upsert
 import kotlinx.coroutines.flow.Flow
 
-/** Projections matching [com.example.prokject2_tracker.core.metrics.MetricPoint]'s field names. */
+/** Projections matching [com.example.mytracker.core.metrics.MetricPoint]'s field names. */
 data class DailyMinutesTotal(val epochDay: Long, val value: Double)
 data class DailyCaloriesBurnedTotal(val epochDay: Long, val value: Double)
 data class DailyAvgHeartRateTotal(val epochDay: Long, val value: Double)

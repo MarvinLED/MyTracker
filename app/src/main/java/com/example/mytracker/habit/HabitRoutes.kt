@@ -1,4 +1,4 @@
-package com.example.prokject2_tracker.habit
+package com.example.mytracker.habit
 
 import kotlinx.serialization.Serializable
 

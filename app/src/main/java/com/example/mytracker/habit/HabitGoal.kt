@@ -1,10 +1,10 @@
-package com.example.prokject2_tracker.habit
+package com.example.mytracker.habit
 
 import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
-import com.example.prokject2_tracker.core.util.GoalPeriod
+import com.example.mytracker.core.util.GoalPeriod
 import java.time.Instant
 
 /**

@@ -1,4 +1,4 @@
-package com.example.prokject2_tracker.weight
+package com.example.mytracker.weight
 
 import androidx.room.Dao
 import androidx.room.Delete

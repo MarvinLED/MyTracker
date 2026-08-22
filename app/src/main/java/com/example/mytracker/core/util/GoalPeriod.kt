@@ -1,3 +1,3 @@
-package com.example.prokject2_tracker.core.util
+package com.example.mytracker.core.util
 
 enum class GoalPeriod { DAILY, WEEKLY, MONTHLY }

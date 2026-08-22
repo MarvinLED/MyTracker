@@ -1,4 +1,4 @@
-package com.example.prokject2_tracker.fitness
+package com.example.mytracker.fitness
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -32,15 +32,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.example.prokject2_tracker.core.util.DateUtils
-import com.example.prokject2_tracker.core.util.formatCompact
-import com.example.prokject2_tracker.fitness.cardio.CardioSession
-import com.example.prokject2_tracker.fitness.strength.StrengthLogEntry
-import com.example.prokject2_tracker.fitness.strength.StrengthSet
-import com.example.prokject2_tracker.fitness.strength.formatSetSummary
-import com.example.prokject2_tracker.fitness.strength.toDraft
-import com.example.prokject2_tracker.ui.theme.AppDomain
-import com.example.prokject2_tracker.ui.theme.topAppBarColors
+import com.example.mytracker.core.util.DateUtils
+import com.example.mytracker.core.util.formatCompact
+import com.example.mytracker.fitness.cardio.CardioSession
+import com.example.mytracker.fitness.strength.StrengthLogEntry
+import com.example.mytracker.fitness.strength.StrengthSet
+import com.example.mytracker.fitness.strength.formatSetSummary
+import com.example.mytracker.fitness.strength.toDraft
+import com.example.mytracker.ui.theme.AppDomain
+import com.example.mytracker.ui.theme.topAppBarColors
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 

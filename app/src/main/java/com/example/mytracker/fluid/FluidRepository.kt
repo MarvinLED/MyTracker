@@ -1,7 +1,7 @@
-package com.example.prokject2_tracker.fluid
+package com.example.mytracker.fluid
 
-import com.example.prokject2_tracker.core.util.IdGenerator
-import com.example.prokject2_tracker.core.util.formatCompact
+import com.example.mytracker.core.util.IdGenerator
+import com.example.mytracker.core.util.formatCompact
 import java.time.Instant
 import javax.inject.Inject
 import javax.inject.Singleton

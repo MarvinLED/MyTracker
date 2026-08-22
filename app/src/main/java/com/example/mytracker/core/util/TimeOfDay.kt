@@ -1,4 +1,4 @@
-package com.example.prokject2_tracker.core.util
+package com.example.mytracker.core.util
 
 /** Minutes in a day — the modulus every wrap-around below is done in. */
 const val MINUTES_PER_DAY = 24 * 60

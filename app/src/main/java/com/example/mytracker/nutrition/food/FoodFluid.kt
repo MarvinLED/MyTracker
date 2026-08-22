@@ -1,4 +1,4 @@
-package com.example.prokject2_tracker.nutrition.food
+package com.example.mytracker.nutrition.food
 
 /**
  * How much of a food amount is fluid, in ml. The single place this conversion lives: the diary

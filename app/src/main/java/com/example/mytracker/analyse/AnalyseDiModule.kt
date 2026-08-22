@@ -1,6 +1,6 @@
-package com.example.prokject2_tracker.analyse
+package com.example.mytracker.analyse
 
-import com.example.prokject2_tracker.core.metrics.MetricSeriesProvider
+import com.example.mytracker.core.metrics.MetricSeriesProvider
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn

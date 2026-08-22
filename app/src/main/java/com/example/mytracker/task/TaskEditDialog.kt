@@ -1,4 +1,4 @@
-package com.example.prokject2_tracker.task
+package com.example.mytracker.task
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -30,7 +30,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import com.example.prokject2_tracker.core.util.DateUtils
+import com.example.mytracker.core.util.DateUtils
 import java.time.DayOfWeek
 import java.time.Instant
 

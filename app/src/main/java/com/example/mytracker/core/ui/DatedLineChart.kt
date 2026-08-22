@@ -1,4 +1,4 @@
-package com.example.prokject2_tracker.core.ui
+package com.example.mytracker.core.ui
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -40,11 +40,11 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.example.prokject2_tracker.core.metrics.AxisTicks
-import com.example.prokject2_tracker.core.metrics.MetricPoint
-import com.example.prokject2_tracker.core.metrics.niceAxisTicks
-import com.example.prokject2_tracker.core.util.DateUtils
-import com.example.prokject2_tracker.core.util.formatCompact
+import com.example.mytracker.core.metrics.AxisTicks
+import com.example.mytracker.core.metrics.MetricPoint
+import com.example.mytracker.core.metrics.niceAxisTicks
+import com.example.mytracker.core.util.DateUtils
+import com.example.mytracker.core.util.formatCompact
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 

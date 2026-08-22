@@ -1,4 +1,4 @@
-package com.example.prokject2_tracker.nutrition.diary
+package com.example.mytracker.nutrition.diary
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
@@ -56,15 +56,15 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.example.prokject2_tracker.core.util.DateUtils
-import com.example.prokject2_tracker.core.util.formatCompact
-import com.example.prokject2_tracker.fluid.FluidQuickAddArea
-import com.example.prokject2_tracker.fluid.fluidDistributionSlices
-import com.example.prokject2_tracker.fluid.fluidQuickAddItems
-import com.example.prokject2_tracker.nutrition.food.Tag
-import com.example.prokject2_tracker.nutrition.food.TagDots
-import com.example.prokject2_tracker.nutrition.food.formatAmount
-import com.example.prokject2_tracker.ui.theme.DiaryBlue
+import com.example.mytracker.core.util.DateUtils
+import com.example.mytracker.core.util.formatCompact
+import com.example.mytracker.fluid.FluidQuickAddArea
+import com.example.mytracker.fluid.fluidDistributionSlices
+import com.example.mytracker.fluid.fluidQuickAddItems
+import com.example.mytracker.nutrition.food.Tag
+import com.example.mytracker.nutrition.food.TagDots
+import com.example.mytracker.nutrition.food.formatAmount
+import com.example.mytracker.ui.theme.DiaryBlue
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale

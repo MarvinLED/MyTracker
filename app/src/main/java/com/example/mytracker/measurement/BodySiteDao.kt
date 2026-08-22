@@ -1,4 +1,4 @@
-package com.example.prokject2_tracker.measurement
+package com.example.mytracker.measurement
 
 import androidx.room.Dao
 import androidx.room.Delete

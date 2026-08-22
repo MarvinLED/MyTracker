@@ -2,12 +2,12 @@
 <resources>
 
     <!--
-      The window shell behind Compose. It has to match the dark scheme Prokject2_TrackerTheme always
+      The window shell behind Compose. It has to match the dark scheme MyTrackerTheme always
       draws: this background is what's on screen for the frames between the window opening and the
       first Compose frame, so a light parent theme here shows up as a white flash on every cold
       start and every activity restart.
     -->
-    <style name="Theme.Prokject2_Tracker" parent="android:Theme.Material.NoActionBar">
+    <style name="Theme.MyTracker" parent="android:Theme.Material.NoActionBar">
         <item name="android:windowBackground">@color/window_background</item>
     </style>
 </resources>

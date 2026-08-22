@@ -1,4 +1,4 @@
-package com.example.prokject2_tracker.nutrition.food
+package com.example.mytracker.nutrition.food
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -37,7 +37,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.example.prokject2_tracker.core.ui.ColorSwatchPicker
+import com.example.mytracker.core.ui.ColorSwatchPicker
 
 /**
  * The Tags library, third tab of the Bibliothek. Tags are still created as a by-product of typing a

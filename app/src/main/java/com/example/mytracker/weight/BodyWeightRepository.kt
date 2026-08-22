@@ -1,4 +1,4 @@
-package com.example.prokject2_tracker.weight
+package com.example.mytracker.weight
 
 import java.time.Instant
 import javax.inject.Inject

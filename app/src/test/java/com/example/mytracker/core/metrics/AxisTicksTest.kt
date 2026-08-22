@@ -1,4 +1,4 @@
-package com.example.prokject2_tracker.core.metrics
+package com.example.mytracker.core.metrics
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue

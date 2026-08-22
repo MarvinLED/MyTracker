@@ -1,4 +1,4 @@
-package com.example.prokject2_tracker.core.navigation
+package com.example.mytracker.core.navigation
 
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -12,13 +12,13 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import com.example.prokject2_tracker.fitness.FitnessRoute
-import com.example.prokject2_tracker.fluid.FluidRoute
-import com.example.prokject2_tracker.goals.DayGoalsRoute
-import com.example.prokject2_tracker.goals.GoalsRoute
-import com.example.prokject2_tracker.nutrition.diary.DiaryRoute
-import com.example.prokject2_tracker.nutrition.food.FoodEditRoute
-import com.example.prokject2_tracker.nutrition.library.LibraryRoute
+import com.example.mytracker.fitness.FitnessRoute
+import com.example.mytracker.fluid.FluidRoute
+import com.example.mytracker.goals.DayGoalsRoute
+import com.example.mytracker.goals.GoalsRoute
+import com.example.mytracker.nutrition.diary.DiaryRoute
+import com.example.mytracker.nutrition.food.FoodEditRoute
+import com.example.mytracker.nutrition.library.LibraryRoute
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule

@@ -1,6 +1,6 @@
-package com.example.prokject2_tracker.task
+package com.example.mytracker.task
 
-import com.example.prokject2_tracker.core.util.DateUtils
+import com.example.mytracker.core.util.DateUtils
 import java.time.DayOfWeek
 import java.time.format.DateTimeFormatter
 import java.util.Locale

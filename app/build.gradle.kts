@@ -7,7 +7,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.prokject2_tracker"
+    namespace = "com.example.mytracker"
     compileSdk {
         version = release(37) {
             minorApiLevel = 1

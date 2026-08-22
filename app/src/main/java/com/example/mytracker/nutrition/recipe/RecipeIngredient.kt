@@ -1,10 +1,10 @@
-package com.example.prokject2_tracker.nutrition.recipe
+package com.example.mytracker.nutrition.recipe
 
 import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
-import com.example.prokject2_tracker.nutrition.food.FoodItem
+import com.example.mytracker.nutrition.food.FoodItem
 
 @Entity(
     tableName = "recipe_ingredients",
@@ -28,11 +28,11 @@ data class RecipeIngredient(
     @PrimaryKey val id: String,
     val recipeId: String,
     val foodId: String,
-    /** Amount in the referenced food's [com.example.prokject2_tracker.nutrition.food.BaseUnit]. */
+    /** Amount in the referenced food's [com.example.mytracker.nutrition.food.BaseUnit]. */
     val amountBaseUnits: Double,
     /**
      * How the amount was entered, if by a named
-     * [FoodUnit][com.example.prokject2_tracker.nutrition.food.FoodUnit] instead of by weight —
+     * [FoodUnit][com.example.mytracker.nutrition.food.FoodUnit] instead of by weight —
      * "2 × Scheibe" for an [amountBaseUnits] of 50. Null means grams were typed directly.
      */
     val unitName: String? = null,

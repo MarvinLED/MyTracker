@@ -1,4 +1,4 @@
-package com.example.prokject2_tracker.task
+package com.example.mytracker.task
 
 import androidx.room.Entity
 import androidx.room.ForeignKey

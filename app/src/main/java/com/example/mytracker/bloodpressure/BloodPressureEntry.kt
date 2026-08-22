@@ -1,4 +1,4 @@
-package com.example.prokject2_tracker.bloodpressure
+package com.example.mytracker.bloodpressure
 
 import androidx.room.Entity
 import androidx.room.Index
@@ -19,13 +19,13 @@ fun BloodPressureTimeOfDay.label(): String = when (this) {
 
 /**
  * One blood-pressure reading: the two values a cuff shows, in mmHg. Unlike
- * [com.example.prokject2_tracker.measurement.BodySite] there is no library of user-defined entries
+ * [com.example.mytracker.measurement.BodySite] there is no library of user-defined entries
  * here — systolisch and diastolisch are what a blood-pressure meter measures, so they are fixed
  * columns rather than rows of a Stellen table.
  *
  * Keyed by (day, [timeOfDay]) through the deterministic id "bloodpressure-$epochDay-$timeOfDay" plus
  * a unique index, the same idempotent-logging convention as
- * [com.example.prokject2_tracker.weight.BodyWeightEntry]: re-entering this morning's reading
+ * [com.example.mytracker.weight.BodyWeightEntry]: re-entering this morning's reading
  * corrects it instead of adding a second point.
  *
  * [comment] is per reading, never carried over — "nach dem Sport", "schlecht geschlafen" is exactly

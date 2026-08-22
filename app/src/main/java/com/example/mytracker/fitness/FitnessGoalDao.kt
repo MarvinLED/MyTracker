@@ -1,4 +1,4 @@
-package com.example.prokject2_tracker.fitness
+package com.example.mytracker.fitness
 
 import androidx.room.Dao
 import androidx.room.Query

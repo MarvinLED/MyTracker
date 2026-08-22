@@ -1,13 +1,13 @@
-package com.example.prokject2_tracker.nutrition.diary
+package com.example.mytracker.nutrition.diary
 
-import com.example.prokject2_tracker.core.datastore.Nutrient
-import com.example.prokject2_tracker.core.datastore.NutrientGoal
-import com.example.prokject2_tracker.core.metrics.EpochDayRange
-import com.example.prokject2_tracker.core.metrics.Granularity
-import com.example.prokject2_tracker.core.ui.ChartLineStyle
-import com.example.prokject2_tracker.goals.NutrientGoalChange
-import com.example.prokject2_tracker.nutrition.NutritionTotals
-import com.example.prokject2_tracker.weight.BodyWeightEntry
+import com.example.mytracker.core.datastore.Nutrient
+import com.example.mytracker.core.datastore.NutrientGoal
+import com.example.mytracker.core.metrics.EpochDayRange
+import com.example.mytracker.core.metrics.Granularity
+import com.example.mytracker.core.ui.ChartLineStyle
+import com.example.mytracker.goals.NutrientGoalChange
+import com.example.mytracker.nutrition.NutritionTotals
+import com.example.mytracker.weight.BodyWeightEntry
 import java.time.Instant
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse

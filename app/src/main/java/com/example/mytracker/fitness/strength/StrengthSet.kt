@@ -1,4 +1,4 @@
-package com.example.prokject2_tracker.fitness.strength
+package com.example.mytracker.fitness.strength
 
 import androidx.room.Entity
 import androidx.room.ForeignKey
@@ -7,7 +7,7 @@ import androidx.room.PrimaryKey
 
 /**
  * One logged set within a [StrengthLogEntry]. [epochDay]/[exerciseId] are denormalized from the
- * parent entry (like [com.example.prokject2_tracker.fitness.cardio.CardioSession] snapshots its
+ * parent entry (like [com.example.mytracker.fitness.cardio.CardioSession] snapshots its
  * activity type) so "latest weight for this exercise" needs no join. "Sets per muscle group" is
  * computed by joining [exerciseId] against the exercise's *current* [StrengthExerciseMuscleGroup]
  * assignments rather than snapshotting a muscle group here, since one exercise can target several.

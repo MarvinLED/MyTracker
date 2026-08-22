@@ -1,7 +1,7 @@
-package com.example.prokject2_tracker.fitness.cardio
+package com.example.mytracker.fitness.cardio
 
-import com.example.prokject2_tracker.core.util.DateUtils
-import com.example.prokject2_tracker.core.util.toLocaleDoubleOrNull
+import com.example.mytracker.core.util.DateUtils
+import com.example.mytracker.core.util.toLocaleDoubleOrNull
 
 data class CardioEditState(
     val id: String? = null,

@@ -1,6 +1,6 @@
-package com.example.prokject2_tracker.core.metrics
+package com.example.mytracker.core.metrics
 
-import com.example.prokject2_tracker.core.util.DateUtils
+import com.example.mytracker.core.util.DateUtils
 import java.time.LocalDate
 import org.junit.Assert.assertEquals
 import org.junit.Test

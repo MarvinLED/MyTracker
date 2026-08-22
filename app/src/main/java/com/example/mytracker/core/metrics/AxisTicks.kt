@@ -1,4 +1,4 @@
-package com.example.prokject2_tracker.core.metrics
+package com.example.mytracker.core.metrics
 
 import kotlin.math.abs
 import kotlin.math.ceil

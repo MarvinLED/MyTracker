@@ -1,4 +1,4 @@
-package com.example.prokject2_tracker.measurement
+package com.example.mytracker.measurement
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope

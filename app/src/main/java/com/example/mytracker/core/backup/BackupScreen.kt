@@ -1,4 +1,4 @@
-package com.example.prokject2_tracker.core.backup
+package com.example.mytracker.core.backup
 
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -51,8 +51,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.example.prokject2_tracker.ui.theme.AppDomain
-import com.example.prokject2_tracker.ui.theme.topAppBarColors
+import com.example.mytracker.ui.theme.AppDomain
+import com.example.mytracker.ui.theme.topAppBarColors
 import java.io.BufferedReader
 import java.io.InputStreamReader
 import java.time.Instant

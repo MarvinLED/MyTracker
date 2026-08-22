@@ -1,4 +1,4 @@
-package com.example.prokject2_tracker.nutrition.diary
+package com.example.mytracker.nutrition.diary
 
 import androidx.room.Embedded
 import androidx.room.Entity
@@ -6,8 +6,8 @@ import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
 import androidx.room.Relation
-import com.example.prokject2_tracker.nutrition.FoodAmount
-import com.example.prokject2_tracker.nutrition.food.FoodItem
+import com.example.mytracker.nutrition.FoodAmount
+import com.example.mytracker.nutrition.food.FoodItem
 
 /**
  * One ingredient of a single Tagebuch entry's *own* copy of a recipe — "the Rezept the way I actually
@@ -40,7 +40,7 @@ data class DiaryRecipeIngredient(
     @PrimaryKey val id: String,
     val diaryEntryId: String,
     val foodId: String,
-    /** Amount in the referenced food's [com.example.prokject2_tracker.nutrition.food.BaseUnit]. */
+    /** Amount in the referenced food's [com.example.mytracker.nutrition.food.BaseUnit]. */
     val amountBaseUnits: Double,
     /** How the amount was entered, if by a named unit — see [DiaryEntry.unitName]. */
     val unitName: String? = null,

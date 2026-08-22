@@ -1,4 +1,4 @@
-package com.example.prokject2_tracker.analyse
+package com.example.mytracker.analyse
 
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -33,17 +33,17 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.example.prokject2_tracker.core.metrics.AnalyseDateRange
-import com.example.prokject2_tracker.core.metrics.Granularity
-import com.example.prokject2_tracker.core.metrics.label
-import com.example.prokject2_tracker.core.ui.DatedLineChart
-import com.example.prokject2_tracker.fitness.strength.MovementDirection
-import com.example.prokject2_tracker.fitness.strength.MuscleGroup
-import com.example.prokject2_tracker.fitness.strength.label
-import com.example.prokject2_tracker.fitness.strength.StrengthExercise
-import com.example.prokject2_tracker.fluid.fluidPalette
-import com.example.prokject2_tracker.ui.theme.AppDomain
-import com.example.prokject2_tracker.ui.theme.topAppBarColors
+import com.example.mytracker.core.metrics.AnalyseDateRange
+import com.example.mytracker.core.metrics.Granularity
+import com.example.mytracker.core.metrics.label
+import com.example.mytracker.core.ui.DatedLineChart
+import com.example.mytracker.fitness.strength.MovementDirection
+import com.example.mytracker.fitness.strength.MuscleGroup
+import com.example.mytracker.fitness.strength.label
+import com.example.mytracker.fitness.strength.StrengthExercise
+import com.example.mytracker.fluid.fluidPalette
+import com.example.mytracker.ui.theme.AppDomain
+import com.example.mytracker.ui.theme.topAppBarColors
 
 private val METRIC_CATEGORY_ORDER = listOf("cardio", "strength", "nutrition", "fluid", "habit", "weight", "overall")
 

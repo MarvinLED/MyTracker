@@ -1,4 +1,4 @@
-package com.example.prokject2_tracker.bloodpressure
+package com.example.mytracker.bloodpressure
 
 import androidx.room.Dao
 import androidx.room.Delete

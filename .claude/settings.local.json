@@ -19,12 +19,12 @@
       "Bash(python3 -)",
       "Bash(./gradlew assembleDebug)",
       "Bash(./gradlew testDebugUnitTest --tests \"*MeasurementViewModelTest*\")",
-      "Bash(./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.example.prokject2_tracker.core.database.MigrationTest)",
-      "Bash(./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.example.prokject2_tracker.core.navigation.TopLevelNavigationTest)",
+      "Bash(./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.example.mytracker.core.database.MigrationTest)",
+      "Bash(./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.example.mytracker.core.navigation.TopLevelNavigationTest)",
       "Bash(~/Android/Sdk/platform-tools/adb logcat *)",
-      "Bash(./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.example.prokject2_tracker.core.navigation.NavDiagnosticTest)",
+      "Bash(./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.example.mytracker.core.navigation.NavDiagnosticTest)",
       "Bash(./gradlew testDebugUnitTest connectedDebugAndroidTest)",
-      "Bash(git -C /home/user/Dokumente/Projects/Project1 status --short)"
+      "Bash(git -C /home/user/Dokumente/Projects/MyTracker status --short)"
     ]
   }
 }

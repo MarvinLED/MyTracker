@@ -1,11 +1,11 @@
-package com.example.prokject2_tracker.nutrition.diary
+package com.example.mytracker.nutrition.diary
 
 import androidx.room.Room
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
-import com.example.prokject2_tracker.core.database.AppDatabase
-import com.example.prokject2_tracker.core.datastore.Nutrient
-import com.example.prokject2_tracker.goals.NutrientGoalChange
+import com.example.mytracker.core.database.AppDatabase
+import com.example.mytracker.core.datastore.Nutrient
+import com.example.mytracker.goals.NutrientGoalChange
 import java.time.Instant
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking

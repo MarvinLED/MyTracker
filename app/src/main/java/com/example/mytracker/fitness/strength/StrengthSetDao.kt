@@ -1,4 +1,4 @@
-package com.example.prokject2_tracker.fitness.strength
+package com.example.mytracker.fitness.strength
 
 import androidx.room.Dao
 import androidx.room.Query
@@ -6,7 +6,7 @@ import androidx.room.Transaction
 import androidx.room.Upsert
 import kotlinx.coroutines.flow.Flow
 
-/** Projections matching [com.example.prokject2_tracker.core.metrics.MetricPoint]'s field names. */
+/** Projections matching [com.example.mytracker.core.metrics.MetricPoint]'s field names. */
 data class DailySetsTotal(val epochDay: Long, val value: Double)
 data class DailyVolumeTotal(val epochDay: Long, val value: Double)
 

@@ -1,4 +1,4 @@
-package com.example.prokject2_tracker.nutrition.diary
+package com.example.mytracker.nutrition.diary
 
 import androidx.room.Entity
 import androidx.room.Index
@@ -36,7 +36,7 @@ data class DiaryEntry(
     val quantityUnit: String,
     /**
      * What the user actually typed when they logged this by a named [FoodUnit][com.example
-     * .prokject2_tracker.nutrition.food.FoodUnit] instead of by weight — "2 × Scheibe" for a
+     * .mytracker.nutrition.food.FoodUnit] instead of by weight — "2 × Scheibe" for a
      * [quantity] of 50 g. Null means it was entered in [quantityUnit] directly. Snapshotted like
      * [sourceName], so renaming or deleting the unit later never rewrites history, and deliberately
      * *besides* [quantity] rather than replacing it: everything downstream (nutrition, the mirrored

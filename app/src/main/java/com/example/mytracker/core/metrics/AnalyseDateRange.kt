@@ -1,6 +1,6 @@
-package com.example.prokject2_tracker.core.metrics
+package com.example.mytracker.core.metrics
 
-import com.example.prokject2_tracker.core.util.DateUtils
+import com.example.mytracker.core.util.DateUtils
 
 enum class AnalyseDateRange(val days: Int) {
     LAST_7(7),

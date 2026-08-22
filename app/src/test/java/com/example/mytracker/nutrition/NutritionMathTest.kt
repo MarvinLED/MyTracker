@@ -1,9 +1,9 @@
-package com.example.prokject2_tracker.nutrition
+package com.example.mytracker.nutrition
 
-import com.example.prokject2_tracker.core.datastore.Nutrient
-import com.example.prokject2_tracker.nutrition.food.BaseUnit
-import com.example.prokject2_tracker.nutrition.food.FoodItem
-import com.example.prokject2_tracker.nutrition.food.fluidMl
+import com.example.mytracker.core.datastore.Nutrient
+import com.example.mytracker.nutrition.food.BaseUnit
+import com.example.mytracker.nutrition.food.FoodItem
+import com.example.mytracker.nutrition.food.fluidMl
 import java.time.Instant
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue

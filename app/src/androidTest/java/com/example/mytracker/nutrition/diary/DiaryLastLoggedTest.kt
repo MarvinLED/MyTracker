@@ -1,12 +1,12 @@
-package com.example.prokject2_tracker.nutrition.diary
+package com.example.mytracker.nutrition.diary
 
 import androidx.room.Room
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
-import com.example.prokject2_tracker.core.database.AppDatabase
-import com.example.prokject2_tracker.fluid.FluidRepository
-import com.example.prokject2_tracker.nutrition.food.BaseUnit
-import com.example.prokject2_tracker.nutrition.food.FoodItem
+import com.example.mytracker.core.database.AppDatabase
+import com.example.mytracker.fluid.FluidRepository
+import com.example.mytracker.nutrition.food.BaseUnit
+import com.example.mytracker.nutrition.food.FoodItem
 import java.time.Instant
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking

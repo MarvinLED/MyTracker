@@ -1,4 +1,4 @@
-package com.example.prokject2_tracker.nutrition.diary
+package com.example.mytracker.nutrition.diary
 
 import java.time.LocalTime
 import org.junit.Assert.assertEquals

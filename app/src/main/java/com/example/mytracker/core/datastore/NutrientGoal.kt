@@ -1,4 +1,4 @@
-package com.example.prokject2_tracker.core.datastore
+package com.example.mytracker.core.datastore
 
 /**
  * A configured nutrition goal: a lower bound, an upper bound, or both at once — the same shape the

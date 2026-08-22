@@ -1,8 +1,8 @@
-package com.example.prokject2_tracker.fitness
+package com.example.mytracker.fitness
 
-import com.example.prokject2_tracker.fitness.cardio.CardioSession
-import com.example.prokject2_tracker.fitness.strength.StrengthLogEntry
-import com.example.prokject2_tracker.fitness.strength.StrengthSet
+import com.example.mytracker.fitness.cardio.CardioSession
+import com.example.mytracker.fitness.strength.StrengthLogEntry
+import com.example.mytracker.fitness.strength.StrengthSet
 import java.time.Instant
 
 sealed interface TrainingListRow {

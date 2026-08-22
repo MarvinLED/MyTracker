@@ -1,4 +1,4 @@
-package com.example.prokject2_tracker.core.util
+package com.example.mytracker.core.util
 
 fun GoalPeriod.label(): String = when (this) {
     GoalPeriod.DAILY -> "Täglich"

@@ -1,8 +1,8 @@
-package com.example.prokject2_tracker.habit
+package com.example.mytracker.habit
 
-import com.example.prokject2_tracker.core.backup.BackupExportProvider
-import com.example.prokject2_tracker.core.backup.BackupScope
-import com.example.prokject2_tracker.core.util.GoalPeriod
+import com.example.mytracker.core.backup.BackupExportProvider
+import com.example.mytracker.core.backup.BackupScope
+import com.example.mytracker.core.util.GoalPeriod
 import java.time.Instant
 import javax.inject.Inject
 import kotlinx.serialization.Serializable

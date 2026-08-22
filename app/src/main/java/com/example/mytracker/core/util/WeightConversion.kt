@@ -1,4 +1,4 @@
-package com.example.prokject2_tracker.core.util
+package com.example.mytracker.core.util
 
 private const val KG_PER_LB = 0.45359237
 

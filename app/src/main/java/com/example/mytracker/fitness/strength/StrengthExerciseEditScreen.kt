@@ -1,4 +1,4 @@
-package com.example.prokject2_tracker.fitness.strength
+package com.example.mytracker.fitness.strength
 
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -29,7 +29,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.example.prokject2_tracker.core.ui.dismissingKeyboard
+import com.example.mytracker.core.ui.dismissingKeyboard
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

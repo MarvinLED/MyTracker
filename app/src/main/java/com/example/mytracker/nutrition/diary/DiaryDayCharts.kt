@@ -1,4 +1,4 @@
-package com.example.prokject2_tracker.nutrition.diary
+package com.example.mytracker.nutrition.diary
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -29,12 +29,12 @@ import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import com.example.prokject2_tracker.core.datastore.Nutrient
-import com.example.prokject2_tracker.core.datastore.NutrientGoal
-import com.example.prokject2_tracker.core.util.formatCompact
-import com.example.prokject2_tracker.fluid.FluidChartLegend
-import com.example.prokject2_tracker.fluid.FluidSlice
-import com.example.prokject2_tracker.nutrition.NutritionTotals
+import com.example.mytracker.core.datastore.Nutrient
+import com.example.mytracker.core.datastore.NutrientGoal
+import com.example.mytracker.core.util.formatCompact
+import com.example.mytracker.fluid.FluidChartLegend
+import com.example.mytracker.fluid.FluidSlice
+import com.example.mytracker.nutrition.NutritionTotals
 
 /**
  * Hues per nutrient, so the same one is the same colour wherever it appears. Slots out of the app's

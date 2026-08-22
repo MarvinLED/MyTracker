@@ -1,10 +1,10 @@
-package com.example.prokject2_tracker.sleep
+package com.example.mytracker.sleep
 
 import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
-import com.example.prokject2_tracker.core.util.minutesBetweenTimesOfDay
+import com.example.mytracker.core.util.minutesBetweenTimesOfDay
 import java.time.Instant
 
 /**
@@ -17,7 +17,7 @@ import java.time.Instant
  * is later in the clock than [endMinuteOfDay].
  *
  * Keyed by day through the deterministic id "sleep-$epochDay" plus a unique index, the same
- * idempotent-logging convention as [com.example.prokject2_tracker.weight.BodyWeightEntry]: correcting
+ * idempotent-logging convention as [com.example.mytracker.weight.BodyWeightEntry]: correcting
  * last night's times rewrites that night instead of adding a second one.
  */
 @Entity(tableName = "sleep_entries", indices = [Index(value = ["epochDay"], unique = true)])

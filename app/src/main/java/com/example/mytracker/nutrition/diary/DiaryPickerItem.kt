@@ -1,10 +1,10 @@
-package com.example.prokject2_tracker.nutrition.diary
+package com.example.mytracker.nutrition.diary
 
-import com.example.prokject2_tracker.nutrition.food.FoodItem
-import com.example.prokject2_tracker.nutrition.food.Tag
-import com.example.prokject2_tracker.nutrition.food.TagImplication
-import com.example.prokject2_tracker.nutrition.food.tagFilterClosure
-import com.example.prokject2_tracker.nutrition.recipe.RecipeWithNutrition
+import com.example.mytracker.nutrition.food.FoodItem
+import com.example.mytracker.nutrition.food.Tag
+import com.example.mytracker.nutrition.food.TagImplication
+import com.example.mytracker.nutrition.food.tagFilterClosure
+import com.example.mytracker.nutrition.recipe.RecipeWithNutrition
 
 sealed class DiaryPickerItem {
     abstract val id: String

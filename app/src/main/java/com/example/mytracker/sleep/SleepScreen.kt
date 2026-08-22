@@ -1,4 +1,4 @@
-package com.example.prokject2_tracker.sleep
+package com.example.mytracker.sleep
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -49,13 +49,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.example.prokject2_tracker.core.ui.TimeOfDayField
-import com.example.prokject2_tracker.core.util.DateUtils
-import com.example.prokject2_tracker.core.util.formatDuration
-import com.example.prokject2_tracker.core.util.formatMinuteOfDay
-import com.example.prokject2_tracker.ui.theme.AppDomain
-import com.example.prokject2_tracker.ui.theme.statusColor
-import com.example.prokject2_tracker.ui.theme.topAppBarColors
+import com.example.mytracker.core.ui.TimeOfDayField
+import com.example.mytracker.core.util.DateUtils
+import com.example.mytracker.core.util.formatDuration
+import com.example.mytracker.core.util.formatMinuteOfDay
+import com.example.mytracker.ui.theme.AppDomain
+import com.example.mytracker.ui.theme.statusColor
+import com.example.mytracker.ui.theme.topAppBarColors
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale

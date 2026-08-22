@@ -1,4 +1,4 @@
-package com.example.prokject2_tracker.core.navigation
+package com.example.mytracker.core.navigation
 
 import androidx.navigation.NavController
 import androidx.navigation.NavGraph.Companion.findStartDestination

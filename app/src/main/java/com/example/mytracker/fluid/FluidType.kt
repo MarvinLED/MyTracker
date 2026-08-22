@@ -1,4 +1,4 @@
-package com.example.prokject2_tracker.fluid
+package com.example.mytracker.fluid
 
 import androidx.room.Entity
 import androidx.room.Index
@@ -23,7 +23,7 @@ data class FluidType(
     /**
      * Colour this type is drawn with in the Flüssigkeiten pie charts, as a packed ARGB int. Null
      * means "not chosen yet" and falls back to a fixed palette slot — see
-     * [com.example.prokject2_tracker.fluid.chartColor].
+     * [com.example.mytracker.fluid.chartColor].
      */
     val colorArgb: Int? = null,
 )

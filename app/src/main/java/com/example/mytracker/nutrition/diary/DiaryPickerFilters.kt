@@ -1,4 +1,4 @@
-package com.example.prokject2_tracker.nutrition.diary
+package com.example.mytracker.nutrition.diary
 
 enum class DiaryPickerMode {
     ALL, FOOD, RECIPE, QUICK,

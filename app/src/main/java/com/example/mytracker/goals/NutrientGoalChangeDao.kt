@@ -1,9 +1,9 @@
-package com.example.prokject2_tracker.goals
+package com.example.mytracker.goals
 
 import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.Query
-import com.example.prokject2_tracker.core.datastore.Nutrient
+import com.example.mytracker.core.datastore.Nutrient
 import kotlinx.coroutines.flow.Flow
 
 @Dao

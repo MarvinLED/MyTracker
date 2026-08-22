@@ -1,4 +1,4 @@
-package com.example.prokject2_tracker.nutrition.food
+package com.example.mytracker.nutrition.food
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
@@ -15,7 +15,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.example.prokject2_tracker.core.util.formatCompact
+import com.example.mytracker.core.util.formatCompact
 
 /**
  * "Lebensmittel wählen" — search plus results, shared by the Rezept editor and the Tagebuch entry

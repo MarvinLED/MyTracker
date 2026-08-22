@@ -1,4 +1,4 @@
-package com.example.prokject2_tracker.nutrition.diary
+package com.example.mytracker.nutrition.diary
 
 fun MealType.label(): String = when (this) {
     MealType.BREAKFAST -> "Frühstück"

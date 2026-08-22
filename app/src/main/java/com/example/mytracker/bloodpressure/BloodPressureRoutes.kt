@@ -1,4 +1,4 @@
-package com.example.prokject2_tracker.bloodpressure
+package com.example.mytracker.bloodpressure
 
 import kotlinx.serialization.Serializable
 

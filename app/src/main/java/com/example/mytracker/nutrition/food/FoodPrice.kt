@@ -1,6 +1,6 @@
-package com.example.prokject2_tracker.nutrition.food
+package com.example.mytracker.nutrition.food
 
-import com.example.prokject2_tracker.core.util.AppLocale
+import com.example.mytracker.core.util.AppLocale
 
 /**
  * A food's price is entered for whatever amount is handiest — "0,89 € pro 100 g" for loose goods,

@@ -1,4 +1,4 @@
-package com.example.prokject2_tracker.fluid
+package com.example.mytracker.fluid
 
 import org.junit.Assert.assertEquals
 import org.junit.Test

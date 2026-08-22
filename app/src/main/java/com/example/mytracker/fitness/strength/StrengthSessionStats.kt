@@ -1,6 +1,6 @@
-package com.example.prokject2_tracker.fitness.strength
+package com.example.mytracker.fitness.strength
 
-import com.example.prokject2_tracker.core.metrics.MetricPoint
+import com.example.mytracker.core.metrics.MetricPoint
 
 /**
  * One exercise's work on one day. A *session* is the pair (exercise, day), not a single

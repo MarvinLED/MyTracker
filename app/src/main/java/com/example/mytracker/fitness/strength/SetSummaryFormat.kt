@@ -1,6 +1,6 @@
-package com.example.prokject2_tracker.fitness.strength
+package com.example.mytracker.fitness.strength
 
-import com.example.prokject2_tracker.core.util.formatDecimal
+import com.example.mytracker.core.util.formatDecimal
 import kotlin.math.roundToLong
 
 /**

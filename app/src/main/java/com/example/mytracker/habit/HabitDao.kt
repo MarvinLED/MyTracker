@@ -1,4 +1,4 @@
-package com.example.prokject2_tracker.habit
+package com.example.mytracker.habit
 
 import androidx.room.Dao
 import androidx.room.Delete

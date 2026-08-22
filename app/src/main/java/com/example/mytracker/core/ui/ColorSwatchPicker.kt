@@ -1,4 +1,4 @@
-package com.example.prokject2_tracker.core.ui
+package com.example.mytracker.core.ui
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
@@ -19,8 +19,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import com.example.prokject2_tracker.fluid.contrastingInk
-import com.example.prokject2_tracker.fluid.fluidColorChoices
+import com.example.mytracker.fluid.contrastingInk
+import com.example.mytracker.fluid.fluidColorChoices
 
 /**
  * The app's chart palette as tappable swatches, plus an "Automatisch" chip (null) that leaves the

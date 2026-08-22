@@ -1,4 +1,4 @@
-package com.example.prokject2_tracker.nutrition.library
+package com.example.mytracker.nutrition.library
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -25,11 +25,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.example.prokject2_tracker.nutrition.food.FoodListContent
-import com.example.prokject2_tracker.nutrition.food.TagListContent
-import com.example.prokject2_tracker.nutrition.recipe.RecipeListContent
-import com.example.prokject2_tracker.ui.theme.AppDomain
-import com.example.prokject2_tracker.ui.theme.topAppBarColors
+import com.example.mytracker.nutrition.food.FoodListContent
+import com.example.mytracker.nutrition.food.TagListContent
+import com.example.mytracker.nutrition.recipe.RecipeListContent
+import com.example.mytracker.ui.theme.AppDomain
+import com.example.mytracker.ui.theme.topAppBarColors
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

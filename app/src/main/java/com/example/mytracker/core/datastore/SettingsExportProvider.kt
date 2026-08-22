@@ -1,11 +1,11 @@
-package com.example.prokject2_tracker.core.datastore
+package com.example.mytracker.core.datastore
 
-import com.example.prokject2_tracker.core.backup.BackupExportProvider
-import com.example.prokject2_tracker.core.backup.BackupInterval
-import com.example.prokject2_tracker.core.backup.BackupRetention
-import com.example.prokject2_tracker.core.backup.BackupScope
-import com.example.prokject2_tracker.core.backup.BackupSettings
-import com.example.prokject2_tracker.core.backup.BackupSettingsRepository
+import com.example.mytracker.core.backup.BackupExportProvider
+import com.example.mytracker.core.backup.BackupInterval
+import com.example.mytracker.core.backup.BackupRetention
+import com.example.mytracker.core.backup.BackupScope
+import com.example.mytracker.core.backup.BackupSettings
+import com.example.mytracker.core.backup.BackupSettingsRepository
 import javax.inject.Inject
 import kotlinx.coroutines.flow.first
 import kotlinx.serialization.Serializable
@@ -30,7 +30,7 @@ data class SettingsDto(
  * on one device; restoring one somewhere else would point the backup at a folder it has no
  * permission to write, and the failure would only show up the next time a backup was due.
  *
- * The goals live in `com.example.prokject2_tracker.goals.GoalsExportProvider` instead, even though
+ * The goals live in `com.example.mytracker.goals.GoalsExportProvider` instead, even though
  * they share this DataStore: a Ziel is something the user built, and belongs with the Bibliothek.
  */
 class SettingsExportProvider @Inject constructor(

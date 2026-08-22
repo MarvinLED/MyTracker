@@ -1,4 +1,4 @@
-package com.example.prokject2_tracker.fitness.cardio
+package com.example.mytracker.fitness.cardio
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column

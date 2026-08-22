@@ -1,4 +1,4 @@
-package com.example.prokject2_tracker.nutrition.diary
+package com.example.mytracker.nutrition.diary
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
@@ -76,17 +76,17 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.example.prokject2_tracker.core.ui.dismissingKeyboard
-import com.example.prokject2_tracker.core.util.formatCompact
-import com.example.prokject2_tracker.core.util.toLocaleDoubleOrNull
-import com.example.prokject2_tracker.nutrition.food.FoodAmountInput
-import com.example.prokject2_tracker.nutrition.food.Tag
-import com.example.prokject2_tracker.nutrition.food.TagDot
-import com.example.prokject2_tracker.nutrition.food.TagDots
-import com.example.prokject2_tracker.nutrition.food.amountInBaseUnits
-import com.example.prokject2_tracker.nutrition.food.displayColor
-import com.example.prokject2_tracker.nutrition.recipe.RecipeWithNutrition
-import com.example.prokject2_tracker.ui.theme.AppDomain
+import com.example.mytracker.core.ui.dismissingKeyboard
+import com.example.mytracker.core.util.formatCompact
+import com.example.mytracker.core.util.toLocaleDoubleOrNull
+import com.example.mytracker.nutrition.food.FoodAmountInput
+import com.example.mytracker.nutrition.food.Tag
+import com.example.mytracker.nutrition.food.TagDot
+import com.example.mytracker.nutrition.food.TagDots
+import com.example.mytracker.nutrition.food.amountInBaseUnits
+import com.example.mytracker.nutrition.food.displayColor
+import com.example.mytracker.nutrition.recipe.RecipeWithNutrition
+import com.example.mytracker.ui.theme.AppDomain
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -480,7 +480,7 @@ private fun ExpandedItemPanel(
     item: DiaryPickerItem,
     amountText: String,
     onAmountChange: (String) -> Unit,
-    units: List<com.example.prokject2_tracker.nutrition.food.FoodUnit>,
+    units: List<com.example.mytracker.nutrition.food.FoodUnit>,
     selectedUnitId: String?,
     onUnitSelected: (String?) -> Unit,
     onConfirm: () -> Unit,

@@ -1,4 +1,4 @@
-package com.example.prokject2_tracker.core.ui
+package com.example.mytracker.core.ui
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.AlertDialog
@@ -15,12 +15,12 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import com.example.prokject2_tracker.core.util.formatMinuteOfDay
+import com.example.mytracker.core.util.formatMinuteOfDay
 
 /**
  * A labelled clock time, tapped rather than typed: the wheel is faster than a keyboard for "23:10",
  * and it cannot produce a 25:70. Times are minutes since midnight throughout — see
- * [com.example.prokject2_tracker.core.util.TimeOfDay].
+ * [com.example.mytracker.core.util.TimeOfDay].
  *
  * [value] null shows [emptyLabel] instead of a time, which is what makes an optional time (when did
  * you last eat) distinguishable from midnight.

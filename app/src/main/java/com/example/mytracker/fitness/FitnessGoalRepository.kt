@@ -1,10 +1,10 @@
-package com.example.prokject2_tracker.fitness
+package com.example.mytracker.fitness
 
-import com.example.prokject2_tracker.core.util.DateUtils
-import com.example.prokject2_tracker.core.util.GoalPeriod
-import com.example.prokject2_tracker.fitness.cardio.CardioDao
-import com.example.prokject2_tracker.fitness.strength.MovementDirection
-import com.example.prokject2_tracker.fitness.strength.StrengthSetDao
+import com.example.mytracker.core.util.DateUtils
+import com.example.mytracker.core.util.GoalPeriod
+import com.example.mytracker.fitness.cardio.CardioDao
+import com.example.mytracker.fitness.strength.MovementDirection
+import com.example.mytracker.fitness.strength.StrengthSetDao
 import java.time.Instant
 import javax.inject.Inject
 import javax.inject.Singleton

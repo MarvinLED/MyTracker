@@ -1,4 +1,4 @@
-package com.example.prokject2_tracker.nutrition.food
+package com.example.mytracker.nutrition.food
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope

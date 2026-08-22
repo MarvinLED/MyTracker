@@ -1,11 +1,11 @@
-package com.example.prokject2_tracker.sleep
+package com.example.mytracker.sleep
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.prokject2_tracker.core.datastore.NutrientGoal
-import com.example.prokject2_tracker.core.datastore.UserPreferencesRepository
-import com.example.prokject2_tracker.core.util.DateUtils
-import com.example.prokject2_tracker.core.util.minutesBetweenTimesOfDay
+import com.example.mytracker.core.datastore.NutrientGoal
+import com.example.mytracker.core.datastore.UserPreferencesRepository
+import com.example.mytracker.core.util.DateUtils
+import com.example.mytracker.core.util.minutesBetweenTimesOfDay
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.time.LocalTime
 import javax.inject.Inject

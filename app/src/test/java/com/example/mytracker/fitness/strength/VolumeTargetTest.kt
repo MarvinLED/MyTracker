@@ -1,4 +1,4 @@
-package com.example.prokject2_tracker.fitness.strength
+package com.example.mytracker.fitness.strength
 
 import org.junit.Assert.assertEquals
 import org.junit.Test

@@ -1,16 +1,16 @@
-package com.example.prokject2_tracker.fitness.strength
+package com.example.mytracker.fitness.strength
 
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.navigation.toRoute
-import com.example.prokject2_tracker.core.metrics.ChartRange
-import com.example.prokject2_tracker.core.metrics.Granularity
-import com.example.prokject2_tracker.core.metrics.MetricAggregation
-import com.example.prokject2_tracker.core.metrics.MetricPoint
-import com.example.prokject2_tracker.core.metrics.bucketBy
-import com.example.prokject2_tracker.core.metrics.granularityFor
-import com.example.prokject2_tracker.core.util.DateUtils
+import com.example.mytracker.core.metrics.ChartRange
+import com.example.mytracker.core.metrics.Granularity
+import com.example.mytracker.core.metrics.MetricAggregation
+import com.example.mytracker.core.metrics.MetricPoint
+import com.example.mytracker.core.metrics.bucketBy
+import com.example.mytracker.core.metrics.granularityFor
+import com.example.mytracker.core.util.DateUtils
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.ExperimentalCoroutinesApi

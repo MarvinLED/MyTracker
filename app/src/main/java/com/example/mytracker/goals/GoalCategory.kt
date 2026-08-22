@@ -1,4 +1,4 @@
-package com.example.prokject2_tracker.goals
+package com.example.mytracker.goals
 
 /**
  * The sections of the Ziele screen, in the order they are shown. Doubles as the filter's options,

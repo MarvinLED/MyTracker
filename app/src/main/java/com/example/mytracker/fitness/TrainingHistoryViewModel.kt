@@ -1,11 +1,11 @@
-package com.example.prokject2_tracker.fitness
+package com.example.mytracker.fitness
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.prokject2_tracker.fitness.cardio.CardioRepository
-import com.example.prokject2_tracker.fitness.cardio.CardioSession
-import com.example.prokject2_tracker.fitness.strength.StrengthLogEntry
-import com.example.prokject2_tracker.fitness.strength.StrengthLogRepository
+import com.example.mytracker.fitness.cardio.CardioRepository
+import com.example.mytracker.fitness.cardio.CardioSession
+import com.example.mytracker.fitness.strength.StrengthLogEntry
+import com.example.mytracker.fitness.strength.StrengthLogRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.SharingStarted

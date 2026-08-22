@@ -1,4 +1,4 @@
-package com.example.prokject2_tracker.habit
+package com.example.mytracker.habit
 
 fun HabitType.label(): String = when (this) {
     HabitType.YES_NO -> "Ja/Nein"

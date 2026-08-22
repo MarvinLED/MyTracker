@@ -1,4 +1,4 @@
-package com.example.prokject2_tracker.core.ui
+package com.example.mytracker.core.ui
 
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
@@ -28,10 +28,10 @@ import androidx.compose.ui.res.stringResource
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import com.example.prokject2_tracker.core.navigation.AppNavHost
-import com.example.prokject2_tracker.core.navigation.DrawerDestination
-import com.example.prokject2_tracker.core.navigation.TopLevelDestination
-import com.example.prokject2_tracker.core.navigation.navigateToTopLevel
+import com.example.mytracker.core.navigation.AppNavHost
+import com.example.mytracker.core.navigation.DrawerDestination
+import com.example.mytracker.core.navigation.TopLevelDestination
+import com.example.mytracker.core.navigation.navigateToTopLevel
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)

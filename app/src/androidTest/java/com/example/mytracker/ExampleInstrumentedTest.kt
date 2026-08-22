@@ -1,4 +1,4 @@
-package com.example.prokject2_tracker
+package com.example.mytracker
 
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.ext.junit.runners.AndroidJUnit4

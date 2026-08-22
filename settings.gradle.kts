@@ -22,6 +22,6 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "Prokject2_Tracker"
+rootProject.name = "MyTracker"
 include(":app")
  

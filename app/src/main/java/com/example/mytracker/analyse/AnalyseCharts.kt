@@ -1,8 +1,8 @@
-package com.example.prokject2_tracker.analyse
+package com.example.mytracker.analyse
 
 import androidx.compose.ui.graphics.Color
-import com.example.prokject2_tracker.core.metrics.MetricPoint
-import com.example.prokject2_tracker.core.ui.ChartLine
+import com.example.mytracker.core.metrics.MetricPoint
+import com.example.mytracker.core.ui.ChartLine
 
 /**
  * A metric series as the Analyse view model produces it. [color] is a placeholder the screen
@@ -16,7 +16,7 @@ data class ChartSeries(
 )
 
 /**
- * Hands the series to the shared [com.example.prokject2_tracker.core.ui.DatedLineChart].
+ * Hands the series to the shared [com.example.mytracker.core.ui.DatedLineChart].
  *
  * Body weight is the one series that must not be drawn on a zero-based axis: a range of 78–80 kg on
  * an axis starting at 0 is a flat line, which is the opposite of what the Analyse view is for.

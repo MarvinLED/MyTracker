@@ -1,4 +1,4 @@
-package com.example.prokject2_tracker.nutrition.recipe
+package com.example.mytracker.nutrition.recipe
 
 import kotlinx.serialization.Serializable
 

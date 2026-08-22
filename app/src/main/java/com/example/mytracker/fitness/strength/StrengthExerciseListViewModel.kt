@@ -1,4 +1,4 @@
-package com.example.prokject2_tracker.fitness.strength
+package com.example.mytracker.fitness.strength
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope

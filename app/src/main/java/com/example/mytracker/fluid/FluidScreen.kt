@@ -1,4 +1,4 @@
-package com.example.prokject2_tracker.fluid
+package com.example.mytracker.fluid
 
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -52,11 +52,11 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.example.prokject2_tracker.core.util.DateUtils
-import com.example.prokject2_tracker.core.util.formatDecimal
-import com.example.prokject2_tracker.core.util.toLocaleDoubleOrNull
-import com.example.prokject2_tracker.ui.theme.AppDomain
-import com.example.prokject2_tracker.ui.theme.topAppBarColors
+import com.example.mytracker.core.util.DateUtils
+import com.example.mytracker.core.util.formatDecimal
+import com.example.mytracker.core.util.toLocaleDoubleOrNull
+import com.example.mytracker.ui.theme.AppDomain
+import com.example.mytracker.ui.theme.topAppBarColors
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 

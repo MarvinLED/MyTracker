@@ -1,13 +1,13 @@
-package com.example.prokject2_tracker
+package com.example.mytracker
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.lifecycle.lifecycleScope
-import com.example.prokject2_tracker.core.backup.AutoBackupRunner
-import com.example.prokject2_tracker.core.ui.AppScaffold
-import com.example.prokject2_tracker.ui.theme.Prokject2_TrackerTheme
+import com.example.mytracker.core.backup.AutoBackupRunner
+import com.example.mytracker.core.ui.AppScaffold
+import com.example.mytracker.ui.theme.MyTrackerTheme
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 import kotlinx.coroutines.launch
@@ -21,7 +21,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            Prokject2_TrackerTheme {
+            MyTrackerTheme {
                 AppScaffold()
             }
         }

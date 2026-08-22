@@ -1,8 +1,8 @@
-package com.example.prokject2_tracker.nutrition.diary
+package com.example.mytracker.nutrition.diary
 
 import androidx.compose.ui.graphics.Color
-import com.example.prokject2_tracker.core.datastore.Nutrient
-import com.example.prokject2_tracker.core.ui.ChartLineStyle
+import com.example.mytracker.core.datastore.Nutrient
+import com.example.mytracker.core.ui.ChartLineStyle
 
 /** What a line says about its nutrient: the target, what was logged, or the weekly mean of those. */
 enum class DiaryHistorySeriesKind { GOAL, ACTUAL, AVERAGE }

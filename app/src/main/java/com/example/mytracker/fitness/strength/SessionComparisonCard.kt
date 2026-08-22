@@ -1,4 +1,4 @@
-package com.example.prokject2_tracker.fitness.strength
+package com.example.mytracker.fitness.strength
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -34,9 +34,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.example.prokject2_tracker.core.util.DateUtils
-import com.example.prokject2_tracker.core.util.formatCompact
-import com.example.prokject2_tracker.ui.theme.statusColor
+import com.example.mytracker.core.util.DateUtils
+import com.example.mytracker.core.util.formatCompact
+import com.example.mytracker.ui.theme.statusColor
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 

@@ -1,12 +1,12 @@
-package com.example.prokject2_tracker.bloodpressure
+package com.example.mytracker.bloodpressure
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.prokject2_tracker.core.metrics.ChartRange
-import com.example.prokject2_tracker.core.metrics.MetricPoint
-import com.example.prokject2_tracker.core.util.DateUtils
-import com.example.prokject2_tracker.core.util.formatCompact
-import com.example.prokject2_tracker.core.util.toLocaleDoubleOrNull
+import com.example.mytracker.core.metrics.ChartRange
+import com.example.mytracker.core.metrics.MetricPoint
+import com.example.mytracker.core.util.DateUtils
+import com.example.mytracker.core.util.formatCompact
+import com.example.mytracker.core.util.toLocaleDoubleOrNull
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.time.LocalTime
 import javax.inject.Inject

@@ -1,4 +1,4 @@
-package com.example.prokject2_tracker.core.database
+package com.example.mytracker.core.database
 
 import androidx.room.testing.MigrationTestHelper
 import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory

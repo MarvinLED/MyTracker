@@ -1,4 +1,4 @@
-package com.example.prokject2_tracker.task
+package com.example.mytracker.task
 
 /**
  * Where a task stands on a given day. Computed in one place because two screens ask the same

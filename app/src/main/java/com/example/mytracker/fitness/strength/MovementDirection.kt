@@ -1,4 +1,4 @@
-package com.example.prokject2_tracker.fitness.strength
+package com.example.mytracker.fitness.strength
 
 /**
  * The movement pattern a [StrengthExercise] trains, tagged alongside its muscle groups. A fixed

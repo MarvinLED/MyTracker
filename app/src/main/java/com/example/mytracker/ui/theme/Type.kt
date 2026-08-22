@@ -1,4 +1,4 @@
-package com.example.prokject2_tracker.ui.theme
+package com.example.mytracker.ui.theme
 
 import androidx.compose.material3.Typography
 import androidx.compose.ui.text.TextStyle

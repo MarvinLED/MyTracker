@@ -1,4 +1,4 @@
-package com.example.prokject2_tracker.fluid
+package com.example.mytracker.fluid
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
@@ -27,7 +27,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
-import com.example.prokject2_tracker.core.util.formatCompact
+import com.example.mytracker.core.util.formatCompact
 
 /** One button ready to draw: what it logs, plus the name and colour of the drink type behind it. */
 data class FluidQuickAddItem(

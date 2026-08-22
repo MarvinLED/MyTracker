@@ -1,4 +1,4 @@
-package com.example.prokject2_tracker.core.util
+package com.example.mytracker.core.util
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull

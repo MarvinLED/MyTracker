@@ -1,10 +1,10 @@
-package com.example.prokject2_tracker.fitness.cardio
+package com.example.mytracker.fitness.cardio
 
-import com.example.prokject2_tracker.core.metrics.EpochDayRange
-import com.example.prokject2_tracker.core.metrics.MetricAggregation
-import com.example.prokject2_tracker.core.metrics.MetricPoint
-import com.example.prokject2_tracker.core.metrics.MetricSeriesDescriptor
-import com.example.prokject2_tracker.core.metrics.MetricSeriesProvider
+import com.example.mytracker.core.metrics.EpochDayRange
+import com.example.mytracker.core.metrics.MetricAggregation
+import com.example.mytracker.core.metrics.MetricPoint
+import com.example.mytracker.core.metrics.MetricSeriesDescriptor
+import com.example.mytracker.core.metrics.MetricSeriesProvider
 import javax.inject.Inject
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map

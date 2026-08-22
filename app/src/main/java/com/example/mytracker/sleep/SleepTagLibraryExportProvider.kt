@@ -1,7 +1,7 @@
-package com.example.prokject2_tracker.sleep
+package com.example.mytracker.sleep
 
-import com.example.prokject2_tracker.core.backup.BackupExportProvider
-import com.example.prokject2_tracker.core.backup.BackupScope
+import com.example.mytracker.core.backup.BackupExportProvider
+import com.example.mytracker.core.backup.BackupScope
 import java.time.Instant
 import javax.inject.Inject
 import kotlinx.serialization.Serializable

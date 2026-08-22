@@ -1,4 +1,4 @@
-package com.example.prokject2_tracker.fitness.strength
+package com.example.mytracker.fitness.strength
 
 import androidx.room.Dao
 import androidx.room.Delete
@@ -6,7 +6,7 @@ import androidx.room.Query
 import androidx.room.Upsert
 import kotlinx.coroutines.flow.Flow
 
-/** Projection matching [com.example.prokject2_tracker.core.metrics.MetricPoint]'s field names. */
+/** Projection matching [com.example.mytracker.core.metrics.MetricPoint]'s field names. */
 data class DailyActiveFlag(val epochDay: Long, val value: Double)
 
 @Dao

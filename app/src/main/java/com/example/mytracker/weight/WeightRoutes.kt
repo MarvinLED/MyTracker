@@ -1,4 +1,4 @@
-package com.example.prokject2_tracker.weight
+package com.example.mytracker.weight
 
 import kotlinx.serialization.Serializable
 

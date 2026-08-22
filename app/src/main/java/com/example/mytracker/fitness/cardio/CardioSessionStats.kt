@@ -1,7 +1,7 @@
-package com.example.prokject2_tracker.fitness.cardio
+package com.example.mytracker.fitness.cardio
 
-import com.example.prokject2_tracker.core.metrics.MetricPoint
-import com.example.prokject2_tracker.core.util.DateUtils
+import com.example.mytracker.core.metrics.MetricPoint
+import com.example.mytracker.core.util.DateUtils
 
 /**
  * One activity type's work on one day. Unlike a strength session, the individual [CardioSession]s

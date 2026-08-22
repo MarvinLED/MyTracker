@@ -1,9 +1,9 @@
-package com.example.prokject2_tracker.fluid
+package com.example.mytracker.fluid
 
 import androidx.room.Room
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
-import com.example.prokject2_tracker.core.database.AppDatabase
+import com.example.mytracker.core.database.AppDatabase
 import java.time.Instant
 import kotlinx.coroutines.runBlocking
 import org.junit.After

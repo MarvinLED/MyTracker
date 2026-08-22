@@ -1,10 +1,10 @@
-package com.example.prokject2_tracker.habit
+package com.example.mytracker.habit
 
 import androidx.room.Dao
 import androidx.room.Query
 import androidx.room.Transaction
 import androidx.room.Upsert
-import com.example.prokject2_tracker.core.util.GoalPeriod
+import com.example.mytracker.core.util.GoalPeriod
 import kotlinx.coroutines.flow.Flow
 
 @Dao

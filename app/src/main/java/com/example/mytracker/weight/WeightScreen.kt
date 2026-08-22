@@ -1,4 +1,4 @@
-package com.example.prokject2_tracker.weight
+package com.example.mytracker.weight
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -40,14 +40,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.example.prokject2_tracker.core.datastore.WeightUnit
-import com.example.prokject2_tracker.core.ui.ChartLine
-import com.example.prokject2_tracker.core.ui.DatedLineChart
-import com.example.prokject2_tracker.core.util.DateUtils
-import com.example.prokject2_tracker.core.util.formatDecimal
-import com.example.prokject2_tracker.core.util.toLocaleDoubleOrNull
-import com.example.prokject2_tracker.ui.theme.AppDomain
-import com.example.prokject2_tracker.ui.theme.topAppBarColors
+import com.example.mytracker.core.datastore.WeightUnit
+import com.example.mytracker.core.ui.ChartLine
+import com.example.mytracker.core.ui.DatedLineChart
+import com.example.mytracker.core.util.DateUtils
+import com.example.mytracker.core.util.formatDecimal
+import com.example.mytracker.core.util.toLocaleDoubleOrNull
+import com.example.mytracker.ui.theme.AppDomain
+import com.example.mytracker.ui.theme.topAppBarColors
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 

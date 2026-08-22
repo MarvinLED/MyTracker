@@ -1,4 +1,4 @@
-package com.example.prokject2_tracker.task
+package com.example.mytracker.task
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -36,9 +36,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.example.prokject2_tracker.ui.theme.AppDomain
-import com.example.prokject2_tracker.ui.theme.statusColor
-import com.example.prokject2_tracker.ui.theme.topAppBarColors
+import com.example.mytracker.ui.theme.AppDomain
+import com.example.mytracker.ui.theme.statusColor
+import com.example.mytracker.ui.theme.topAppBarColors
 
 /**
  * The task list, split into what is owed now and what is merely coming. Ticking something off is

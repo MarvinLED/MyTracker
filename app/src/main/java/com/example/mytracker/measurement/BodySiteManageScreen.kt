@@ -1,4 +1,4 @@
-package com.example.prokject2_tracker.measurement
+package com.example.mytracker.measurement
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement

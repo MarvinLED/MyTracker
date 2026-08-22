@@ -1,4 +1,4 @@
-package com.example.prokject2_tracker.core.datastore
+package com.example.mytracker.core.datastore
 
 import android.content.Context
 import androidx.datastore.core.DataStore
@@ -26,7 +26,7 @@ private const val DEFAULT_CALORIE_GOAL_KCAL = 2000.0
 /**
  * What the water goal is before anyone sets one. Public because the backup has to be able to tell
  * "never configured" from "deliberately set to 2000" — see
- * `com.example.prokject2_tracker.goals.GoalsExportProvider`.
+ * `com.example.mytracker.goals.GoalsExportProvider`.
  */
 const val DEFAULT_WATER_GOAL_ML = 2000.0
 
@@ -43,7 +43,7 @@ data class UserPreferences(
     val sleepDurationGoalMinutes: NutrientGoal? = null,
     /**
      * The latest one wants to be asleep, as minutes since midnight. Compared on an evening timeline,
-     * see `com.example.prokject2_tracker.sleep.isBedtimeMet`. Null means no bedtime goal.
+     * see `com.example.mytracker.sleep.isBedtimeMet`. Null means no bedtime goal.
      */
     val bedtimeGoalMinuteOfDay: Int? = null,
 ) {

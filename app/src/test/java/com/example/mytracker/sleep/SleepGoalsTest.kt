@@ -1,9 +1,9 @@
-package com.example.prokject2_tracker.sleep
+package com.example.mytracker.sleep
 
-import com.example.prokject2_tracker.core.datastore.NutrientGoal
-import com.example.prokject2_tracker.core.util.formatDuration
-import com.example.prokject2_tracker.core.util.formatMinuteOfDay
-import com.example.prokject2_tracker.core.util.minutesBetweenTimesOfDay
+import com.example.mytracker.core.datastore.NutrientGoal
+import com.example.mytracker.core.util.formatDuration
+import com.example.mytracker.core.util.formatMinuteOfDay
+import com.example.mytracker.core.util.minutesBetweenTimesOfDay
 import java.time.Instant
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse

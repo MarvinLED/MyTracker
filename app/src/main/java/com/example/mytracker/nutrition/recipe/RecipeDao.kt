@@ -1,4 +1,4 @@
-package com.example.prokject2_tracker.nutrition.recipe
+package com.example.mytracker.nutrition.recipe
 
 import androidx.room.Dao
 import androidx.room.Delete

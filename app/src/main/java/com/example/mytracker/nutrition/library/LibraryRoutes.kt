@@ -1,4 +1,4 @@
-package com.example.prokject2_tracker.nutrition.library
+package com.example.mytracker.nutrition.library
 
 import kotlinx.serialization.Serializable
 

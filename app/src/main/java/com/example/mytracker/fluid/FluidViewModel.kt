@@ -1,9 +1,9 @@
-package com.example.prokject2_tracker.fluid
+package com.example.mytracker.fluid
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.prokject2_tracker.core.datastore.UserPreferencesRepository
-import com.example.prokject2_tracker.core.util.DateUtils
+import com.example.mytracker.core.datastore.UserPreferencesRepository
+import com.example.mytracker.core.util.DateUtils
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow

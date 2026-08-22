@@ -1,8 +1,8 @@
-package com.example.prokject2_tracker.nutrition.diary
+package com.example.mytracker.nutrition.diary
 
-import com.example.prokject2_tracker.core.backup.BackupExportProvider
-import com.example.prokject2_tracker.core.backup.BackupScope
-import com.example.prokject2_tracker.nutrition.food.FoodDao
+import com.example.mytracker.core.backup.BackupExportProvider
+import com.example.mytracker.core.backup.BackupScope
+import com.example.mytracker.nutrition.food.FoodDao
 import java.time.Instant
 import javax.inject.Inject
 import kotlinx.serialization.Serializable

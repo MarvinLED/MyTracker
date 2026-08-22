@@ -1,4 +1,4 @@
-package com.example.prokject2_tracker.nutrition.food
+package com.example.mytracker.nutrition.food
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -40,8 +40,8 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.example.prokject2_tracker.core.ui.dismissingKeyboard
-import com.example.prokject2_tracker.fluid.FluidType
+import com.example.mytracker.core.ui.dismissingKeyboard
+import com.example.mytracker.fluid.FluidType
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

@@ -1,4 +1,4 @@
-package com.example.prokject2_tracker
+package com.example.mytracker
 
 import org.junit.Test
 

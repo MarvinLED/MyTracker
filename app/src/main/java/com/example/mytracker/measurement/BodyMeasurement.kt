@@ -1,4 +1,4 @@
-package com.example.prokject2_tracker.measurement
+package com.example.mytracker.measurement
 
 import androidx.room.Entity
 import androidx.room.ForeignKey
@@ -9,7 +9,7 @@ import java.time.Instant
 /**
  * One measurement of one [BodySite] on one day, in cm. Deterministic id
  * ("measurement-$bodySiteId-$epochDay") + upsert makes logging idempotent, the same convention as
- * [com.example.prokject2_tracker.weight.BodyWeightEntry] — re-measuring the same spot on the same
+ * [com.example.mytracker.weight.BodyWeightEntry] — re-measuring the same spot on the same
  * day corrects the value instead of adding a second point to the chart.
  *
  * Tracked/logged data, never exported; the site definitions are the library half (see

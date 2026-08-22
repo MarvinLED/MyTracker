@@ -1,4 +1,4 @@
-package com.example.prokject2_tracker.nutrition.recipe
+package com.example.mytracker.nutrition.recipe
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -53,11 +53,11 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.example.prokject2_tracker.core.ui.dismissingKeyboard
-import com.example.prokject2_tracker.core.util.formatCompact
-import com.example.prokject2_tracker.core.util.toLocaleDoubleOrNull
-import com.example.prokject2_tracker.nutrition.food.FoodPickerDialog
-import com.example.prokject2_tracker.nutrition.food.label
+import com.example.mytracker.core.ui.dismissingKeyboard
+import com.example.mytracker.core.util.formatCompact
+import com.example.mytracker.core.util.toLocaleDoubleOrNull
+import com.example.mytracker.nutrition.food.FoodPickerDialog
+import com.example.mytracker.nutrition.food.label
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

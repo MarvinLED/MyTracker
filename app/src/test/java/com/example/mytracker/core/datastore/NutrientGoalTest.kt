@@ -1,4 +1,4 @@
-package com.example.prokject2_tracker.core.datastore
+package com.example.mytracker.core.datastore
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse

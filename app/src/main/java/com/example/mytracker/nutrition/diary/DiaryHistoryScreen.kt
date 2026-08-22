@@ -1,4 +1,4 @@
-package com.example.prokject2_tracker.nutrition.diary
+package com.example.mytracker.nutrition.diary
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -39,8 +39,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.example.prokject2_tracker.core.metrics.label
-import com.example.prokject2_tracker.core.ui.DatedLineChart
+import com.example.mytracker.core.metrics.label
+import com.example.mytracker.core.ui.DatedLineChart
 
 /**
  * How the Tagebuch's numbers moved over time: every selected nutrient's target and intake in one

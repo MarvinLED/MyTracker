@@ -1,7 +1,7 @@
-package com.example.prokject2_tracker.bloodpressure
+package com.example.mytracker.bloodpressure
 
-import com.example.prokject2_tracker.core.metrics.ChartRange
-import com.example.prokject2_tracker.core.util.DateUtils
+import com.example.mytracker.core.metrics.ChartRange
+import com.example.mytracker.core.util.DateUtils
 import java.time.Instant
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi

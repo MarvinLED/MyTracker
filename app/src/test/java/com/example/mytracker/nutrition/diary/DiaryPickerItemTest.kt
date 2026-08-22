@@ -1,12 +1,12 @@
-package com.example.prokject2_tracker.nutrition.diary
+package com.example.mytracker.nutrition.diary
 
-import com.example.prokject2_tracker.nutrition.food.BaseUnit
-import com.example.prokject2_tracker.nutrition.food.FoodItem
-import com.example.prokject2_tracker.nutrition.food.Tag
-import com.example.prokject2_tracker.nutrition.food.TagImplication
-import com.example.prokject2_tracker.nutrition.recipe.Recipe
-import com.example.prokject2_tracker.nutrition.recipe.RecipeWithNutrition
-import com.example.prokject2_tracker.nutrition.NutritionTotals
+import com.example.mytracker.nutrition.food.BaseUnit
+import com.example.mytracker.nutrition.food.FoodItem
+import com.example.mytracker.nutrition.food.Tag
+import com.example.mytracker.nutrition.food.TagImplication
+import com.example.mytracker.nutrition.recipe.Recipe
+import com.example.mytracker.nutrition.recipe.RecipeWithNutrition
+import com.example.mytracker.nutrition.NutritionTotals
 import java.time.Instant
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue

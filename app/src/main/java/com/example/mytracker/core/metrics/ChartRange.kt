@@ -1,4 +1,4 @@
-package com.example.prokject2_tracker.core.metrics
+package com.example.mytracker.core.metrics
 
 /**
  * The span a chart's x-axis covers, as a number of days back from the **last logged point** — not

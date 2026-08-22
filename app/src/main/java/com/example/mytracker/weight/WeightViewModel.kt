@@ -1,13 +1,13 @@
-package com.example.prokject2_tracker.weight
+package com.example.mytracker.weight
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.prokject2_tracker.core.datastore.UserPreferencesRepository
-import com.example.prokject2_tracker.core.datastore.WeightUnit
-import com.example.prokject2_tracker.core.metrics.MetricPoint
-import com.example.prokject2_tracker.core.util.DateUtils
-import com.example.prokject2_tracker.core.util.kgToLb
-import com.example.prokject2_tracker.core.util.lbToKg
+import com.example.mytracker.core.datastore.UserPreferencesRepository
+import com.example.mytracker.core.datastore.WeightUnit
+import com.example.mytracker.core.metrics.MetricPoint
+import com.example.mytracker.core.util.DateUtils
+import com.example.mytracker.core.util.kgToLb
+import com.example.mytracker.core.util.lbToKg
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -54,7 +54,7 @@ private fun Double.toDisplayUnit(unit: WeightUnit): Double = when (unit) {
 
 /**
  * Deliberately skips this app's usual prev/next-day navigation (see e.g.
- * [com.example.prokject2_tracker.fluid.FluidViewModel]) since there's at most one weight value per
+ * [com.example.mytracker.fluid.FluidViewModel]) since there's at most one weight value per
  * day: instead an "editing day" defaulting to today, resettable via [resetToToday], and a history
  * list where tapping a past entry loads it for editing via [selectEntry].
  */

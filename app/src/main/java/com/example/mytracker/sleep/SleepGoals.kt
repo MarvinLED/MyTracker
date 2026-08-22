@@ -1,9 +1,9 @@
-package com.example.prokject2_tracker.sleep
+package com.example.mytracker.sleep
 
-import com.example.prokject2_tracker.core.datastore.NutrientGoal
-import com.example.prokject2_tracker.core.util.MINUTES_PER_DAY
-import com.example.prokject2_tracker.core.util.formatDuration
-import com.example.prokject2_tracker.core.util.formatMinuteOfDay
+import com.example.mytracker.core.datastore.NutrientGoal
+import com.example.mytracker.core.util.MINUTES_PER_DAY
+import com.example.mytracker.core.util.formatDuration
+import com.example.mytracker.core.util.formatMinuteOfDay
 
 /**
  * A bedtime is compared on an evening timeline, not a clock: 00:30 is *later* than 23:00, even

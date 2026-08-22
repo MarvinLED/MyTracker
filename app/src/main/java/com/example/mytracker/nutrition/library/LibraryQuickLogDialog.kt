@@ -1,4 +1,4 @@
-package com.example.prokject2_tracker.nutrition.library
+package com.example.mytracker.nutrition.library
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -20,12 +20,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import com.example.prokject2_tracker.core.ui.dismissingKeyboard
-import com.example.prokject2_tracker.core.util.formatCompact
-import com.example.prokject2_tracker.nutrition.diary.MealType
-import com.example.prokject2_tracker.nutrition.diary.label
-import com.example.prokject2_tracker.nutrition.food.FoodAmountInput
-import com.example.prokject2_tracker.nutrition.food.FoodUnit
+import com.example.mytracker.core.ui.dismissingKeyboard
+import com.example.mytracker.core.util.formatCompact
+import com.example.mytracker.nutrition.diary.MealType
+import com.example.mytracker.nutrition.diary.label
+import com.example.mytracker.nutrition.food.FoodAmountInput
+import com.example.mytracker.nutrition.food.FoodUnit
 
 /**
  * "Ins Tagebuch" for one Lebensmittel or Rezept from the Bibliothek: the meal, the amount, done.

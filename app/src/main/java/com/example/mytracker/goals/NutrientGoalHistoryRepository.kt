@@ -1,10 +1,10 @@
-package com.example.prokject2_tracker.goals
+package com.example.mytracker.goals
 
-import com.example.prokject2_tracker.core.datastore.Nutrient
-import com.example.prokject2_tracker.core.datastore.NutrientGoal
-import com.example.prokject2_tracker.core.datastore.UserPreferencesRepository
-import com.example.prokject2_tracker.core.util.DateUtils
-import com.example.prokject2_tracker.core.util.IdGenerator
+import com.example.mytracker.core.datastore.Nutrient
+import com.example.mytracker.core.datastore.NutrientGoal
+import com.example.mytracker.core.datastore.UserPreferencesRepository
+import com.example.mytracker.core.util.DateUtils
+import com.example.mytracker.core.util.IdGenerator
 import java.time.Instant
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -25,7 +25,7 @@ private const val SEED_EPOCH_DAY = 0L
  * it directly silently loses the change and leaves a hole in the Verlauf's Soll line.
  *
  * The one deliberate exception is
- * [GoalsExportProvider][com.example.prokject2_tracker.goals.GoalsExportProvider], which restores the
+ * [GoalsExportProvider][com.example.mytracker.goals.GoalsExportProvider], which restores the
  * goals and their log side by side out of a backup — logging those as fresh changes would date them
  * to the day of the restore.
  */

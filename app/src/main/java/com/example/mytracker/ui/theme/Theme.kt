@@ -1,4 +1,4 @@
-package com.example.prokject2_tracker.ui.theme
+package com.example.mytracker.ui.theme
 
 import android.app.Activity
 import android.os.Build
@@ -57,7 +57,7 @@ private val LightColorScheme = lightColorScheme(
 )
 
 @Composable
-fun Prokject2_TrackerTheme(
+fun MyTrackerTheme(
     // Always dark by design, regardless of the device's system light/dark setting.
     darkTheme: Boolean = true,
     // Dynamic (Material You) color would override our blue palette with the device wallpaper's

@@ -1,4 +1,4 @@
-package com.example.prokject2_tracker.fluid
+package com.example.mytracker.fluid
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -49,8 +49,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.example.prokject2_tracker.core.util.formatDecimal
-import com.example.prokject2_tracker.core.util.toLocaleDoubleOrNull
+import com.example.mytracker.core.util.formatDecimal
+import com.example.mytracker.core.util.toLocaleDoubleOrNull
 
 /**
  * Where the Tagebuch's Schnellauswahl is put together: which drink is offered under which symbol,

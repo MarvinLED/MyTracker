@@ -1,4 +1,4 @@
-package com.example.prokject2_tracker.fitness.strength
+package com.example.mytracker.fitness.strength
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.Arrangement
@@ -38,14 +38,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.example.prokject2_tracker.core.metrics.ChartRange
-import com.example.prokject2_tracker.core.metrics.label
-import com.example.prokject2_tracker.core.metrics.pointLabel
-import com.example.prokject2_tracker.core.ui.ChartLine
-import com.example.prokject2_tracker.core.ui.DatedLineChart
-import com.example.prokject2_tracker.fluid.fluidPalette
-import com.example.prokject2_tracker.ui.theme.AppDomain
-import com.example.prokject2_tracker.ui.theme.topAppBarColors
+import com.example.mytracker.core.metrics.ChartRange
+import com.example.mytracker.core.metrics.label
+import com.example.mytracker.core.metrics.pointLabel
+import com.example.mytracker.core.ui.ChartLine
+import com.example.mytracker.core.ui.DatedLineChart
+import com.example.mytracker.fluid.fluidPalette
+import com.example.mytracker.ui.theme.AppDomain
+import com.example.mytracker.ui.theme.topAppBarColors
 
 private const val MILLIS_PER_DAY = 86_400_000L
 

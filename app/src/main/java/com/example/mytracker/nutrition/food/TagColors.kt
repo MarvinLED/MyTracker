@@ -1,4 +1,4 @@
-package com.example.prokject2_tracker.nutrition.food
+package com.example.mytracker.nutrition.food
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
@@ -14,12 +14,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import com.example.prokject2_tracker.fluid.fluidPalette
+import com.example.mytracker.fluid.fluidPalette
 
 /**
  * The colour a tag's dot is drawn in: the user's pick if they made one, otherwise the palette slot
  * for [index]. Same rule and same palette as
- * [FluidType.chartColor][com.example.prokject2_tracker.fluid.chartColor] — one set of validated
+ * [FluidType.chartColor][com.example.mytracker.fluid.chartColor] — one set of validated
  * hues across the app.
  *
  * [index] must come from the tag's stable library order (alphabetical, as [TagDao.observeAll]

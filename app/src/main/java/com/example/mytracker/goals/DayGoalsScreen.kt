@@ -1,4 +1,4 @@
-package com.example.prokject2_tracker.goals
+package com.example.mytracker.goals
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -38,9 +38,9 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.example.prokject2_tracker.ui.theme.AppDomain
-import com.example.prokject2_tracker.ui.theme.statusColor
-import com.example.prokject2_tracker.ui.theme.topAppBarColors
+import com.example.mytracker.ui.theme.AppDomain
+import com.example.mytracker.ui.theme.statusColor
+import com.example.mytracker.ui.theme.topAppBarColors
 
 private val BarShape = RoundedCornerShape(6.dp)
 private val BarHeight = 10.dp

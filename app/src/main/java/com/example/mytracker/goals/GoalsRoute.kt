@@ -1,4 +1,4 @@
-package com.example.prokject2_tracker.goals
+package com.example.mytracker.goals
 
 import kotlinx.serialization.Serializable
 

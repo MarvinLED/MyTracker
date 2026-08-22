@@ -1,7 +1,7 @@
-package com.example.prokject2_tracker.nutrition
+package com.example.mytracker.nutrition
 
-import com.example.prokject2_tracker.core.datastore.Nutrient
-import com.example.prokject2_tracker.nutrition.food.FoodItem
+import com.example.mytracker.core.datastore.Nutrient
+import com.example.mytracker.nutrition.food.FoodItem
 
 /**
  * A food and how much of it, in the food's own base unit — what both a Rezept's ingredient list and

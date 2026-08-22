@@ -1,15 +1,15 @@
-package com.example.prokject2_tracker.nutrition.diary
+package com.example.mytracker.nutrition.diary
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.prokject2_tracker.core.datastore.UserPreferencesRepository
-import com.example.prokject2_tracker.core.metrics.ChartRange
-import com.example.prokject2_tracker.core.metrics.Granularity
-import com.example.prokject2_tracker.core.metrics.granularityFor
-import com.example.prokject2_tracker.core.ui.ChartLine
-import com.example.prokject2_tracker.core.util.DateUtils
-import com.example.prokject2_tracker.goals.NutrientGoalChangeDao
-import com.example.prokject2_tracker.weight.BodyWeightDao
+import com.example.mytracker.core.datastore.UserPreferencesRepository
+import com.example.mytracker.core.metrics.ChartRange
+import com.example.mytracker.core.metrics.Granularity
+import com.example.mytracker.core.metrics.granularityFor
+import com.example.mytracker.core.ui.ChartLine
+import com.example.mytracker.core.util.DateUtils
+import com.example.mytracker.goals.NutrientGoalChangeDao
+import com.example.mytracker.weight.BodyWeightDao
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.ExperimentalCoroutinesApi

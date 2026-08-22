@@ -1,4 +1,4 @@
-package com.example.prokject2_tracker.measurement
+package com.example.mytracker.measurement
 
 import androidx.room.Entity
 import androidx.room.Index
@@ -7,7 +7,7 @@ import java.time.Instant
 
 /**
  * A place on the body that gets measured ("Oberarm links", "Taille"), part of the Körperstellen
- * library — user-created, never seeded, mirroring [com.example.prokject2_tracker.fluid.FluidType].
+ * library — user-created, never seeded, mirroring [com.example.mytracker.fluid.FluidType].
  *
  * [measuringHint] is the "so wird gemessen" note written when the site is created: where exactly to
  * put the tape, at which arm position, before or after training. It's shown on demand while logging

@@ -1,6 +1,6 @@
-package com.example.prokject2_tracker.task
+package com.example.mytracker.task
 
-import com.example.prokject2_tracker.core.backup.BackupExportProvider
+import com.example.mytracker.core.backup.BackupExportProvider
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -8,7 +8,7 @@ import dagger.hilt.components.SingletonComponent
 import dagger.multibindings.IntoSet
 
 /**
- * Two providers, one per [com.example.prokject2_tracker.core.backup.BackupScope]: an Aufgabe and its
+ * Two providers, one per [com.example.mytracker.core.backup.BackupScope]: an Aufgabe and its
  * rhythm are something the user built, when it was ticked off is tracked data.
  */
 @Module

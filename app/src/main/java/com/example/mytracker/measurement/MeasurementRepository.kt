@@ -1,6 +1,6 @@
-package com.example.prokject2_tracker.measurement
+package com.example.mytracker.measurement
 
-import com.example.prokject2_tracker.core.util.IdGenerator
+import com.example.mytracker.core.util.IdGenerator
 import java.time.Instant
 import javax.inject.Inject
 import javax.inject.Singleton

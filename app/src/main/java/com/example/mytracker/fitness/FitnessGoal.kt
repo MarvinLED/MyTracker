@@ -1,9 +1,9 @@
-package com.example.prokject2_tracker.fitness
+package com.example.mytracker.fitness
 
 import androidx.room.Entity
 import androidx.room.PrimaryKey
-import com.example.prokject2_tracker.core.util.GoalPeriod
-import com.example.prokject2_tracker.fitness.strength.MovementDirection
+import com.example.mytracker.core.util.GoalPeriod
+import com.example.mytracker.fitness.strength.MovementDirection
 import java.time.Instant
 
 enum class FitnessGoalMetric {

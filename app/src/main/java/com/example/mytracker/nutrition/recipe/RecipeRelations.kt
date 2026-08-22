@@ -1,9 +1,9 @@
-package com.example.prokject2_tracker.nutrition.recipe
+package com.example.mytracker.nutrition.recipe
 
 import androidx.room.Embedded
 import androidx.room.Relation
-import com.example.prokject2_tracker.nutrition.FoodAmount
-import com.example.prokject2_tracker.nutrition.food.FoodItem
+import com.example.mytracker.nutrition.FoodAmount
+import com.example.mytracker.nutrition.food.FoodItem
 
 data class RecipeIngredientWithFood(
     @Embedded val ingredient: RecipeIngredient,

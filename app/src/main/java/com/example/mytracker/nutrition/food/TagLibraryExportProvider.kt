@@ -1,7 +1,7 @@
-package com.example.prokject2_tracker.nutrition.food
+package com.example.mytracker.nutrition.food
 
-import com.example.prokject2_tracker.core.backup.BackupExportProvider
-import com.example.prokject2_tracker.core.backup.BackupScope
+import com.example.mytracker.core.backup.BackupExportProvider
+import com.example.mytracker.core.backup.BackupScope
 import java.time.Instant
 import javax.inject.Inject
 import kotlinx.serialization.Serializable
@@ -37,7 +37,7 @@ private fun TagDto.toEntity() = Tag(
 )
 
 /**
- * Key `"tags"`, imported before `"foods"` (see [com.example.prokject2_tracker.nutrition.food.FoodLibraryExportProvider])
+ * Key `"tags"`, imported before `"foods"` (see [com.example.mytracker.nutrition.food.FoodLibraryExportProvider])
  * since a food's tag ids are foreign keys into this data.
  */
 class TagLibraryExportProvider @Inject constructor(

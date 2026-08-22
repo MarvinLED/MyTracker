@@ -1,4 +1,4 @@
-package com.example.prokject2_tracker.core.backup
+package com.example.mytracker.core.backup
 
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray

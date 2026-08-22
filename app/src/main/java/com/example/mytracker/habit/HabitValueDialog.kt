@@ -1,4 +1,4 @@
-package com.example.prokject2_tracker.habit
+package com.example.mytracker.habit
 
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.text.KeyboardOptions
@@ -13,8 +13,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
-import com.example.prokject2_tracker.core.util.formatCompact
-import com.example.prokject2_tracker.core.util.toLocaleDoubleOrNull
+import com.example.mytracker.core.util.formatCompact
+import com.example.mytracker.core.util.toLocaleDoubleOrNull
 
 /**
  * Dialog for logging today's value on a COUNT/DURATION habit. A blank field un-logs/clears the

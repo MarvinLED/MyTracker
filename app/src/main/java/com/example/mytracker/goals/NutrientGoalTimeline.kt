@@ -1,8 +1,8 @@
-package com.example.prokject2_tracker.goals
+package com.example.mytracker.goals
 
-import com.example.prokject2_tracker.core.datastore.NutrientGoal
-import com.example.prokject2_tracker.core.metrics.EpochDayRange
-import com.example.prokject2_tracker.core.metrics.MetricPoint
+import com.example.mytracker.core.datastore.NutrientGoal
+import com.example.mytracker.core.metrics.EpochDayRange
+import com.example.mytracker.core.metrics.MetricPoint
 
 /** The bounds a recorded change put in force, as the same shape the rest of the app reasons about. */
 fun NutrientGoalChange.toGoal(): NutrientGoal = NutrientGoal(min = minValue, max = maxValue)

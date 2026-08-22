@@ -1,12 +1,12 @@
-package com.example.prokject2_tracker.nutrition.recipe
+package com.example.mytracker.nutrition.recipe
 
-import com.example.prokject2_tracker.core.util.IdGenerator
-import com.example.prokject2_tracker.fluid.FluidTypeDao
-import com.example.prokject2_tracker.nutrition.NutritionTotals
-import com.example.prokject2_tracker.nutrition.NutritionMath
-import com.example.prokject2_tracker.nutrition.food.Tag
-import com.example.prokject2_tracker.nutrition.food.TagRepository
-import com.example.prokject2_tracker.nutrition.food.fluidMl
+import com.example.mytracker.core.util.IdGenerator
+import com.example.mytracker.fluid.FluidTypeDao
+import com.example.mytracker.nutrition.NutritionTotals
+import com.example.mytracker.nutrition.NutritionMath
+import com.example.mytracker.nutrition.food.Tag
+import com.example.mytracker.nutrition.food.TagRepository
+import com.example.mytracker.nutrition.food.fluidMl
 import java.time.Instant
 import javax.inject.Inject
 import javax.inject.Singleton

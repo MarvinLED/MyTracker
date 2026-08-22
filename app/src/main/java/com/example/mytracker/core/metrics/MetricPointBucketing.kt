@@ -1,6 +1,6 @@
-package com.example.prokject2_tracker.core.metrics
+package com.example.mytracker.core.metrics
 
-import com.example.prokject2_tracker.core.util.DateUtils
+import com.example.mytracker.core.util.DateUtils
 
 /** Combines daily [MetricPoint]s into weekly/monthly buckets per [aggregation]; a no-op for [Granularity.DAILY]. */
 fun List<MetricPoint>.bucketBy(granularity: Granularity, aggregation: MetricAggregation): List<MetricPoint> {

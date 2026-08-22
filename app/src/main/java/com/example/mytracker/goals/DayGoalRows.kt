@@ -1,22 +1,22 @@
-package com.example.prokject2_tracker.goals
+package com.example.mytracker.goals
 
-import com.example.prokject2_tracker.core.datastore.Nutrient
-import com.example.prokject2_tracker.core.datastore.NutrientGoal
-import com.example.prokject2_tracker.core.util.formatCompact
-import com.example.prokject2_tracker.fitness.FitnessGoal
-import com.example.prokject2_tracker.fitness.FitnessGoalMetric
-import com.example.prokject2_tracker.fitness.label
-import com.example.prokject2_tracker.fitness.strength.label
-import com.example.prokject2_tracker.fluid.FluidType
-import com.example.prokject2_tracker.habit.Habit
-import com.example.prokject2_tracker.habit.HabitGoal
-import com.example.prokject2_tracker.habit.HabitType
-import com.example.prokject2_tracker.nutrition.diary.goalTargetLabel
-import com.example.prokject2_tracker.sleep.SleepEntry
-import com.example.prokject2_tracker.sleep.sleepGoalStatuses
-import com.example.prokject2_tracker.task.TaskStatus
-import com.example.prokject2_tracker.task.dueLabel
-import com.example.prokject2_tracker.task.dueToday
+import com.example.mytracker.core.datastore.Nutrient
+import com.example.mytracker.core.datastore.NutrientGoal
+import com.example.mytracker.core.util.formatCompact
+import com.example.mytracker.fitness.FitnessGoal
+import com.example.mytracker.fitness.FitnessGoalMetric
+import com.example.mytracker.fitness.label
+import com.example.mytracker.fitness.strength.label
+import com.example.mytracker.fluid.FluidType
+import com.example.mytracker.habit.Habit
+import com.example.mytracker.habit.HabitGoal
+import com.example.mytracker.habit.HabitType
+import com.example.mytracker.nutrition.diary.goalTargetLabel
+import com.example.mytracker.sleep.SleepEntry
+import com.example.mytracker.sleep.sleepGoalStatuses
+import com.example.mytracker.task.TaskStatus
+import com.example.mytracker.task.dueLabel
+import com.example.mytracker.task.dueToday
 
 /**
  * One goal of today, reduced to what the screen draws: how far along it is and whether it is met.

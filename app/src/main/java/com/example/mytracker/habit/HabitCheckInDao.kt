@@ -1,11 +1,11 @@
-package com.example.prokject2_tracker.habit
+package com.example.mytracker.habit
 
 import androidx.room.Dao
 import androidx.room.Query
 import androidx.room.Upsert
 import kotlinx.coroutines.flow.Flow
 
-/** Projection matching [com.example.prokject2_tracker.core.metrics.MetricPoint]'s field names. */
+/** Projection matching [com.example.mytracker.core.metrics.MetricPoint]'s field names. */
 data class DailyCompletedCount(val epochDay: Long, val value: Double)
 
 @Dao

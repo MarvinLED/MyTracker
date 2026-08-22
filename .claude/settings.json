@@ -1,14 +1,14 @@
 {
   "permissions": {
     "allow": [
-      "Bash(./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.example.prokject2_tracker.nutrition.diary.MealCopyPasteTest)",
+      "Bash(./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.example.mytracker.nutrition.diary.MealCopyPasteTest)",
       "Bash(./gradlew connectedDebugAndroidTest testDebugUnitTest)",
       "Bash(python3 -c ' *)",
       "Bash(./gradlew connectedDebugAndroidTest)",
-      "Bash(git -C /home/user/Dokumente/Projects/Project1 diff --stat)",
+      "Bash(git -C /home/user/Dokumente/Projects/MyTracker diff --stat)",
       "Bash(./gradlew testDebugUnitTest --tests '*TaskScheduleTest*')",
       "Bash(~/Android/Sdk/emulator/emulator -avd Pixel_10 -no-snapshot-save -no-audio)",
-      "Bash(git -C /home/user/Dokumente/Projects/Project1 status --short)",
+      "Bash(git -C /home/user/Dokumente/Projects/MyTracker status --short)",
       "Bash(./gradlew testDebugUnitTest connectedDebugAndroidTest)",
       "Bash(./gradlew connectedDebugAndroidTest --tests \"*DiaryLastLoggedTest*\")",
       "Bash(./gradlew compileDebugAndroidTestKotlin)",

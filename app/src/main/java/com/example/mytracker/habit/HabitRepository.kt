@@ -1,8 +1,8 @@
-package com.example.prokject2_tracker.habit
+package com.example.mytracker.habit
 
-import com.example.prokject2_tracker.core.util.DateUtils
-import com.example.prokject2_tracker.core.util.GoalPeriod
-import com.example.prokject2_tracker.core.util.IdGenerator
+import com.example.mytracker.core.util.DateUtils
+import com.example.mytracker.core.util.GoalPeriod
+import com.example.mytracker.core.util.IdGenerator
 import java.time.Instant
 import javax.inject.Inject
 import javax.inject.Singleton

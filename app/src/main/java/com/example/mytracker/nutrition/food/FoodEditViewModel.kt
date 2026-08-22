@@ -1,14 +1,14 @@
-package com.example.prokject2_tracker.nutrition.food
+package com.example.mytracker.nutrition.food
 
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.navigation.toRoute
-import com.example.prokject2_tracker.core.util.IdGenerator
-import com.example.prokject2_tracker.core.util.formatDecimal
-import com.example.prokject2_tracker.core.util.toLocaleDoubleOrNull
-import com.example.prokject2_tracker.fluid.FluidRepository
-import com.example.prokject2_tracker.fluid.FluidType
+import com.example.mytracker.core.util.IdGenerator
+import com.example.mytracker.core.util.formatDecimal
+import com.example.mytracker.core.util.toLocaleDoubleOrNull
+import com.example.mytracker.fluid.FluidRepository
+import com.example.mytracker.fluid.FluidType
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.time.Instant
 import javax.inject.Inject

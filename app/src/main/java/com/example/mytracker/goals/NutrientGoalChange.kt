@@ -1,9 +1,9 @@
-package com.example.prokject2_tracker.goals
+package com.example.mytracker.goals
 
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
-import com.example.prokject2_tracker.core.datastore.Nutrient
+import com.example.mytracker.core.datastore.Nutrient
 import java.time.Instant
 
 /**
@@ -19,7 +19,7 @@ import java.time.Instant
  * [effectiveFromEpochDay] is the day the new bounds started applying, not the day they were typed
  * — a seed row written on a nutrient's first-ever change carries day 0, meaning "as far back as
  * this log goes". [minValue]/[maxValue] mirror
- * [NutrientGoal][com.example.prokject2_tracker.core.datastore.NutrientGoal]; both null records that
+ * [NutrientGoal][com.example.mytracker.core.datastore.NutrientGoal]; both null records that
  * the goal was cleared.
  */
 @Entity(

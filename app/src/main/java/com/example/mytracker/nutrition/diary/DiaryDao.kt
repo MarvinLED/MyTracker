@@ -1,4 +1,4 @@
-package com.example.prokject2_tracker.nutrition.diary
+package com.example.mytracker.nutrition.diary
 
 import androidx.room.Dao
 import androidx.room.Delete
@@ -7,11 +7,11 @@ import androidx.room.Insert
 import androidx.room.Query
 import androidx.room.Transaction
 import androidx.room.Upsert
-import com.example.prokject2_tracker.nutrition.NutritionTotals
+import com.example.mytracker.nutrition.NutritionTotals
 import java.time.Instant
 import kotlinx.coroutines.flow.Flow
 
-/** Projection matching [com.example.prokject2_tracker.core.metrics.MetricPoint]'s field names. */
+/** Projection matching [com.example.mytracker.core.metrics.MetricPoint]'s field names. */
 data class DailyKcalTotal(val epochDay: Long, val value: Double)
 data class DailyProteinTotal(val epochDay: Long, val value: Double)
 data class DailyCarbsTotal(val epochDay: Long, val value: Double)

@@ -1,8 +1,8 @@
-package com.example.prokject2_tracker.fitness.strength
+package com.example.mytracker.fitness.strength
 
-import com.example.prokject2_tracker.core.metrics.Granularity
-import com.example.prokject2_tracker.core.metrics.MetricAggregation
-import com.example.prokject2_tracker.core.metrics.bucketBy
+import com.example.mytracker.core.metrics.Granularity
+import com.example.mytracker.core.metrics.MetricAggregation
+import com.example.mytracker.core.metrics.bucketBy
 import java.time.LocalDate
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull

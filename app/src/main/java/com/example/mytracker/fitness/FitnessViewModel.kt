@@ -1,13 +1,13 @@
-package com.example.prokject2_tracker.fitness
+package com.example.mytracker.fitness
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.prokject2_tracker.core.util.DateUtils
-import com.example.prokject2_tracker.fitness.cardio.CardioRepository
-import com.example.prokject2_tracker.fitness.strength.StrengthExerciseRepository
-import com.example.prokject2_tracker.fitness.strength.StrengthLogRepository
-import com.example.prokject2_tracker.fitness.strength.formatTopSets
-import com.example.prokject2_tracker.fitness.strength.toDraft
+import com.example.mytracker.core.util.DateUtils
+import com.example.mytracker.fitness.cardio.CardioRepository
+import com.example.mytracker.fitness.strength.StrengthExerciseRepository
+import com.example.mytracker.fitness.strength.StrengthLogRepository
+import com.example.mytracker.fitness.strength.formatTopSets
+import com.example.mytracker.fitness.strength.toDraft
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow

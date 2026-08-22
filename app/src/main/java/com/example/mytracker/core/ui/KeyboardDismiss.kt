@@ -1,4 +1,4 @@
-package com.example.prokject2_tracker.core.ui
+package com.example.mytracker.core.ui
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalFocusManager

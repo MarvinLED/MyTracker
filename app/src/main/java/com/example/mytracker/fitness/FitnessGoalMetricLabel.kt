@@ -1,4 +1,4 @@
-package com.example.prokject2_tracker.fitness
+package com.example.mytracker.fitness
 
 fun FitnessGoalMetric.label(): String = when (this) {
     FitnessGoalMetric.CARDIO_SESSIONS -> "Cardio-Einheiten"

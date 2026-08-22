@@ -1,4 +1,4 @@
-package com.example.prokject2_tracker.fluid
+package com.example.mytracker.fluid
 
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -12,7 +12,7 @@ import androidx.compose.ui.graphics.toArgb
  * surface. The two lists are the *same* hues re-stepped for the dark background, not two different
  * palettes.
  *
- * The dark column is validated as a set against [com.example.prokject2_tracker.ui.theme
+ * The dark column is validated as a set against [com.example.mytracker.ui.theme
  * .DarkBlueSurfaceContainer] — the surface chart cards sit on: all eight inside the dark lightness
  * band, all ≥ 3:1 contrast, worst adjacent CVD ΔE 8.4 (protan) and worst adjacent normal-vision
  * ΔE 19.3. Re-run that validation if either the palette or the surface ladder changes; the green

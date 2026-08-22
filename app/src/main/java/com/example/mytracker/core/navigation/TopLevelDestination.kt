@@ -1,4 +1,4 @@
-package com.example.prokject2_tracker.core.navigation
+package com.example.mytracker.core.navigation
 
 import androidx.annotation.StringRes
 import androidx.compose.material.icons.Icons
@@ -7,12 +7,12 @@ import androidx.compose.material.icons.filled.MonitorWeight
 import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material.icons.filled.TaskAlt
 import androidx.compose.ui.graphics.vector.ImageVector
-import com.example.prokject2_tracker.R
-import com.example.prokject2_tracker.fitness.FitnessRoute
-import com.example.prokject2_tracker.goals.DayGoalsRoute
-import com.example.prokject2_tracker.nutrition.diary.DiaryRoute
-import com.example.prokject2_tracker.ui.theme.AppDomain
-import com.example.prokject2_tracker.weight.WeightRoute
+import com.example.mytracker.R
+import com.example.mytracker.fitness.FitnessRoute
+import com.example.mytracker.goals.DayGoalsRoute
+import com.example.mytracker.nutrition.diary.DiaryRoute
+import com.example.mytracker.ui.theme.AppDomain
+import com.example.mytracker.weight.WeightRoute
 
 /**
  * Bottom-nav destinations. Kept to a max of 4 (Material3 guidance): Tagebuch · Tagesziele ·

@@ -1,4 +1,4 @@
-package com.example.prokject2_tracker.goals
+package com.example.mytracker.goals
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -46,18 +46,18 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.example.prokject2_tracker.core.ui.TimeOfDayField
-import com.example.prokject2_tracker.core.ui.dismissingKeyboard
-import com.example.prokject2_tracker.core.util.GoalPeriod
-import com.example.prokject2_tracker.core.util.label
-import com.example.prokject2_tracker.core.util.toLocaleDoubleOrNull
-import com.example.prokject2_tracker.fitness.FitnessGoalMetric
-import com.example.prokject2_tracker.fitness.label
-import com.example.prokject2_tracker.fitness.strength.MovementDirection
-import com.example.prokject2_tracker.fitness.strength.MuscleGroup
-import com.example.prokject2_tracker.fitness.strength.label
-import com.example.prokject2_tracker.ui.theme.AppDomain
-import com.example.prokject2_tracker.ui.theme.topAppBarColors
+import com.example.mytracker.core.ui.TimeOfDayField
+import com.example.mytracker.core.ui.dismissingKeyboard
+import com.example.mytracker.core.util.GoalPeriod
+import com.example.mytracker.core.util.label
+import com.example.mytracker.core.util.toLocaleDoubleOrNull
+import com.example.mytracker.fitness.FitnessGoalMetric
+import com.example.mytracker.fitness.label
+import com.example.mytracker.fitness.strength.MovementDirection
+import com.example.mytracker.fitness.strength.MuscleGroup
+import com.example.mytracker.fitness.strength.label
+import com.example.mytracker.ui.theme.AppDomain
+import com.example.mytracker.ui.theme.topAppBarColors
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

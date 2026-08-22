@@ -1,4 +1,4 @@
-package com.example.prokject2_tracker.nutrition.diary
+package com.example.mytracker.nutrition.diary
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -53,11 +53,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.example.prokject2_tracker.core.ui.dismissingKeyboard
-import com.example.prokject2_tracker.core.util.formatCompact
-import com.example.prokject2_tracker.nutrition.food.FoodAmountInput
-import com.example.prokject2_tracker.nutrition.food.FoodPickerDialog
-import com.example.prokject2_tracker.nutrition.food.label
+import com.example.mytracker.core.ui.dismissingKeyboard
+import com.example.mytracker.core.util.formatCompact
+import com.example.mytracker.nutrition.food.FoodAmountInput
+import com.example.mytracker.nutrition.food.FoodPickerDialog
+import com.example.mytracker.nutrition.food.label
 
 /**
  * Editing an existing Tagebuch entry: the amount, the meal it belongs to, and — for a Rezept — how

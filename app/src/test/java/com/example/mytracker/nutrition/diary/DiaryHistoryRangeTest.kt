@@ -1,6 +1,6 @@
-package com.example.prokject2_tracker.nutrition.diary
+package com.example.mytracker.nutrition.diary
 
-import com.example.prokject2_tracker.core.metrics.ChartRange
+import com.example.mytracker.core.metrics.ChartRange
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
