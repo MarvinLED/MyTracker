@@ -29,6 +29,8 @@ data class DiaryHistoryUiState(
     val granularity: Granularity = Granularity.DAILY,
     /** One nutrient on screen: all lines share a scale with finely labelled steps. */
     val sharedScale: Boolean = false,
+    /** Whether the running — and therefore only part-logged — day is charted. */
+    val showToday: Boolean = true,
 )
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -57,7 +59,7 @@ class DiaryHistoryViewModel @Inject constructor(
         firstLoggedDay,
     ) { settings, firstDay -> settings to firstDay }
         .flatMapLatest { (settings, firstDay) ->
-            val range = diaryHistoryRange(settings.chartRange, firstDay, today)
+            val range = diaryHistoryRange(settings.chartRange, firstDay, today, settings.showToday)
             val granularity = settings.chartRange
                 .granularityFor(range.endInclusive - range.startInclusive)
 
@@ -82,6 +84,7 @@ class DiaryHistoryViewModel @Inject constructor(
                     ),
                     granularity = granularity,
                     sharedScale = isSingleNutrientSelection(settings.selectedSeries),
+                    showToday = settings.showToday,
                 )
             }
         }
@@ -97,6 +100,10 @@ class DiaryHistoryViewModel @Inject constructor(
             val next = if (selected) current + series else current - series
             settingsRepository.setSelectedSeries(next)
         }
+    }
+
+    fun onShowTodayChange(show: Boolean) {
+        viewModelScope.launch { settingsRepository.setShowToday(show) }
     }
 
     fun onSeriesPickerExpandedChange(expanded: Boolean) {

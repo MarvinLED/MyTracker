@@ -5,6 +5,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -16,6 +17,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material3.Card
@@ -79,7 +81,12 @@ fun DiaryHistoryScreen(
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            // A FlowRow, not a Row: four chips do not fit a narrow screen on one line, and the
+            // Heute toggle wrapping under the ranges beats it being cut off at the edge.
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
                 DiaryHistoryRanges.forEach { range ->
                     FilterChip(
                         selected = range == state.chartRange,
@@ -87,6 +94,18 @@ fun DiaryHistoryScreen(
                         label = { Text(range.label()) },
                     )
                 }
+                // The one chip carrying a tick when it is on, so it reads as a switch rather than a
+                // fourth span sitting beside Monat, Jahr and Insgesamt.
+                FilterChip(
+                    selected = state.showToday,
+                    onClick = { viewModel.onShowTodayChange(!state.showToday) },
+                    label = { Text("Heute") },
+                    leadingIcon = if (state.showToday) {
+                        { Icon(Icons.Filled.Check, contentDescription = null) }
+                    } else {
+                        null
+                    },
+                )
             }
 
             if (state.lines.isEmpty()) {

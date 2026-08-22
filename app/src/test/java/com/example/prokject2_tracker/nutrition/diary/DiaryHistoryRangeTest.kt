@@ -42,6 +42,31 @@ class DiaryHistoryRangeTest {
     }
 
     @Test
+    fun hidingTodayEndsTheWindowYesterdayWithoutShorteningIt() {
+        val range = diaryHistoryRange(ChartRange.MONTH, firstLoggedDay = 1L, today = today, includeToday = false)
+
+        // Still 30 days, slid back by one — dropping today must not cost the window a day.
+        assertEquals(today - 30, range.startInclusive)
+        assertEquals(today - 1, range.endInclusive)
+    }
+
+    @Test
+    fun insgesamtWithoutTodayStillStartsAtTheFirstLoggedDay() {
+        val range = diaryHistoryRange(ChartRange.ALL, firstLoggedDay = 19_000L, today = today, includeToday = false)
+
+        assertEquals(19_000L, range.startInclusive)
+        assertEquals(today - 1, range.endInclusive)
+    }
+
+    @Test
+    fun aDiaryStartedTodayCollapsesOnceTodayIsHidden() {
+        val range = diaryHistoryRange(ChartRange.ALL, firstLoggedDay = today, today = today, includeToday = false)
+
+        assertEquals(today - 1, range.startInclusive)
+        assertEquals(today - 1, range.endInclusive)
+    }
+
+    @Test
     fun aFirstLoggedDayInTheFutureNeverInvertsTheRange() {
         val range = diaryHistoryRange(ChartRange.ALL, firstLoggedDay = today + 5, today = today)
 

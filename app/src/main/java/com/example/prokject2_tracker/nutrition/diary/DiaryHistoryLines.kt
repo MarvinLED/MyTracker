@@ -21,6 +21,9 @@ import com.example.prokject2_tracker.weight.BodyWeightEntry
  * would be seven times the daily target and could not be read against it at all; the mean day can.
  * That also keeps both members of a pair on the same footing, which is the whole point of drawing
  * them together.
+ *
+ * An Ist point is only drawn for a day that had a Soll above zero — see [goalDays]. Gewicht is
+ * exempt: it is not a nutrient and has no target to be conditional on.
  */
 fun diaryHistoryLines(
     selected: Set<DiaryHistorySeries>,
@@ -30,39 +33,63 @@ fun diaryHistoryLines(
     weights: List<BodyWeightEntry>,
     goalChanges: List<NutrientGoalChange>,
     currentGoals: Map<Nutrient, NutrientGoal>,
-): List<ChartLine> = DiaryHistorySeries.entries
-    .filter { it in selected }
-    .map { series ->
-        fun actualPoints() = nutritionTotals.mapNotNull { day ->
-            day.totals.byNutrient()[series.nutrient]?.let { MetricPoint(day.epochDay, it) }
-        }
-
-        val points = when {
-            series == DiaryHistorySeries.WEIGHT ->
-                weights.map { MetricPoint(it.epochDay, it.weightKg) }
-
-            series.isGoal -> nutrientGoalTimeline(
-                range = range,
-                changes = goalChanges.filter { it.nutrient == series.nutrient },
-                currentGoal = currentGoals[series.nutrient],
-            )
-
-            series.kind == DiaryHistorySeriesKind.AVERAGE -> weeklyAverages(range, actualPoints())
-
-            else -> actualPoints()
-        }
-        ChartLine(
-            label = series.label,
-            unit = series.unit,
-            color = series.color,
-            points = points.bucketBy(granularity, MetricAggregation.AVERAGE),
-            // Body weight is the one series whose day-to-day movement is tiny next to its absolute
-            // value; anchored at zero it would flatten into a straight edge.
-            zeroBased = series != DiaryHistorySeries.WEIGHT,
-            style = series.style,
-            markers = series.showsMarkers,
+): List<ChartLine> {
+    // One timeline per nutrient, not per line: a nutrient's Soll, Ist and Ø all read the same one.
+    val timelines = mutableMapOf<Nutrient, List<MetricPoint>>()
+    fun goalTimeline(nutrient: Nutrient): List<MetricPoint> = timelines.getOrPut(nutrient) {
+        nutrientGoalTimeline(
+            range = range,
+            changes = goalChanges.filter { it.nutrient == nutrient },
+            currentGoal = currentGoals[nutrient],
         )
     }
+
+    return DiaryHistorySeries.entries
+        .filter { it in selected }
+        .map { series ->
+            fun actualPoints(): List<MetricPoint> {
+                val nutrient = series.nutrient ?: return emptyList()
+                val days = goalDays(goalTimeline(nutrient))
+                return nutritionTotals.mapNotNull { day ->
+                    if (day.epochDay !in days) return@mapNotNull null
+                    day.totals.byNutrient()[nutrient]?.let { MetricPoint(day.epochDay, it) }
+                }
+            }
+
+            val points = when {
+                series == DiaryHistorySeries.WEIGHT ->
+                    weights.map { MetricPoint(it.epochDay, it.weightKg) }
+
+                series.isGoal -> goalTimeline(series.nutrient!!)
+
+                series.kind == DiaryHistorySeriesKind.AVERAGE -> weeklyAverages(range, actualPoints())
+
+                else -> actualPoints()
+            }
+            ChartLine(
+                label = series.label,
+                unit = series.unit,
+                color = series.color,
+                points = points.bucketBy(granularity, MetricAggregation.AVERAGE),
+                // Body weight is the one series whose day-to-day movement is tiny next to its
+                // absolute value; anchored at zero it would flatten into a straight edge.
+                zeroBased = series != DiaryHistorySeries.WEIGHT,
+                style = series.style,
+                markers = series.showsMarkers,
+            )
+        }
+}
+
+/**
+ * The days an Ist value may be drawn on: those the nutrient had a target above zero for.
+ *
+ * The Ist line exists to be read against its Soll. On a day with no target — the nutrient was not
+ * tracked yet, or the goal was cleared — an intake point has nothing to be measured against and
+ * reads as a shortfall or an excess that was never defined. A Soll of exactly zero says the same
+ * thing: the app writes no goal it means as "eat nothing", so a zero there is an unset target.
+ */
+private fun goalDays(timeline: List<MetricPoint>): Set<Long> =
+    timeline.mapNotNullTo(mutableSetOf()) { point -> point.epochDay.takeIf { point.value > 0.0 } }
 
 /**
  * The Ist values as one figure per calendar week, repeated on every day of that week: a step that
@@ -71,7 +98,8 @@ fun diaryHistoryLines(
  * would slope across days whose average it never was.
  *
  * Only logged days count towards the mean, and a week without a single logged day gets no points
- * at all: a zero there would read as "ate nothing", not "did not log".
+ * at all: a zero there would read as "ate nothing", not "did not log". Days the Ist line skips for
+ * want of a Soll are skipped here too — the Ø is the mean of what is drawn.
  */
 private fun weeklyAverages(range: EpochDayRange, daily: List<MetricPoint>): List<MetricPoint> {
     if (daily.isEmpty()) return emptyList()

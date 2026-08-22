@@ -34,6 +34,12 @@ data class DiaryHistorySettings(
     val selectedSeries: Set<DiaryHistorySeries> = DEFAULT_SERIES,
     val chartRange: ChartRange = ChartRange.MONTH,
     val seriesPickerExpanded: Boolean = true,
+    /**
+     * Whether the running day is charted. On by default — the Verlauf ending today is what the
+     * screen has always shown, and a day silently missing from the end would be the more surprising
+     * default of the two.
+     */
+    val showToday: Boolean = true,
 ) {
     companion object {
         /** Calories against their target: the one pairing the Tagebuch already leads with. */
@@ -49,6 +55,7 @@ class DiaryHistorySettingsRepository @Inject constructor(
         val SELECTED_SERIES = stringSetPreferencesKey("selected_series")
         val CHART_RANGE = stringPreferencesKey("chart_range")
         val PICKER_EXPANDED = booleanPreferencesKey("series_picker_expanded")
+        val SHOW_TODAY = booleanPreferencesKey("show_today")
     }
 
     val settings: Flow<DiaryHistorySettings> = context.diaryHistorySettingsDataStore.data.map { prefs ->
@@ -63,6 +70,7 @@ class DiaryHistorySettingsRepository @Inject constructor(
                 ChartRange.entries.firstOrNull { it.name == name }
             } ?: ChartRange.MONTH,
             seriesPickerExpanded = prefs[Keys.PICKER_EXPANDED] ?: true,
+            showToday = prefs[Keys.SHOW_TODAY] ?: true,
         )
     }
 
@@ -84,5 +92,9 @@ class DiaryHistorySettingsRepository @Inject constructor(
 
     suspend fun setSeriesPickerExpanded(expanded: Boolean) {
         context.diaryHistorySettingsDataStore.edit { it[Keys.PICKER_EXPANDED] = expanded }
+    }
+
+    suspend fun setShowToday(show: Boolean) {
+        context.diaryHistorySettingsDataStore.edit { it[Keys.SHOW_TODAY] = show }
     }
 }

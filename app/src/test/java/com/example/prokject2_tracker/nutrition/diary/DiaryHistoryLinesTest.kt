@@ -140,10 +140,82 @@ class DiaryHistoryLinesTest {
         val result = lines(
             setOf(DiaryHistorySeries.SUGAR_ACTUAL, DiaryHistorySeries.SALT_ACTUAL),
             totals = totals,
+            goals = mapOf(
+                Nutrient.SUGAR to NutrientGoal(max = 50.0),
+                Nutrient.SALT to NutrientGoal(max = 6.0),
+            ),
         )
 
         assertEquals(listOf(40.0), result[0].points.map { it.value })
         assertEquals(listOf(5.0), result[1].points.map { it.value })
+    }
+
+    @Test
+    fun anIstPointNeedsADayWithAGoal() {
+        // Zucker is logged but never had a target: there is nothing for the intake to be read
+        // against, so the line stays empty rather than implying a shortfall or an excess.
+        val result = lines(
+            setOf(DiaryHistorySeries.SUGAR_ACTUAL),
+            totals = listOf(day(10, 2000.0, sugar = 40.0)),
+        )
+
+        assertEquals(emptyList<Double>(), result.single().points.map { it.value })
+    }
+
+    @Test
+    fun aGoalOfZeroCountsAsNoGoal() {
+        val result = lines(
+            setOf(DiaryHistorySeries.KCAL_ACTUAL),
+            goals = mapOf(Nutrient.KCAL to NutrientGoal(min = 0.0)),
+        )
+
+        assertEquals(emptyList<Double>(), result.single().points.map { it.value })
+    }
+
+    @Test
+    fun aClearedGoalTakesTheIstLineWithIt() {
+        // The target was dropped on day 12. Day 12 was still logged, but there is no longer
+        // anything for those 1800 kcal to be read against.
+        val changes = listOf(
+            NutrientGoalChange("seed", Nutrient.KCAL, 0, minValue = 2100.0, changedAt = instant),
+            NutrientGoalChange("cleared", Nutrient.KCAL, 12, changedAt = instant),
+        )
+
+        val result = lines(
+            setOf(DiaryHistorySeries.KCAL_GOAL, DiaryHistorySeries.KCAL_ACTUAL),
+            changes = changes,
+        )
+
+        val (goal, actual) = result
+        assertEquals(listOf(10L, 11L), goal.points.map { it.epochDay })
+        assertEquals(listOf(10L, 11L), actual.points.map { it.epochDay })
+        assertEquals(listOf(2000.0, 2200.0), actual.points.map { it.value })
+    }
+
+    @Test
+    fun theAverageIsTheMeanOfTheDaysTheIstLineDraws() {
+        // Day 11 keeps its goal, day 12 loses it. The week of 11 and 12 therefore averages 2200
+        // alone — not the 2000 the two logged days would make together.
+        val changes = listOf(
+            NutrientGoalChange("seed", Nutrient.KCAL, 0, minValue = 2100.0, changedAt = instant),
+            NutrientGoalChange("cleared", Nutrient.KCAL, 12, changedAt = instant),
+        )
+
+        val result = lines(setOf(DiaryHistorySeries.KCAL_AVERAGE), changes = changes)
+
+        val points = result.single().points
+        assertEquals(listOf(10L, 11L, 12L), points.map { it.epochDay })
+        assertEquals(listOf(2000.0, 2200.0, 2200.0), points.map { it.value })
+    }
+
+    @Test
+    fun gewichtIsDrawnWithoutAnyGoal() {
+        // Gewicht has no Soll anywhere in the app; gating it on one would erase the line entirely.
+        val weights = listOf(BodyWeightEntry(id = "w-10", epochDay = 10, weightKg = 80.0, createdAt = instant))
+
+        val result = lines(setOf(DiaryHistorySeries.WEIGHT), weights = weights, goals = emptyMap())
+
+        assertEquals(listOf(80.0), result.single().points.map { it.value })
     }
 
     @Test
