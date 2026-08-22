@@ -71,9 +71,11 @@ fun diaryHistoryLines(
                 unit = series.unit,
                 color = series.color,
                 points = points.bucketBy(granularity, MetricAggregation.AVERAGE),
-                // Body weight is the one series whose day-to-day movement is tiny next to its
-                // absolute value; anchored at zero it would flatten into a straight edge.
-                zeroBased = series != DiaryHistorySeries.WEIGHT,
+                // No series here is anchored at zero. What the Verlauf is read for is movement —
+                // whether the Ist tracks its Soll, whether either drifted — and every one of these
+                // metrics lives far above zero, so a floor at zero spends most of the panel on
+                // empty space and squeezes the actual variation into the top band.
+                zeroBased = false,
                 style = series.style,
                 markers = series.showsMarkers,
             )

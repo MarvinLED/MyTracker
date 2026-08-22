@@ -47,6 +47,7 @@ import com.example.mytracker.core.util.DateUtils
 import com.example.mytracker.core.util.formatCompact
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import kotlin.math.abs
 
 /**
  * How a series' stroke is drawn. For telling apart lines that belong together on one hue — a
@@ -252,12 +253,17 @@ private fun sharedTicksOf(lines: List<ChartLine>): AxisTicks {
 
 private fun scaleOf(line: ChartLine): LineScale {
     val rawMax = line.points.maxOf { it.value }
-    val max = if (line.zeroBased) rawMax.coerceAtLeast(1.0) else rawMax
-    val min = if (line.zeroBased) 0.0 else {
-        val rawMin = line.points.minOf { it.value }
-        rawMin - (max - rawMin) * 0.1
+    if (line.zeroBased) return LineScale(0.0, rawMax.coerceAtLeast(1.0))
+
+    val rawMin = line.points.minOf { it.value }
+    // A series that never moves — a Soll held all range, a weight logged at one value — has no span
+    // to pad a tenth of. Without a band of its own it would be pinned to the bottom edge, reading
+    // as the panel's floor rather than as a level. Centred on the value instead.
+    if (rawMax <= rawMin) {
+        val pad = (abs(rawMax) * 0.1).coerceAtLeast(1.0)
+        return LineScale(rawMin - pad, rawMax + pad)
     }
-    return LineScale(min, max)
+    return LineScale(rawMin - (rawMax - rawMin) * 0.1, rawMax)
 }
 
 /**

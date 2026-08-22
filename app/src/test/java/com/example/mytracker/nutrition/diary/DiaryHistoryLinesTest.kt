@@ -219,17 +219,21 @@ class DiaryHistoryLinesTest {
     }
 
     @Test
-    fun weightIsNotZeroBased() {
+    fun noSeriesIsZeroBased() {
         val weights = listOf(
             BodyWeightEntry(id = "w-10", epochDay = 10, weightKg = 80.0, createdAt = instant),
             BodyWeightEntry(id = "w-11", epochDay = 11, weightKg = 80.4, createdAt = instant),
         )
 
-        val result = lines(setOf(DiaryHistorySeries.WEIGHT, DiaryHistorySeries.KCAL_ACTUAL), weights = weights)
+        val result = lines(
+            setOf(DiaryHistorySeries.WEIGHT, DiaryHistorySeries.KCAL_ACTUAL, DiaryHistorySeries.KCAL_GOAL),
+            weights = weights,
+        )
 
-        // A zero-based axis would flatten a 0,4 kg move into a straight edge; the nutrients keep it.
-        assertFalse(result.first { it.label == "Gewicht" }.zeroBased)
-        assertTrue(result.first { it.label == "Kalorien Ist" }.zeroBased)
+        // The axis follows the values on every line here: a floor at zero flattens a 0,4 kg move
+        // the same way it flattens the gap between 2000 and 2200 kcal.
+        assertTrue(result.isNotEmpty())
+        assertTrue(result.none { it.zeroBased })
     }
 
     @Test
