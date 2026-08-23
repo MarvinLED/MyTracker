@@ -876,3 +876,16 @@ object MIGRATION_23_24 : Migration(23, 24) {
         )
     }
 }
+
+object MIGRATION_24_25 : Migration(24, 25) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        // Blutdruck gains a pulse and a second measurement per slot. Everything is nullable with no
+        // default, and deliberately so: an existing row is one measurement without a pulse, which is
+        // exactly what "null" says here. Backfilling `systolic2` from `systolic` would invent a
+        // second reading that was never taken and pull every historical mean towards it.
+        db.execSQL("ALTER TABLE `blood_pressure_entries` ADD COLUMN `pulse` REAL")
+        db.execSQL("ALTER TABLE `blood_pressure_entries` ADD COLUMN `systolic2` REAL")
+        db.execSQL("ALTER TABLE `blood_pressure_entries` ADD COLUMN `diastolic2` REAL")
+        db.execSQL("ALTER TABLE `blood_pressure_entries` ADD COLUMN `pulse2` REAL")
+    }
+}

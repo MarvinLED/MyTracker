@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -13,11 +14,13 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.DatePicker
@@ -64,9 +67,6 @@ import java.time.LocalDate
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import java.util.Locale
-
-/** Blood pressure is always in mmHg — no unit choice anywhere on this screen. */
-const val BLOOD_PRESSURE_UNIT = "mmHg"
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -117,6 +117,11 @@ fun BloodPressureScreen(
                     onTimeOfDayChange = viewModel::onTimeOfDayChange,
                     onSystolicChange = viewModel::onSystolicChange,
                     onDiastolicChange = viewModel::onDiastolicChange,
+                    onPulseChange = viewModel::onPulseChange,
+                    onSecondSystolicChange = viewModel::onSecondSystolicChange,
+                    onSecondDiastolicChange = viewModel::onSecondDiastolicChange,
+                    onSecondPulseChange = viewModel::onSecondPulseChange,
+                    onToggleSecondMeasurement = viewModel::toggleSecondMeasurement,
                     onCommentChange = viewModel::onCommentChange,
                     onSave = viewModel::save,
                 )
@@ -134,10 +139,14 @@ fun BloodPressureScreen(
 }
 
 /**
- * The logging form: day, time of day, the two fixed values, and a comment. Both value fields open on
- * the last reading *at or before* the selected day and matching its time of day — so switching to
+ * The logging form: day, time of day, one or two measurements, and a comment. The value fields open
+ * on the last reading *at or before* the selected day and matching its time of day — so switching to
  * "Abends" offers last evening's numbers, and picking a day that already holds a reading shows that
  * reading instead of another day's.
+ *
+ * The second measurement stays folded away until it is asked for. Measuring twice is the better
+ * practice, but it is not what every reading is, and two half-empty blocks would make the common
+ * case look unfinished.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -147,6 +156,11 @@ private fun AddPanel(
     onTimeOfDayChange: (BloodPressureTimeOfDay) -> Unit,
     onSystolicChange: (String) -> Unit,
     onDiastolicChange: (String) -> Unit,
+    onPulseChange: (String) -> Unit,
+    onSecondSystolicChange: (String) -> Unit,
+    onSecondDiastolicChange: (String) -> Unit,
+    onSecondPulseChange: (String) -> Unit,
+    onToggleSecondMeasurement: () -> Unit,
     onCommentChange: (String) -> Unit,
     onSave: () -> Unit,
 ) {
@@ -203,33 +217,46 @@ private fun AddPanel(
                 )
             }
 
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                OutlinedTextField(
-                    value = uiState.systolicDraft,
-                    onValueChange = onSystolicChange,
-                    label = { Text("Systolisch") },
-                    suffix = { Text(BLOOD_PRESSURE_UNIT) },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(
-                        keyboardType = KeyboardType.Decimal,
-                        imeAction = ImeAction.Next,
-                    ),
-                    modifier = Modifier.weight(1f),
+            MeasurementFields(
+                // Numbered only once there are two of them to tell apart.
+                title = if (uiState.isSecondShown) "Messung 1" else null,
+                draft = uiState.first,
+                onSystolicChange = onSystolicChange,
+                onDiastolicChange = onDiastolicChange,
+                onPulseChange = onPulseChange,
+            )
+
+            if (uiState.isSecondShown) {
+                MeasurementFields(
+                    title = "Messung 2",
+                    draft = uiState.second,
+                    onSystolicChange = onSecondSystolicChange,
+                    onDiastolicChange = onSecondDiastolicChange,
+                    onPulseChange = onSecondPulseChange,
                 )
-                OutlinedTextField(
-                    value = uiState.diastolicDraft,
-                    onValueChange = onDiastolicChange,
-                    label = { Text("Diastolisch") },
-                    suffix = { Text(BLOOD_PRESSURE_UNIT) },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(
-                        keyboardType = KeyboardType.Decimal,
-                        imeAction = ImeAction.Next,
-                    ),
-                    modifier = Modifier.weight(1f),
+            }
+
+            TextButton(
+                onClick = onToggleSecondMeasurement,
+                modifier = Modifier.align(Alignment.End),
+            ) {
+                Icon(
+                    if (uiState.isSecondShown) Icons.Filled.Remove else Icons.Filled.Add,
+                    contentDescription = null,
+                )
+                Text(
+                    if (uiState.isSecondShown) "Zweite Messung entfernen" else "Zweite Messung hinzufügen",
+                    modifier = Modifier.padding(start = 8.dp),
+                )
+            }
+
+            // The mean is what gets filed, so it is shown before it is filed — a stored 125,5/84,5
+            // that appears nowhere in the form would read as a typo rather than as an average.
+            uiState.averagePreview?.let { preview ->
+                Text(
+                    "Gespeichert wird der Durchschnitt: $preview",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
 
@@ -260,6 +287,75 @@ private fun AddPanel(
             },
             onDismiss = { showDatePicker = false },
         )
+    }
+}
+
+/**
+ * One measurement's three fields. The pulse sits on its own row at half width rather than as a third
+ * column: with three columns the labels ellipsize on a normal phone, and "Systolisch"/"Diastolisch"
+ * are exactly the words that must not be guessed at.
+ */
+@Composable
+private fun MeasurementFields(
+    title: String?,
+    draft: BloodPressureReadingDraft,
+    onSystolicChange: (String) -> Unit,
+    onDiastolicChange: (String) -> Unit,
+    onPulseChange: (String) -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        title?.let {
+            Text(it, style = MaterialTheme.typography.labelLarge)
+        }
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            OutlinedTextField(
+                value = draft.systolic,
+                onValueChange = onSystolicChange,
+                label = { Text("Systolisch") },
+                suffix = { Text(BLOOD_PRESSURE_UNIT) },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Decimal,
+                    imeAction = ImeAction.Next,
+                ),
+                modifier = Modifier.weight(1f),
+            )
+            OutlinedTextField(
+                value = draft.diastolic,
+                onValueChange = onDiastolicChange,
+                label = { Text("Diastolisch") },
+                suffix = { Text(BLOOD_PRESSURE_UNIT) },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Decimal,
+                    imeAction = ImeAction.Next,
+                ),
+                modifier = Modifier.weight(1f),
+            )
+        }
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            OutlinedTextField(
+                value = draft.pulse,
+                onValueChange = onPulseChange,
+                // Optional in the label, not only in the validation: a field that blocks nothing has
+                // to say so, or it reads as a value the reading is missing.
+                label = { Text("Puls (optional)") },
+                suffix = { Text(PULSE_UNIT) },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Decimal,
+                    imeAction = ImeAction.Next,
+                ),
+                modifier = Modifier.weight(1f),
+            )
+            Spacer(modifier = Modifier.weight(1f))
+        }
     }
 }
 
@@ -370,7 +466,7 @@ private fun ChartCard(
                 lines = uiState.series.map { series ->
                     ChartLine(
                         label = series.label,
-                        unit = BLOOD_PRESSURE_UNIT,
+                        unit = series.measure.unit(),
                         color = palette[series.paletteIndex.mod(palette.size)],
                         points = series.points,
                         // Never zero-based: a 118–138 mmHg band on a 0-axis is a flat line.
@@ -412,7 +508,17 @@ private fun HistoryCard(rows: List<BloodPressureHistoryRow>, onDelete: (BloodPre
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
-                        Text(row.values, style = MaterialTheme.typography.bodyLarge)
+                        Text(
+                            row.pulse?.let { "${row.values} · Puls $it" } ?: row.values,
+                            style = MaterialTheme.typography.bodyLarge,
+                        )
+                        row.averagedFrom?.let { note ->
+                            Text(
+                                note,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
                         row.entry.comment?.let { comment ->
                             Text(comment, style = MaterialTheme.typography.bodySmall)
                         }

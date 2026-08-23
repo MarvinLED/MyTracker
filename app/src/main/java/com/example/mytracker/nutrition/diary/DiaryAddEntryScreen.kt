@@ -3,6 +3,7 @@ package com.example.mytracker.nutrition.diary
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.interaction.DragInteraction
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -130,6 +131,26 @@ fun DiaryAddEntryScreen(
     // make the button worse than the always-visible field it replaced.
     LaunchedEffect(searchExpanded) {
         if (searchExpanded) searchFocusRequester.requestFocus()
+    }
+
+    // The list opens at the top and is held there until the user scrolls it themselves.
+    //
+    // Not a no-op: LazyColumn anchors on the first visible item's *key*, and the first rows reach
+    // the screen before the sort does — lastLogged and the log counts arrive from Room after the
+    // foods do, so the list is briefly in name order. When the real order lands, the row that
+    // happened to open at the top takes the viewport with it to wherever it now sits, and the
+    // picker ends up opened somewhere in the middle of its own list.
+    //
+    // Switching sort, list mode, tag or query starts a new list, so the pin comes back for it.
+    var userScrolled by remember { mutableStateOf(false) }
+    LaunchedEffect(listState) {
+        listState.interactionSource.interactions.collect { interaction ->
+            if (interaction is DragInteraction.Start) userScrolled = true
+        }
+    }
+    LaunchedEffect(sort, listMode, mode, selectedTagId, query) { userScrolled = false }
+    LaunchedEffect(pickerItems, userScrolled) {
+        if (!userScrolled) listState.scrollToItem(0)
     }
 
     Scaffold(

@@ -65,6 +65,12 @@ class DiaryRepository @Inject constructor(
                 .mapValues { (_, group) -> group.maxBy { it.createdAt } }
         }
 
+    /** Keyed like [observeLastLoggedPerSource], so both signals index by the same pair. */
+    fun observeLogCountPerSource(): Flow<Map<Pair<DiarySourceType, String>, Int>> =
+        diaryDao.observeLogCountPerSource(DiarySourceType.QUICK).map { rows ->
+            rows.associate { (it.sourceType to it.sourceId) to it.count }
+        }
+
     suspend fun getLastLoggedAmount(sourceType: DiarySourceType, sourceId: String): LastLoggedAmount? =
         diaryDao.getLastLoggedAmount(sourceType, sourceId)
 

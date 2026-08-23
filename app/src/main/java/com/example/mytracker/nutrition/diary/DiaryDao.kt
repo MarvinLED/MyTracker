@@ -29,6 +29,13 @@ data class LastLoggedSource(
     val createdAt: Instant,
 )
 
+/** How often one source has been logged, all-time — the "Am meisten" signal. */
+data class SourceLogCount(
+    val sourceType: DiarySourceType,
+    val sourceId: String,
+    val count: Int,
+)
+
 /** One source's most recent amount and unit — for pre-filling quantity when adding. */
 data class LastLoggedAmount(
     val quantity: Double,
@@ -127,6 +134,20 @@ interface DiaryDao {
             "WHERE de.sourceType != :excludedType",
     )
     fun observeLastLoggedPerSource(excludedType: DiarySourceType): Flow<List<LastLoggedSource>>
+
+    /**
+     * One row per (sourceType, sourceId) with how many diary_entries rows it has, Schnelleinträge
+     * excluded — they carry an empty sourceId and would all collapse into one meaningless group.
+     *
+     * Counts entries, not amounts: "am meisten gegessen" is how often something is reached for, and
+     * an amount would put one 500 g portion above five 100 g ones of the same thing. It also keeps
+     * foods and Rezepte comparable, whose quantities are grams and servings respectively.
+     */
+    @Query(
+        "SELECT sourceType, sourceId, COUNT(*) AS count FROM diary_entries " +
+            "WHERE sourceType != :excludedType GROUP BY sourceType, sourceId",
+    )
+    fun observeLogCountPerSource(excludedType: DiarySourceType): Flow<List<SourceLogCount>>
 
     /** The most recent quantity and unit for a specific source, for pre-filling when adding. */
     @Query(

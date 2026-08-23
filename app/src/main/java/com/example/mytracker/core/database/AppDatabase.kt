@@ -105,7 +105,7 @@ import com.example.mytracker.weight.BodyWeightEntry
         TaskCompletion::class,
         NutrientGoalChange::class,
     ],
-    version = 24,
+    version = 25,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)

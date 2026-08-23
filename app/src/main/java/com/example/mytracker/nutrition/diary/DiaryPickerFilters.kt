@@ -24,11 +24,15 @@ fun DiaryPickerMode.nextListMode(): DiaryPickerMode {
     return diaryPickerListModes[(index + 1) % diaryPickerListModes.size]
 }
 
+/** The order the picker list is in. Declaration order is chip order on the screen. */
 enum class DiaryPickerSort {
-    LAST_EATEN, NAME,
+    LAST_EATEN, MOST_EATEN, NAME,
 }
 
 fun DiaryPickerSort.label(): String = when (this) {
-    DiaryPickerSort.LAST_EATEN -> "Zuletzt gegessen"
+    // Short labels: three chips share one row with the tag filter, and "Zuletzt gegessen" ate the
+    // width the third chip now needs.
+    DiaryPickerSort.LAST_EATEN -> "Zuletzt"
+    DiaryPickerSort.MOST_EATEN -> "Am meisten"
     DiaryPickerSort.NAME -> "Name"
 }

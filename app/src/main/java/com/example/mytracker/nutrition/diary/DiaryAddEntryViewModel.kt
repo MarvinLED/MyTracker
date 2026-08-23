@@ -120,6 +120,11 @@ class DiaryAddEntryViewModel @Inject constructor(
         diaryRepository.observeLastLoggedPerSource()
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
 
+    /** How often each source has been logged, for the Am-meisten sort. */
+    private val logCounts: StateFlow<Map<Pair<DiarySourceType, String>, Int>> =
+        diaryRepository.observeLogCountPerSource()
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
+
     private val unifiedItems: StateFlow<List<DiaryPickerItem>> =
         combine(foodResults, recipeResults, tagsByFoodId) { foods, recipes, tagsByFood ->
             val foodItems = foods.map { food ->
@@ -137,8 +142,8 @@ class DiaryAddEntryViewModel @Inject constructor(
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val pickerItems: StateFlow<List<DiaryPickerItem>> =
-        combine(filteredItems, _sort, _mealType, lastLogged) { items, sort, mealType, lastLog ->
-            items.sortedForPicker(sort, mealType, lastLog)
+        combine(filteredItems, _sort, _mealType, lastLogged, logCounts) { items, sort, mealType, lastLog, counts ->
+            items.sortedForPicker(sort, mealType, lastLog, counts)
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     private val _expandedItem = MutableStateFlow<DiaryPickerItem?>(null)

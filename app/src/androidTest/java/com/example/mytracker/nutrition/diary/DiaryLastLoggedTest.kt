@@ -18,9 +18,10 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * Tests for "last logged per source" query: correctly surfacing the most recent diary entry per
- * food/recipe, grouped by the observation that Schnelleinträge (QUICK) have no meaningful sourceId
- * and should be excluded.
+ * Tests for the two per-source signals the Tagebuch picker sorts by: "last logged per source",
+ * which surfaces the most recent diary entry per food/recipe, and the log count per source behind
+ * the Am-meisten sort. Both group on the observation that Schnelleinträge (QUICK) have no
+ * meaningful sourceId and should be excluded.
  */
 @RunWith(AndroidJUnit4::class)
 class DiaryLastLoggedTest {
@@ -173,5 +174,34 @@ class DiaryLastLoggedTest {
         assertEquals(100.0, lastLogged?.quantity)
         assertEquals("Scheibe", lastLogged?.unitName)
         assertEquals(2.5, lastLogged?.unitCount)
+    }
+
+    @Test
+    fun logCountPerSource_countsEveryEntryOfASource() = runBlocking {
+        diaryRepository.logFood(epochDay1, "food-1", 100.0, MealType.BREAKFAST)
+        diaryRepository.logFood(epochDay1, "food-1", 50.0, MealType.SNACK)
+        diaryRepository.logFood(epochDay2, "food-1", 150.0, MealType.LUNCH)
+        diaryRepository.logFood(epochDay2, "food-2", 150.0, MealType.LUNCH)
+
+        val counts = diaryRepository.observeLogCountPerSource().first()
+
+        // Twice on one day and once on the next is three, not two: the Am-meisten sort counts every
+        // logging, not every day something was logged on.
+        assertEquals(3, counts[DiarySourceType.FOOD to "food-1"])
+        assertEquals(1, counts[DiarySourceType.FOOD to "food-2"])
+    }
+
+    @Test
+    fun logCountPerSource_excludesQuickEntriesAndUnloggedFoods() = runBlocking {
+        diaryRepository.logFood(epochDay1, "food-1", 100.0, MealType.BREAKFAST)
+        diaryRepository.logQuick(epochDay1, "Snack", 200.0, 5.0, 10.0, 8.0, MealType.SNACK)
+
+        val counts = diaryRepository.observeLogCountPerSource().first()
+
+        assertEquals(1, counts.size)
+        assertNull(counts[DiarySourceType.QUICK to ""])
+        // food-2 exists in the library but was never logged; it carries no count at all, which is
+        // what the sort reads as zero.
+        assertNull(counts[DiarySourceType.FOOD to "food-2"])
     }
 }

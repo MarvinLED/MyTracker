@@ -815,4 +815,69 @@ class MigrationTest {
         }
         db.close()
     }
+
+    @Test
+    fun migrate24To25_keepsExistingReadingsAsOneMeasurementWithoutAPulse() {
+        val v24 = helper.createDatabase(dbName, 24)
+        v24.execSQL(
+            "INSERT INTO blood_pressure_entries (id, epochDay, timeOfDay, systolic, diastolic, " +
+                "comment, createdAt) VALUES ('bloodpressure-20000-MORNING', 20000, 'MORNING', " +
+                "128.0, 84.0, 'schlecht geschlafen', 1700000000000)",
+        )
+        v24.close()
+
+        val db = helper.runMigrationsAndValidate(dbName, 25, true, MIGRATION_24_25)
+
+        // Nothing may be backfilled: an old row was measured once, without a pulse, and inventing a
+        // second reading from the first would pull its mean towards a number nobody measured.
+        db.query(
+            "SELECT systolic, diastolic, pulse, systolic2, diastolic2, pulse2, comment " +
+                "FROM blood_pressure_entries WHERE id = 'bloodpressure-20000-MORNING'",
+        ).use { cursor ->
+            cursor.moveToFirst()
+            assertEquals(128.0, cursor.getDouble(0), 0.001)
+            assertEquals(84.0, cursor.getDouble(1), 0.001)
+            assertTrue(cursor.isNull(2))
+            assertTrue(cursor.isNull(3))
+            assertTrue(cursor.isNull(4))
+            assertTrue(cursor.isNull(5))
+            assertEquals("schlecht geschlafen", cursor.getString(6))
+        }
+        db.close()
+    }
+
+    @Test
+    fun migrate24To25_takesASecondMeasurementAndAPulse() {
+        helper.createDatabase(dbName, 24).close()
+
+        val db = helper.runMigrationsAndValidate(dbName, 25, true, MIGRATION_24_25)
+
+        db.execSQL(
+            "INSERT INTO blood_pressure_entries (id, epochDay, timeOfDay, systolic, diastolic, " +
+                "pulse, systolic2, diastolic2, pulse2, comment, createdAt) VALUES " +
+                "('bloodpressure-20001-EVENING', 20001, 'EVENING', 130.0, 86.0, 74.0, " +
+                "120.0, 80.0, 70.0, NULL, 1700000000000)",
+        )
+
+        db.query(
+            "SELECT pulse, systolic2, diastolic2, pulse2 FROM blood_pressure_entries " +
+                "WHERE id = 'bloodpressure-20001-EVENING'",
+        ).use { cursor ->
+            cursor.moveToFirst()
+            assertEquals(74.0, cursor.getDouble(0), 0.001)
+            assertEquals(120.0, cursor.getDouble(1), 0.001)
+            assertEquals(80.0, cursor.getDouble(2), 0.001)
+            assertEquals(70.0, cursor.getDouble(3), 0.001)
+        }
+
+        // The (Tag, Tageszeit) slot stays unique: a second measurement is columns of one row, never
+        // a second row, so the day's mean can't silently become two points on the chart.
+        db.query(
+            "SELECT COUNT(*) FROM blood_pressure_entries WHERE epochDay = 20001 AND timeOfDay = 'EVENING'",
+        ).use { cursor ->
+            cursor.moveToFirst()
+            assertEquals(1, cursor.getInt(0))
+        }
+        db.close()
+    }
 }

@@ -55,13 +55,27 @@ fun List<DiaryPickerItem>.filteredForPicker(
     return result
 }
 
+/**
+ * [logCounts] is how often each source has been logged all-time, for [DiaryPickerSort.MOST_EATEN].
+ * Anything missing from it has never been logged and counts as zero.
+ */
 fun List<DiaryPickerItem>.sortedForPicker(
     sort: DiaryPickerSort,
     currentMealType: MealType,
     lastLogged: Map<Pair<DiarySourceType, String>, LastLoggedSource>,
+    logCounts: Map<Pair<DiarySourceType, String>, Int> = emptyMap(),
 ): List<DiaryPickerItem> {
     return when (sort) {
         DiaryPickerSort.NAME -> sortedBy { it.name }
+        // Most often logged first. Ties break on recency and then on name, so the order is total:
+        // two foods eaten five times each would otherwise swap places on every reshuffle of the
+        // underlying list. Never-logged items land at the bottom by name, exactly as they do under
+        // Zuletzt — a count of zero says the same thing there as a missing last-logged day.
+        DiaryPickerSort.MOST_EATEN -> sortedWith(
+            compareByDescending<DiaryPickerItem> { logCounts[it.sourceType to it.id] ?: 0 }
+                .thenByDescending { lastLogged[it.sourceType to it.id]?.epochDay ?: Long.MIN_VALUE }
+                .thenBy { it.name }
+        )
         DiaryPickerSort.LAST_EATEN -> {
             val grouped = groupBy { item ->
                 val lastLog = lastLogged[item.sourceType to item.id]

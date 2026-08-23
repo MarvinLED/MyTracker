@@ -260,4 +260,88 @@ class DiaryPickerItemTest {
         assertEquals("Banana", result[0].name)
         assertEquals("Apple", result[1].name)
     }
+
+    @Test
+    fun sortedForPicker_mostEatenSort_ordersByCountDescending() {
+        val items = listOf(
+            DiaryPickerItem.Food(food1, listOf(tag1)),  // Banana, eaten twice
+            DiaryPickerItem.Food(food2, listOf(tag2)),  // Apple, eaten seven times
+            DiaryPickerItem.Recipe(recipe1),  // Oatmeal, eaten five times
+        )
+        val counts = mapOf(
+            DiarySourceType.FOOD to "food-1" to 2,
+            DiarySourceType.FOOD to "food-2" to 7,
+            DiarySourceType.RECIPE to "recipe-1" to 5,
+        )
+
+        val result = items.sortedForPicker(
+            DiaryPickerSort.MOST_EATEN,
+            MealType.BREAKFAST,
+            emptyMap(),
+            counts,
+        )
+
+        // Rezepte are counted alongside foods, not after them.
+        assertEquals(listOf("Apple", "Oatmeal", "Banana"), result.map { it.name })
+    }
+
+    @Test
+    fun sortedForPicker_mostEatenSort_neverLoggedLast() {
+        val items = listOf(
+            DiaryPickerItem.Food(food1, listOf(tag1)),  // Banana, never logged
+            DiaryPickerItem.Food(food2, listOf(tag2)),  // Apple, logged once
+        )
+        val counts = mapOf(DiarySourceType.FOOD to "food-2" to 1)
+
+        val result = items.sortedForPicker(
+            DiaryPickerSort.MOST_EATEN,
+            MealType.BREAKFAST,
+            emptyMap(),
+            counts,
+        )
+
+        // A missing count is zero, and zero goes to the bottom rather than to the top.
+        assertEquals(listOf("Apple", "Banana"), result.map { it.name })
+    }
+
+    @Test
+    fun sortedForPicker_mostEatenSort_equalCountsBreakOnRecencyThenName() {
+        val items = listOf(
+            DiaryPickerItem.Food(food1, listOf(tag1)),  // Banana
+            DiaryPickerItem.Food(food2, listOf(tag2)),  // Apple, alphabetically first
+            DiaryPickerItem.Recipe(recipe1),  // Oatmeal, never logged
+        )
+        val counts = mapOf(
+            DiarySourceType.FOOD to "food-1" to 3,
+            DiarySourceType.FOOD to "food-2" to 3,
+            DiarySourceType.RECIPE to "recipe-1" to 3,
+        )
+        val lastLogged = mapOf(
+            DiarySourceType.FOOD to "food-1" to LastLoggedSource(
+                sourceType = DiarySourceType.FOOD,
+                sourceId = "food-1",
+                mealType = MealType.BREAKFAST,
+                epochDay = 100L,
+                createdAt = now,
+            ),
+        )
+
+        val result = items.sortedForPicker(
+            DiaryPickerSort.MOST_EATEN,
+            MealType.BREAKFAST,
+            lastLogged,
+            counts,
+        )
+
+        // The one with a last-eaten day wins the tie; the two without it fall back to the name, so
+        // the order can never depend on how the underlying list happened to arrive.
+        assertEquals(listOf("Banana", "Apple", "Oatmeal"), result.map { it.name })
+    }
+
+    @Test
+    fun sortLabels_areTheShortOnes() {
+        assertEquals("Zuletzt", DiaryPickerSort.LAST_EATEN.label())
+        assertEquals("Am meisten", DiaryPickerSort.MOST_EATEN.label())
+        assertEquals("Name", DiaryPickerSort.NAME.label())
+    }
 }
