@@ -134,9 +134,17 @@ data class BloodPressureUiState(
     val isEditingExisting: Boolean = false,
     val chartRange: ChartRange = ChartRange.MONTH,
     val hiddenSeriesKeys: Set<String> = emptySet(),
+    /** Whether the pulse rides along in the chart — see [BloodPressureViewModel.togglePulse]. */
+    val isPulseShown: Boolean = false,
+    /** False when nothing in the window carries a pulse; then there is nothing for the switch to show. */
+    val hasPulseData: Boolean = false,
     /** Only the visible series, already windowed to [chartRange]. */
     val series: List<BloodPressureSeries> = emptyList(),
-    /** Every series that has data at all — the chips, which must also show the hidden ones. */
+    /**
+     * The mmHg series that have data at all — the chips, which must also show the hidden ones. The
+     * pulse is not among them: it is one switch, not two more chips, because it is the *other* axis
+     * rather than another blood-pressure line.
+     */
     val chartableSeries: List<BloodPressureSeries> = emptyList(),
     val history: List<BloodPressureHistoryRow> = emptyList(),
 ) {
@@ -195,6 +203,14 @@ private data class BloodPressureFormState(
     val isSecondRequested: Boolean = false,
 )
 
+/** What the chart is set to. Bundled with the range so the state flows stay inside combine's arity. */
+private data class BloodPressureChartState(
+    val range: ChartRange = ChartRange.MONTH,
+    val hiddenSeriesKeys: Set<String> = emptySet(),
+    /** Off to begin with: the chart is about blood pressure, and the pulse is the guest on it. */
+    val isPulseShown: Boolean = false,
+)
+
 @HiltViewModel
 class BloodPressureViewModel @Inject constructor(
     private val bloodPressureRepository: BloodPressureRepository,
@@ -203,16 +219,16 @@ class BloodPressureViewModel @Inject constructor(
         BloodPressureFormState(timeOfDay = defaultTimeOfDay(LocalTime.now().hour)),
     )
     private val _drafts = MutableStateFlow(BloodPressureDrafts())
-    private val _chartRange = MutableStateFlow(ChartRange.MONTH)
-    private val _hiddenSeriesKeys = MutableStateFlow(emptySet<String>())
+    private val _chart = MutableStateFlow(BloodPressureChartState())
 
     val uiState: StateFlow<BloodPressureUiState> = combine(
         bloodPressureRepository.observeAll(),
         _drafts,
         _form,
-        _chartRange,
-        _hiddenSeriesKeys,
-    ) { entries, drafts, form, range, hidden ->
+        _chart,
+    ) { entries, drafts, form, chart ->
+        val range = chart.range
+        val hidden = chart.hiddenSeriesKeys
         // Prefill follows both pickers: the newest reading of the selected time of day that is not
         // *after* the selected day. Picking a past date must not offer numbers from a later one, and
         // when that day already holds a reading this resolves to exactly it — so opening a filled
@@ -256,6 +272,10 @@ class BloodPressureViewModel @Inject constructor(
             }
         }
 
+        val (pulseSeries, pressureSeries) = allSeries.partition { it.measure == BloodPressureMeasure.PULSE }
+        val chartablePressure = pressureSeries.filter { it.points.isNotEmpty() }
+        val chartablePulse = pulseSeries.filter { it.points.isNotEmpty() }
+
         BloodPressureUiState(
             isAddExpanded = form.isAddExpanded,
             epochDay = form.epochDay,
@@ -272,8 +292,13 @@ class BloodPressureViewModel @Inject constructor(
             isEditingExisting = isEditingExisting,
             chartRange = range,
             hiddenSeriesKeys = hidden,
-            series = allSeries.filter { it.key !in hidden && it.points.isNotEmpty() },
-            chartableSeries = allSeries.filter { it.points.isNotEmpty() },
+            isPulseShown = chart.isPulseShown,
+            hasPulseData = chartablePulse.isNotEmpty(),
+            // The chips hide mmHg lines; the switch adds the pulse ones. Both pulse lines travel
+            // together — morning and evening are one measure sharing one axis.
+            series = chartablePressure.filter { it.key !in hidden } +
+                if (chart.isPulseShown) chartablePulse else emptyList(),
+            chartableSeries = chartablePressure,
             history = entries
                 .sortedWith(compareByDescending<BloodPressureEntry> { it.epochDay }.thenByDescending { it.timeOfDay })
                 .take(HISTORY_LIMIT)
@@ -324,12 +349,23 @@ class BloodPressureViewModel @Inject constructor(
     }
 
     fun onChartRangeChange(range: ChartRange) {
-        _chartRange.value = range
+        _chart.value = _chart.value.copy(range = range)
     }
 
     fun toggleSeriesVisibility(key: String) {
-        val hidden = _hiddenSeriesKeys.value
-        _hiddenSeriesKeys.value = if (key in hidden) hidden - key else hidden + key
+        val hidden = _chart.value.hiddenSeriesKeys
+        _chart.value = _chart.value.copy(
+            hiddenSeriesKeys = if (key in hidden) hidden - key else hidden + key,
+        )
+    }
+
+    /**
+     * Shows or hides the pulse. One switch for both halves of the day, because what it really
+     * switches is the second axis: the pulse is not in mmHg, and a chart with an axis for a line
+     * nobody asked to see spends gutter width on nothing.
+     */
+    fun togglePulse() {
+        _chart.value = _chart.value.copy(isPulseShown = !_chart.value.isPulseShown)
     }
 
     /**

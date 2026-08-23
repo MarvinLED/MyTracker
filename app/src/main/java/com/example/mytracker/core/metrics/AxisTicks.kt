@@ -17,6 +17,18 @@ data class AxisTicks(val values: List<Double>) {
 }
 
 /**
+ * The same axis stretched upwards to [count] labelled steps, for a chart that draws two axes beside
+ * one plot. Their labels are spread evenly over one shared height, so they line up with each other —
+ * and with the grid — only if both carry the same number of steps. Extending adds headroom at the
+ * top and keeps the round step; it never moves a point or narrows the axis.
+ */
+fun AxisTicks.extendedTo(count: Int): AxisTicks {
+    if (values.size < 2 || values.size >= count) return this
+    val step = values[1] - values[0]
+    return AxisTicks(List(count) { values.first() + it * step })
+}
+
+/**
  * Round steps covering [min]..[max], roughly [targetSteps] of them. "Roughly", because a step of
  * 1, 2, 2.5 or 5 times a power of ten is what makes a value readable off a grid line — 372,4 spaced
  * ticks are arithmetically correct and useless. The bounds are widened to the next tick in each

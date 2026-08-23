@@ -41,6 +41,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.example.mytracker.core.metrics.AxisTicks
+import com.example.mytracker.core.metrics.extendedTo
 import com.example.mytracker.core.metrics.MetricPoint
 import com.example.mytracker.core.metrics.niceAxisTicks
 import com.example.mytracker.core.util.DateUtils
@@ -98,10 +99,16 @@ private const val MaxGutterColumns = 3
  * and a zero-based axis would flatten the line to a straight edge.
  *
  * [sharedScale] is for the case where the overlaid series measure the same thing — one nutrient's
- * target, intake and average. Then the per-series scales are wrong twice over: the lines can't be
- * read against each other, and the gutter repeats the same kind of number three times. One scale
- * with round, labelled steps replaces them, which is also the only way to tell where between the
- * ends a point actually sits.
+ * target, intake and average, or systolisch and diastolisch morgens and abends. Then the per-series
+ * scales are wrong twice over: the lines can't be read against each other, and the gutter repeats
+ * the same kind of number once per line. One scale with round, labelled steps replaces them, which
+ * is also the only way to tell where between the ends a point actually sits.
+ *
+ * Series that do **not** measure the same thing still can't share a scale, so a shared scale is per
+ * unit: the lines are grouped by [ChartLine.unit] and each group gets its own axis column, with the
+ * unit named on the top label once there is more than one. That is what lets a pulse ride along in
+ * a blood-pressure chart — same days, same plot, its own axis — without dragging the mmHg lines
+ * onto a scale three times too tall.
  */
 @Composable
 fun DatedLineChart(
@@ -223,7 +230,7 @@ private fun SelectionReadout(lines: List<ChartLine>, selectedDay: Long?) {
                                 SeriesMark(line)
                                 Spacer(Modifier.width(4.dp))
                                 Text(
-                                    value?.let { "${it.formatCompact()} ${line.unit}" } ?: "–",
+                                    value?.withUnit(line.unit) ?: "–",
                                     style = MaterialTheme.typography.labelMedium,
                                 )
                             }
@@ -235,9 +242,28 @@ private fun SelectionReadout(lines: List<ChartLine>, selectedDay: Long?) {
     }
 }
 
+/**
+ * A value with its unit. Units written as a quotient carry their own separator — "72/min", never
+ * "72 /min" — while a plain unit takes a space.
+ */
+private fun Double.withUnit(unit: String): String =
+    if (unit.startsWith("/")) "${formatCompact()}$unit" else "${formatCompact()} $unit"
+
 /** A series' y bounds. Shared by both modes so a line can never be scaled two different ways. */
 private data class LineScale(val min: Double, val max: Double) {
     val range: Double get() = (max - min).let { if (it > 0) it else 1.0 }
+}
+
+/**
+ * One axis per unit, in the order the units first appear — the first one is the primary, and the
+ * grid is drawn at its steps. All of them are stretched to the same number of steps so every
+ * column's labels sit on the same grid lines; a second axis whose labels fell between the lines of
+ * the first would be unreadable at exactly the moment two axes are worth having.
+ */
+private fun sharedTicksByUnit(lines: List<ChartLine>): Map<String, AxisTicks> {
+    val perUnit = lines.groupBy { it.unit }.mapValues { (_, group) -> sharedTicksOf(group) }
+    val steps = perUnit.values.maxOf { it.values.size }
+    return perUnit.mapValues { (_, ticks) -> ticks.extendedTo(steps) }
 }
 
 /**
@@ -285,32 +311,48 @@ private fun OverlaidPanel(
     val crosshairColor = MaterialTheme.colorScheme.onSurfaceVariant
     val markerRing = MaterialTheme.colorScheme.surfaceContainer
     val series = remember(lines) { lines.map { it to it.points.sortedBy { p -> p.epochDay } } }
-    val ticks = remember(lines, sharedScale) { if (sharedScale) sharedTicksOf(lines) else null }
-    val scales = remember(lines, ticks) {
-        ticks?.let { t -> lines.map { LineScale(t.min, t.max) } } ?: lines.map(::scaleOf)
+    val ticksByUnit = remember(lines, sharedScale) { if (sharedScale) sharedTicksByUnit(lines) else null }
+    val scales = remember(lines, ticksByUnit) {
+        ticksByUnit?.let { byUnit ->
+            lines.map { line -> byUnit.getValue(line.unit).let { LineScale(it.min, it.max) } }
+        } ?: lines.map(::scaleOf)
     }
     // Grid at every labelled step when they are labelled, otherwise the recessive baseline/mid/top
-    // trio — enough to read a level off, not enough to compete.
-    val gridFractions = remember(ticks) {
-        ticks?.values?.map { value -> 1f - ((value - ticks.min) / (ticks.max - ticks.min)).toFloat() }
-            ?: listOf(0f, 0.5f, 1f)
+    // trio — enough to read a level off, not enough to compete. With two axes the primary one draws
+    // it; every axis has the same number of steps, so the other column's labels land on it too.
+    val gridFractions = remember(ticksByUnit) {
+        ticksByUnit?.values?.firstOrNull()?.let { ticks ->
+            ticks.values.map { value -> 1f - ((value - ticks.min) / (ticks.max - ticks.min)).toFloat() }
+        } ?: listOf(0f, 0.5f, 1f)
     }
 
     Row(modifier = Modifier.fillMaxWidth().height(heightDp.dp)) {
-        if (ticks != null) {
-            // One column for all of them: with a shared scale a second column would be the same
-            // numbers again. Evenly spaced, which is what makes the labels line up with the grid.
-            Column(
-                modifier = Modifier.fillMaxHeight(),
-                horizontalAlignment = Alignment.End,
-                verticalArrangement = Arrangement.SpaceBetween,
-            ) {
-                ticks.values.reversed().forEach { value ->
-                    Text(
-                        value.formatCompact(),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+        if (ticksByUnit != null) {
+            // One column per unit, not per line: with a shared scale a column per line would be the
+            // same numbers again. Evenly spaced, which is what makes the labels line up with the grid.
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                ticksByUnit.forEach { (unit, ticks) ->
+                    Column(
+                        modifier = Modifier.fillMaxHeight(),
+                        horizontalAlignment = Alignment.End,
+                        verticalArrangement = Arrangement.SpaceBetween,
+                    ) {
+                        ticks.values.reversed().forEachIndexed { index, value ->
+                            Text(
+                                // The topmost label names the unit once there are two axes to tell
+                                // apart. On its own row rather than as a caption, because a caption
+                                // would be one more row in one column and pull its labels off the
+                                // grid the other column is still on.
+                                if (index == 0 && ticksByUnit.size > 1) {
+                                    value.withUnit(unit)
+                                } else {
+                                    value.formatCompact()
+                                },
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
                 }
             }
             Spacer(Modifier.width(6.dp))

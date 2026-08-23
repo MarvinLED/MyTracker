@@ -52,4 +52,31 @@ class AxisTicksTest {
             assertTrue("$max produced $count steps", count in 3..9)
         }
     }
+
+    @Test
+    fun extendingAddsHeadroomAtTheTopAndKeepsTheStep() {
+        // Two axes beside one plot share its height, so their labels only line up with each other —
+        // and with the grid — when both carry the same number of steps.
+        val ticks = niceAxisTicks(min = 60.0, max = 80.0, targetSteps = 2)
+
+        val extended = ticks.extendedTo(ticks.values.size + 2)
+
+        assertEquals(ticks.values.size + 2, extended.values.size)
+        assertEquals(ticks.min, extended.min, 0.0001)
+        // Only the top moves, and it moves by whole steps: the axis never narrows and never picks up
+        // an unround number.
+        assertTrue(extended.max > ticks.max)
+        val step = ticks.values[1] - ticks.values[0]
+        assertEquals(ticks.max + 2 * step, extended.max, 0.0001)
+        extended.values.zipWithNext().forEach { (low, high) -> assertEquals(step, high - low, 0.0001) }
+    }
+
+    @Test
+    fun extendingToFewerOrEqualStepsLeavesTheAxisAlone() {
+        val ticks = niceAxisTicks(min = 0.0, max = 100.0)
+
+        // Never narrowed: the axis that already has the most steps is the one the others match.
+        assertEquals(ticks, ticks.extendedTo(ticks.values.size))
+        assertEquals(ticks, ticks.extendedTo(1))
+    }
 }

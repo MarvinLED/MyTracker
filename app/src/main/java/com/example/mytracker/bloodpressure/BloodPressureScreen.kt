@@ -38,6 +38,7 @@ import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SelectableDates
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -131,6 +132,7 @@ fun BloodPressureScreen(
                 uiState = uiState,
                 onChartRangeChange = viewModel::onChartRangeChange,
                 onToggleSeries = viewModel::toggleSeriesVisibility,
+                onTogglePulse = viewModel::togglePulse,
             )
 
             HistoryCard(rows = uiState.history, onDelete = viewModel::delete)
@@ -404,15 +406,22 @@ private fun Long.utcMillisToEpochDay(): Long =
     Instant.ofEpochMilli(this).atZone(ZoneOffset.UTC).toLocalDate().toEpochDay()
 
 /**
- * All four series in one plot area, each on its own scale, with chips to hide the ones you're not
- * comparing — the same arrangement as the Maße chart, for the same reason: the overlay puts one
- * min/max column per visible series in the left gutter.
+ * The four mmHg series in one plot area on **one** shared axis, with chips to hide the ones you're
+ * not comparing. Systolisch and diastolisch, morgens and abends, are all the same measurement in the
+ * same unit: giving each its own scale would stretch every line to the full panel height and turn a
+ * 10 mmHg wobble and a 40 mmHg swing into the same picture. One axis is also the only way the gap
+ * between systolisch and diastolisch means anything on screen.
+ *
+ * The pulse is the exception and gets a switch: it is not in mmHg, so it brings a second axis of its
+ * own — see [DatedLineChart]'s per-unit shared scale — and that column only earns its width when the
+ * pulse is actually being looked at.
  */
 @Composable
 private fun ChartCard(
     uiState: BloodPressureUiState,
     onChartRangeChange: (ChartRange) -> Unit,
     onToggleSeries: (String) -> Unit,
+    onTogglePulse: () -> Unit,
 ) {
     val palette = fluidPalette()
 
@@ -462,6 +471,23 @@ private fun ChartCard(
                 }
             }
 
+            if (uiState.hasPulseData) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        "Puls einblenden",
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.weight(1f),
+                    )
+                    Switch(
+                        checked = uiState.isPulseShown,
+                        onCheckedChange = { onTogglePulse() },
+                    )
+                }
+            }
+
             DatedLineChart(
                 lines = uiState.series.map { series ->
                     ChartLine(
@@ -475,6 +501,8 @@ private fun ChartCard(
                 },
                 overlaid = true,
                 panelHeight = 240,
+                // One axis per unit: the mmHg lines share theirs, the pulse brings its own.
+                sharedScale = true,
             )
         }
     }

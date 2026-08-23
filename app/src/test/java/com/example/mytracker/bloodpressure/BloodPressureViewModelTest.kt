@@ -523,25 +523,67 @@ class BloodPressureViewModelTest {
         viewModel.onChartRangeChange(ChartRange.ALL)
         advanceUntilIdle()
 
-        val state = viewModel.uiState.value
-        val systolic = state.series.single {
+        val systolic = viewModel.uiState.value.series.single {
             it.measure == BloodPressureMeasure.SYSTOLIC && it.timeOfDay == BloodPressureTimeOfDay.MORNING
         }
         assertEquals(listOf(125.0, 126.0), systolic.points.map { it.value })
 
-        val pulse = state.series.single {
+        // The pulse is off until it is switched on — the chart is about blood pressure.
+        assertFalse(viewModel.uiState.value.series.any { it.measure == BloodPressureMeasure.PULSE })
+        assertTrue(viewModel.uiState.value.hasPulseData)
+
+        viewModel.togglePulse()
+        advanceUntilIdle()
+        val pulse = viewModel.uiState.value.series.single {
             it.measure == BloodPressureMeasure.PULSE && it.timeOfDay == BloodPressureTimeOfDay.MORNING
         }
+        // The slot without a pulse is skipped rather than drawn at zero.
         assertEquals(listOf(72.0), pulse.points.map { it.value })
         assertEquals("Puls morgens", pulse.label)
+        // Its own unit, which is what earns it its own axis in the chart.
         assertEquals(PULSE_UNIT, pulse.measure.unit())
+        assertEquals(BLOOD_PRESSURE_UNIT, systolic.measure.unit())
 
-        // The evening pulse has no data at all, so it is not offered as a chip either.
-        assertFalse(
-            state.chartableSeries.any {
-                it.measure == BloodPressureMeasure.PULSE && it.timeOfDay == BloodPressureTimeOfDay.EVENING
-            },
+        // The pulse is a switch, never a chip: the chips are the mmHg lines that share one axis.
+        assertTrue(viewModel.uiState.value.chartableSeries.none { it.measure == BloodPressureMeasure.PULSE })
+    }
+
+    @Test
+    fun pulse_offersNoSwitchWhenNothingInTheWindowCarriesOne() = runTest(dispatcher) {
+        dao.entries.value = listOf(entry(today - 1, BloodPressureTimeOfDay.MORNING, 126.0, 82.0))
+        val viewModel = BloodPressureViewModel(repository)
+        backgroundScope.launch { viewModel.uiState.collect {} }
+        viewModel.onChartRangeChange(ChartRange.ALL)
+        advanceUntilIdle()
+
+        assertFalse(viewModel.uiState.value.hasPulseData)
+
+        // And switching it on anyway adds no line, so the second axis never appears for nothing.
+        viewModel.togglePulse()
+        advanceUntilIdle()
+        assertTrue(viewModel.uiState.value.series.none { it.measure == BloodPressureMeasure.PULSE })
+    }
+
+    @Test
+    fun pulse_ridesAlongEvenWhenEveryPressureLineIsHidden() = runTest(dispatcher) {
+        dao.entries.value = listOf(
+            entry(today - 2, BloodPressureTimeOfDay.MORNING, 130.0, 86.0, pulse = 74.0),
+            entry(today - 1, BloodPressureTimeOfDay.MORNING, 126.0, 82.0, pulse = 70.0),
         )
+        val viewModel = BloodPressureViewModel(repository)
+        backgroundScope.launch { viewModel.uiState.collect {} }
+        viewModel.onChartRangeChange(ChartRange.ALL)
+        viewModel.togglePulse()
+        advanceUntilIdle()
+
+        // The chips and the switch are independent: hiding every mmHg line leaves the pulse drawn on
+        // its own axis rather than emptying the chart.
+        viewModel.uiState.value.chartableSeries.forEach { viewModel.toggleSeriesVisibility(it.key) }
+        advanceUntilIdle()
+
+        val series = viewModel.uiState.value.series
+        assertTrue(series.all { it.measure == BloodPressureMeasure.PULSE })
+        assertEquals(listOf(74.0, 70.0), series.first().points.map { it.value })
     }
 
     @Test
