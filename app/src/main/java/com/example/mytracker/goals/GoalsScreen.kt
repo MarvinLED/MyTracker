@@ -1,5 +1,19 @@
 package com.example.mytracker.goals
 
+import androidx.compose.foundation.clickable
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.SelectableDates
+import androidx.compose.material3.rememberDatePickerState
+import com.example.mytracker.core.util.DateUtils
+import com.example.mytracker.core.util.formatCompact
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneOffset
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,13 +32,10 @@ import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Snackbar
@@ -51,11 +62,6 @@ import com.example.mytracker.core.ui.dismissingKeyboard
 import com.example.mytracker.core.util.GoalPeriod
 import com.example.mytracker.core.util.label
 import com.example.mytracker.core.util.toLocaleDoubleOrNull
-import com.example.mytracker.fitness.FitnessGoalMetric
-import com.example.mytracker.fitness.label
-import com.example.mytracker.fitness.strength.MovementDirection
-import com.example.mytracker.fitness.strength.MuscleGroup
-import com.example.mytracker.fitness.strength.label
 import com.example.mytracker.ui.theme.AppDomain
 import com.example.mytracker.ui.theme.topAppBarColors
 
@@ -270,162 +276,221 @@ private fun FluidGoalsSection(state: GoalsUiState, viewModel: GoalsViewModel) {
     }
 }
 
+/**
+ * Every fitness goal there is, in sections — not a dropdown that has to be asked before anything can
+ * be typed. Each row offers the same goal weekly and monthly side by side; an empty field means
+ * "kein Ziel" and clears it on save.
+ *
+ * The per-exercise sections are folded away by default. A library of twenty exercises is four
+ * fields each, and unfolded that is a screen nobody scrolls to the bottom of.
+ */
 @Composable
 private fun FitnessGoalsSection(state: GoalsUiState, viewModel: GoalsViewModel) {
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Text(GoalCategory.FITNESS.label, style = MaterialTheme.typography.titleMedium)
-        state.fitnessGoals.forEach { row ->
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                val scope = row.muscleGroupName ?: row.movementDirection?.label()
-                Text(
-                    "${row.metric.label()} · ${row.period.label()}" + (scope?.let { " · $it" } ?: ""),
-                    modifier = Modifier.weight(1f),
-                )
-                OutlinedTextField(
-                    value = row.targetText,
-                    onValueChange = { viewModel.onFitnessGoalTargetChange(row.id, it) },
-                    label = { Text("Ziel") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    modifier = Modifier.width(100.dp),
-                )
-                IconButton(onClick = { viewModel.removeFitnessGoal(row.id) }) {
-                    Icon(Icons.Filled.Delete, contentDescription = "Ziel löschen")
-                }
+
+        state.fitnessGoalSections.forEach { section ->
+            val maxWeightGoal = section.rows.firstOrNull()?.exerciseId?.let { exerciseId ->
+                state.maxWeightGoals.firstOrNull { it.exerciseId == exerciseId }
+            }
+            if (maxWeightGoal == null) {
+                FitnessGoalGroup(section = section, viewModel = viewModel)
+            } else {
+                ExerciseGoalGroup(section = section, maxWeightGoal = maxWeightGoal, viewModel = viewModel)
             }
         }
-        AddFitnessGoalRow(
-            availableMuscleGroups = state.availableMuscleGroups,
-            onAdd = viewModel::addFitnessGoal,
+    }
+}
+
+/** One section's heading and its rows. */
+@Composable
+private fun FitnessGoalGroup(section: FitnessGoalSection, viewModel: GoalsViewModel) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(section.title, style = MaterialTheme.typography.titleSmall)
+        section.rows.forEach { row -> FitnessGoalRowFields(row, viewModel) }
+    }
+}
+
+/**
+ * One exercise's goals, folded away until opened: the two Steigerungen and the long-term target for
+ * the top set. They belong in one block because they are three answers to the same question — how
+ * this lift is meant to move — at three horizons.
+ */
+@Composable
+private fun ExerciseGoalGroup(
+    section: FitnessGoalSection,
+    maxWeightGoal: MaxWeightGoalRow,
+    viewModel: GoalsViewModel,
+) {
+    val hasGoals = section.rows.any { it.weeklyText.isNotBlank() || it.monthlyText.isNotBlank() } ||
+        (maxWeightGoal.targetText.isNotBlank() && maxWeightGoal.targetEpochDay != null)
+    // Opened when something is set: a goal that is folded out of sight is one nobody remembers is on.
+    var expanded by rememberSaveable(section.title) { mutableStateOf(hasGoals) }
+
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth().clickable { expanded = !expanded },
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(section.title, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
+            if (hasGoals && !expanded) {
+                Text(
+                    "Ziel gesetzt",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+            }
+            Icon(
+                if (expanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
+                contentDescription = if (expanded) "Zuklappen" else "Aufklappen",
+            )
+        }
+        if (expanded) {
+            section.rows.forEach { row -> FitnessGoalRowFields(row, viewModel) }
+            MaxWeightGoalFields(row = maxWeightGoal, viewModel = viewModel)
+        }
+    }
+}
+
+/** The label and the two period fields of one goal. */
+@Composable
+private fun FitnessGoalRowFields(row: FitnessGoalRow, viewModel: GoalsViewModel) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(row.label, style = MaterialTheme.typography.bodyMedium)
+            if (row.unit.isNotBlank()) {
+                Text(
+                    "in ${row.unit}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        OutlinedTextField(
+            value = row.weeklyText,
+            onValueChange = { viewModel.onFitnessGoalTargetChange(row.key, GoalPeriod.WEEKLY, it) },
+            label = { Text("Woche") },
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+            modifier = Modifier.width(96.dp),
+        )
+        OutlinedTextField(
+            value = row.monthlyText,
+            onValueChange = { viewModel.onFitnessGoalTargetChange(row.key, GoalPeriod.MONTHLY, it) },
+            label = { Text("Monat") },
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+            modifier = Modifier.width(96.dp),
         )
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+/**
+ * The long-term target for one exercise's top set: a weight and the date it is due by. Both or
+ * neither — the date is what separates a plan from a wish, and it is also what "auf Kurs" is
+ * computed against on the Fitness screen.
+ */
 @Composable
-private fun AddFitnessGoalRow(
-    availableMuscleGroups: List<MuscleGroup>,
-    onAdd: (FitnessGoalMetric, GoalPeriod, String?, MovementDirection?, Double) -> Unit,
-) {
-    var metric by remember { mutableStateOf(FitnessGoalMetric.CARDIO_SESSIONS) }
-    var metricMenuExpanded by remember { mutableStateOf(false) }
-    var period by remember { mutableStateOf(GoalPeriod.WEEKLY) }
-    var muscleGroup by remember { mutableStateOf<MuscleGroup?>(null) }
-    var muscleGroupMenuExpanded by remember { mutableStateOf(false) }
-    var movementDirection by remember { mutableStateOf<MovementDirection?>(null) }
-    var targetText by remember { mutableStateOf("") }
+private fun MaxWeightGoalFields(row: MaxWeightGoalRow, viewModel: GoalsViewModel) {
+    val dateFormatter = remember { DateTimeFormatter.ofPattern("d. MMM yyyy", Locale.GERMAN) }
+    var showDatePicker by remember { mutableStateOf(false) }
 
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        ExposedDropdownMenuBox(
-            expanded = metricMenuExpanded,
-            onExpandedChange = { metricMenuExpanded = it },
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.fillMaxWidth()) {
+        Text("Langfristiges Ziel Maximalgewicht", style = MaterialTheme.typography.bodyMedium)
+        row.currentMaxKg?.let { current ->
+            Text(
+                "Aktuell: ${current.formatCompact()} kg",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.fillMaxWidth(),
         ) {
             OutlinedTextField(
-                modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable, true).fillMaxWidth(),
-                readOnly = true,
-                value = metric.label(),
-                onValueChange = {},
-                label = { Text("Metrik") },
-                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = metricMenuExpanded) },
-            )
-            ExposedDropdownMenu(
-                expanded = metricMenuExpanded,
-                onDismissRequest = { metricMenuExpanded = false },
-            ) {
-                FitnessGoalMetric.entries.forEach { candidate ->
-                    DropdownMenuItem(
-                        text = { Text(candidate.label()) },
-                        onClick = {
-                            metric = candidate
-                            if (candidate != FitnessGoalMetric.STRENGTH_SETS_MUSCLE_GROUP) muscleGroup = null
-                            if (candidate != FitnessGoalMetric.STRENGTH_SETS_MOVEMENT_DIRECTION) movementDirection = null
-                            metricMenuExpanded = false
-                        },
-                    )
-                }
-            }
-        }
-
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf(GoalPeriod.WEEKLY, GoalPeriod.MONTHLY).forEach { candidate ->
-                FilterChip(
-                    selected = period == candidate,
-                    onClick = { period = candidate },
-                    label = { Text(candidate.label()) },
-                )
-            }
-        }
-
-        if (metric == FitnessGoalMetric.STRENGTH_SETS_MUSCLE_GROUP) {
-            ExposedDropdownMenuBox(
-                expanded = muscleGroupMenuExpanded,
-                onExpandedChange = { muscleGroupMenuExpanded = it },
-            ) {
-                OutlinedTextField(
-                    modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable, true).fillMaxWidth(),
-                    readOnly = true,
-                    value = muscleGroup?.name.orEmpty(),
-                    onValueChange = {},
-                    label = { Text("Muskelgruppe") },
-                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = muscleGroupMenuExpanded) },
-                )
-                ExposedDropdownMenu(
-                    expanded = muscleGroupMenuExpanded,
-                    onDismissRequest = { muscleGroupMenuExpanded = false },
-                ) {
-                    availableMuscleGroups.forEach { candidate ->
-                        DropdownMenuItem(
-                            text = { Text(candidate.name) },
-                            onClick = {
-                                muscleGroup = candidate
-                                muscleGroupMenuExpanded = false
-                            },
-                        )
-                    }
-                }
-            }
-        }
-
-        if (metric == FitnessGoalMetric.STRENGTH_SETS_MOVEMENT_DIRECTION) {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                MovementDirection.entries.forEach { candidate ->
-                    FilterChip(
-                        selected = movementDirection == candidate,
-                        onClick = { movementDirection = candidate },
-                        label = { Text(candidate.label()) },
-                    )
-                }
-            }
-        }
-
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedTextField(
-                value = targetText,
-                onValueChange = { targetText = it },
-                label = { Text("Ziel") },
+                value = row.targetText,
+                onValueChange = { viewModel.onMaxWeightGoalTargetChange(row.exerciseId, it) },
+                label = { Text("Ziel (kg)") },
+                singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.width(120.dp),
             )
-            val target = targetText.toLocaleDoubleOrNull()
-            val muscleGroupMissing = metric == FitnessGoalMetric.STRENGTH_SETS_MUSCLE_GROUP && muscleGroup == null
-            val movementDirectionMissing =
-                metric == FitnessGoalMetric.STRENGTH_SETS_MOVEMENT_DIRECTION && movementDirection == null
-            TextButton(
-                onClick = {
-                    onAdd(metric, period, muscleGroup?.id, movementDirection, target!!)
-                    metric = FitnessGoalMetric.CARDIO_SESSIONS
-                    period = GoalPeriod.WEEKLY
-                    muscleGroup = null
-                    movementDirection = null
-                    targetText = ""
-                },
-                enabled = target != null && !muscleGroupMissing && !movementDirectionMissing,
-            ) { Text("Ziel hinzufügen") }
+            TextButton(onClick = { showDatePicker = true }, modifier = Modifier.weight(1f)) {
+                Text(
+                    row.targetEpochDay
+                        ?.let { "bis ${DateUtils.localDateOfEpochDay(it).format(dateFormatter)}" }
+                        ?: "Zieldatum wählen",
+                )
+            }
+            if (row.targetEpochDay != null) {
+                IconButton(onClick = { viewModel.onMaxWeightGoalDateChange(row.exerciseId, null) }) {
+                    Icon(Icons.Filled.Delete, contentDescription = "Zieldatum entfernen")
+                }
+            }
         }
     }
+
+    if (showDatePicker) {
+        TargetDatePickerDialog(
+            epochDay = row.targetEpochDay,
+            onPick = {
+                viewModel.onMaxWeightGoalDateChange(row.exerciseId, it)
+                showDatePicker = false
+            },
+            onDismiss = { showDatePicker = false },
+        )
+    }
 }
+
+/**
+ * The calendar for a target date. The mirror image of the Blutdruck screen's: only days **after**
+ * today are selectable, because a deadline in the past is one that can only be missed.
+ *
+ * [DatePickerState] works in UTC midnights while the app stores local epoch days, so both ends are
+ * converted explicitly rather than by dividing millis.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun TargetDatePickerDialog(epochDay: Long?, onPick: (Long) -> Unit, onDismiss: () -> Unit) {
+    val today = DateUtils.todayEpochDay()
+    val state = rememberDatePickerState(
+        initialSelectedDateMillis = (epochDay ?: (today + 90)).epochDayToUtcMillis(),
+        selectableDates = remember(today) {
+            object : SelectableDates {
+                override fun isSelectableDate(utcTimeMillis: Long): Boolean =
+                    utcTimeMillis.utcMillisToEpochDay() > today
+
+                override fun isSelectableYear(year: Int): Boolean =
+                    year >= DateUtils.localDateOfEpochDay(today).year
+            }
+        },
+    )
+
+    DatePickerDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(
+                onClick = { state.selectedDateMillis?.let { onPick(it.utcMillisToEpochDay()) } },
+                enabled = state.selectedDateMillis != null,
+            ) { Text("Übernehmen") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Abbrechen") } },
+    ) {
+        DatePicker(state = state)
+    }
+}
+
+private fun Long.epochDayToUtcMillis(): Long =
+    LocalDate.ofEpochDay(this).atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
+
+private fun Long.utcMillisToEpochDay(): Long =
+    Instant.ofEpochMilli(this).atZone(ZoneOffset.UTC).toLocalDate().toEpochDay()
 
 /**
  * One nutrient's goal: a lower and an upper bound, either of which may stay blank. Same two-field

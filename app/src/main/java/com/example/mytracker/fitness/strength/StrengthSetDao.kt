@@ -10,6 +10,9 @@ import kotlinx.coroutines.flow.Flow
 data class DailySetsTotal(val epochDay: Long, val value: Double)
 data class DailyVolumeTotal(val epochDay: Long, val value: Double)
 
+/** One exercise's heaviest set ever. [value] is null for an exercise only ever done at bodyweight. */
+data class ExerciseMaxWeight(val exerciseId: String, val value: Double?)
+
 
 @Dao
 interface StrengthSetDao {
@@ -171,6 +174,38 @@ interface StrengthSetDao {
         startInclusive: Long,
         endInclusive: Long,
     ): Flow<List<DailySetsTotal>>
+
+    /**
+     * The heaviest set of one exercise in a window. Null when the exercise was not trained in it —
+     * which is not the same as 0 kg, and the difference decides whether a Steigerung is even defined.
+     */
+    @Query(
+        "SELECT MAX(weightKg) FROM strength_sets " +
+            "WHERE exerciseId = :exerciseId AND epochDay BETWEEN :startInclusive AND :endInclusive",
+    )
+    suspend fun maxWeightBetweenForExercise(exerciseId: String, startInclusive: Long, endInclusive: Long): Double?
+
+    /**
+     * The best this exercise had ever been before [beforeDay] — what a Steigerung of the top set is
+     * measured against. Deliberately not "the period before": a week off would reset the bar to
+     * nothing and turn simply repeating an old top set into a record gain.
+     */
+    @Query("SELECT MAX(weightKg) FROM strength_sets WHERE exerciseId = :exerciseId AND epochDay < :beforeDay")
+    suspend fun maxWeightBeforeForExercise(exerciseId: String, beforeDay: Long): Double?
+
+    @Query("SELECT MAX(weightKg) FROM strength_sets WHERE exerciseId = :exerciseId")
+    suspend fun maxWeightForExercise(exerciseId: String): Double?
+
+    /** Every exercise's all-time top set at once — for a screen that lists them all. */
+    @Query("SELECT exerciseId, MAX(weightKg) AS value FROM strength_sets GROUP BY exerciseId")
+    fun observeMaxWeightPerExercise(): Flow<List<ExerciseMaxWeight>>
+
+    /** Volume is Wiederholungen × Gewicht; a bodyweight set contributes nothing to it. */
+    @Query(
+        "SELECT COALESCE(SUM(reps * COALESCE(weightKg, 0)), 0) FROM strength_sets " +
+            "WHERE exerciseId = :exerciseId AND epochDay BETWEEN :startInclusive AND :endInclusive",
+    )
+    suspend fun volumeBetweenForExercise(exerciseId: String, startInclusive: Long, endInclusive: Long): Double
 
     @Query("SELECT * FROM strength_sets ORDER BY epochDay, setIndex")
     suspend fun getAllOnce(): List<StrengthSet>

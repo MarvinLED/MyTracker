@@ -8,6 +8,9 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -133,27 +136,47 @@ fun FitnessScreen(
         },
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp)) {
-            if (state.goals.isNotEmpty()) {
+            if (state.goalRows.isNotEmpty() || state.maxWeightGoalRows.isNotEmpty()) {
+                // Capped and scrollable: now that every goal can be set from one list, there can be
+                // a dozen of them, and an uncapped block would push the exercise list — the reason
+                // this screen is opened mid-session — off the bottom of the screen.
                 Column(
-                    modifier = Modifier.padding(vertical = 12.dp),
+                    modifier = Modifier
+                        .padding(vertical = 12.dp)
+                        .heightIn(max = 220.dp)
+                        .verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    state.goals.forEach { goal ->
-                        val progress = state.progressByGoalId[goal.id] ?: 0.0
+                    state.goalRows.forEach { row ->
                         Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                            val scope = goal.muscleGroupId?.let { state.muscleGroupNamesById[it] }
-                                ?: goal.movementDirection?.label()
-                            Text(
-                                "${goal.metric.label()} · ${goal.period.label()}" + (scope?.let { " · $it" } ?: ""),
-                                style = MaterialTheme.typography.bodyMedium,
+                            Text(row.label, style = MaterialTheme.typography.bodyMedium)
+                            Text(row.valueText)
+                            LinearProgressIndicator(
+                                progress = { row.fraction },
+                                modifier = Modifier.fillMaxWidth(),
                             )
-                            Text("${progress.formatCompact()} / ${goal.targetValue.formatCompact()}")
-                            val fraction = if (goal.targetValue > 0) {
-                                (progress / goal.targetValue).toFloat().coerceIn(0f, 1f)
-                            } else {
-                                0f
-                            }
-                            LinearProgressIndicator(progress = { fraction }, modifier = Modifier.fillMaxWidth())
+                        }
+                    }
+                    state.maxWeightGoalRows.forEach { row ->
+                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Text(row.label, style = MaterialTheme.typography.bodyMedium)
+                            Text(row.valueText, style = MaterialTheme.typography.bodySmall)
+                            Text(
+                                row.statusText,
+                                style = MaterialTheme.typography.labelMedium,
+                                // The status is the whole point of a long-term goal, so it is the
+                                // one line that carries a colour: behind plan has to be visible
+                                // without reading two numbers and doing the subtraction.
+                                color = if (row.isOnTrack) {
+                                    MaterialTheme.colorScheme.primary
+                                } else {
+                                    MaterialTheme.colorScheme.error
+                                },
+                            )
+                            LinearProgressIndicator(
+                                progress = { row.fraction },
+                                modifier = Modifier.fillMaxWidth(),
+                            )
                         }
                     }
                 }

@@ -10,6 +10,8 @@ import com.example.mytracker.core.util.GoalPeriod
 import com.example.mytracker.fitness.FitnessGoal
 import com.example.mytracker.fitness.FitnessGoalDao
 import com.example.mytracker.fitness.FitnessGoalMetric
+import com.example.mytracker.fitness.StrengthMaxWeightGoal
+import com.example.mytracker.fitness.StrengthMaxWeightGoalDao
 import com.example.mytracker.fitness.strength.MovementDirection
 import java.time.Instant
 import javax.inject.Inject
@@ -34,7 +36,25 @@ data class FitnessGoalDto(
     val period: GoalPeriod,
     val muscleGroupId: String? = null,
     val movementDirection: MovementDirection? = null,
+    /** Defaulted, so a backup written before the per-exercise goals reads back as what it was. */
+    val exerciseId: String? = null,
     val targetValue: Double,
+    val createdAtEpochMillis: Long,
+)
+
+/**
+ * A long-term max-weight goal. The starting point travels with it: without it the plan would restart
+ * from the restoring device's current weight, which is exactly the progress the backup was meant to
+ * bring back.
+ */
+@Serializable
+data class StrengthMaxWeightGoalDto(
+    val id: String,
+    val exerciseId: String,
+    val targetWeightKg: Double,
+    val targetEpochDay: Long,
+    val startWeightKg: Double,
+    val startEpochDay: Long,
     val createdAtEpochMillis: Long,
 )
 
@@ -57,6 +77,7 @@ data class GoalsDto(
     val sleepDurationMaxMinutes: Double? = null,
     val bedtimeGoalMinuteOfDay: Int? = null,
     val fitnessGoals: List<FitnessGoalDto> = emptyList(),
+    val strengthMaxWeightGoals: List<StrengthMaxWeightGoalDto> = emptyList(),
     /**
      * When the nutrient goals were moved. Irreplaceable in a way the goals themselves are not: a
      * lost target can be typed in again, a lost record of when it changed cannot be reconstructed
@@ -89,6 +110,7 @@ private fun FitnessGoal.toDto() = FitnessGoalDto(
     period = period,
     muscleGroupId = muscleGroupId,
     movementDirection = movementDirection,
+    exerciseId = exerciseId,
     targetValue = targetValue,
     createdAtEpochMillis = createdAt.toEpochMilli(),
 )
@@ -99,7 +121,28 @@ private fun FitnessGoalDto.toEntity() = FitnessGoal(
     period = period,
     muscleGroupId = muscleGroupId,
     movementDirection = movementDirection,
+    exerciseId = exerciseId,
     targetValue = targetValue,
+    createdAt = Instant.ofEpochMilli(createdAtEpochMillis),
+)
+
+private fun StrengthMaxWeightGoal.toDto() = StrengthMaxWeightGoalDto(
+    id = id,
+    exerciseId = exerciseId,
+    targetWeightKg = targetWeightKg,
+    targetEpochDay = targetEpochDay,
+    startWeightKg = startWeightKg,
+    startEpochDay = startEpochDay,
+    createdAtEpochMillis = createdAt.toEpochMilli(),
+)
+
+private fun StrengthMaxWeightGoalDto.toEntity() = StrengthMaxWeightGoal(
+    id = id,
+    exerciseId = exerciseId,
+    targetWeightKg = targetWeightKg,
+    targetEpochDay = targetEpochDay,
+    startWeightKg = startWeightKg,
+    startEpochDay = startEpochDay,
     createdAt = Instant.ofEpochMilli(createdAtEpochMillis),
 )
 
@@ -120,6 +163,7 @@ private fun FitnessGoalDto.toEntity() = FitnessGoal(
 class GoalsExportProvider @Inject constructor(
     private val userPreferencesRepository: UserPreferencesRepository,
     private val fitnessGoalDao: FitnessGoalDao,
+    private val maxWeightGoalDao: StrengthMaxWeightGoalDao,
     private val nutrientGoalChangeDao: NutrientGoalChangeDao,
 ) : BackupExportProvider {
     override val key = "goals"
@@ -140,6 +184,7 @@ class GoalsExportProvider @Inject constructor(
                 sleepDurationMaxMinutes = prefs.sleepDurationGoalMinutes?.max,
                 bedtimeGoalMinuteOfDay = prefs.bedtimeGoalMinuteOfDay,
                 fitnessGoals = fitnessGoalDao.getAllOnce().map { it.toDto() },
+                strengthMaxWeightGoals = maxWeightGoalDao.getAllOnce().map { it.toDto() },
                 nutrientGoalChanges = nutrientGoalChangeDao.getAllOnce().map { it.toDto() },
             ),
         )
@@ -173,6 +218,13 @@ class GoalsExportProvider @Inject constructor(
                 fitnessGoalDao.upsert(goalDto.toEntity())
             }
         }
+        // Matched on the exercise, not the id: one long-term goal per exercise is the rule the table
+        // enforces, so a device that already has one for this lift keeps its own.
+        dto.strengthMaxWeightGoals.forEach { goalDto ->
+            if (maxWeightGoalDao.getForExercise(goalDto.exerciseId) == null) {
+                maxWeightGoalDao.upsert(goalDto.toEntity())
+            }
+        }
         // Append-only log, so a merge is "add the rows this device does not have". Matching on the
         // id is enough: a change row is never edited after the fact, so same id means same event.
         val knownIds = nutrientGoalChangeDao.getAllOnce().mapTo(mutableSetOf()) { it.id }
@@ -187,6 +239,7 @@ class GoalsExportProvider @Inject constructor(
         userPreferencesRepository.setSleepDurationGoal(null)
         userPreferencesRepository.setBedtimeGoal(null)
         fitnessGoalDao.deleteAll()
+        maxWeightGoalDao.deleteAll()
         // Goes with the goals: a replacing import that kept the old log would date this device's
         // history of changes to targets that are no longer here.
         nutrientGoalChangeDao.deleteAll()

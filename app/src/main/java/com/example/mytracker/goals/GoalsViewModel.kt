@@ -12,8 +12,11 @@ import com.example.mytracker.core.util.toLocaleDoubleOrNull
 import com.example.mytracker.fitness.FitnessGoal
 import com.example.mytracker.fitness.FitnessGoalMetric
 import com.example.mytracker.fitness.FitnessGoalRepository
+import com.example.mytracker.fitness.unit
 import com.example.mytracker.fitness.strength.MovementDirection
 import com.example.mytracker.fitness.strength.MuscleGroup
+import com.example.mytracker.fitness.strength.StrengthExercise
+import com.example.mytracker.fitness.strength.label
 import com.example.mytracker.fitness.strength.StrengthExerciseRepository
 import com.example.mytracker.fluid.FluidRepository
 import com.example.mytracker.fluid.FluidType
@@ -33,14 +36,42 @@ data class FluidTypeGoalInput(
     val maxText: String,
 )
 
+/**
+ * One goal that *can* be set, whether or not it is — the screen lists them all, so an empty pair of
+ * fields is a row too. [weeklyText] and [monthlyText] sit side by side because the same goal is
+ * asked for in both periods; blank means "kein Ziel", which on save deletes the row rather than
+ * storing a zero.
+ */
 data class FitnessGoalRow(
-    val id: String,
+    /** Stable per row, not per stored goal: the row exists before either period has a target. */
+    val key: String,
     val metric: FitnessGoalMetric,
-    val period: GoalPeriod,
-    val muscleGroupId: String?,
-    val muscleGroupName: String?,
-    val movementDirection: MovementDirection?,
-    val targetText: String,
+    val label: String,
+    val unit: String,
+    val muscleGroupId: String? = null,
+    val movementDirection: MovementDirection? = null,
+    val exerciseId: String? = null,
+    val weeklyText: String = "",
+    val monthlyText: String = "",
+)
+
+/** The rows grouped the way the screen shows them, so a long list stays navigable. */
+data class FitnessGoalSection(val title: String, val rows: List<FitnessGoalRow>)
+
+/**
+ * One exercise's long-term max-weight goal as typed. [targetEpochDay] null means no date has been
+ * picked yet — and without a date there is no goal to save, since the date is what makes it a plan
+ * rather than a wish.
+ */
+data class MaxWeightGoalRow(
+    val exerciseId: String,
+    val exerciseName: String,
+    val targetText: String = "",
+    val targetEpochDay: Long? = null,
+    /** The exercise's all-time top set, shown beside the field so the target has something to beat. */
+    val currentMaxKg: Double? = null,
+    /** Where the plan started, once one is on file — see [com.example.mytracker.fitness.StrengthMaxWeightGoal]. */
+    val startWeightKg: Double? = null,
 )
 
 /** One nutrient's goal row: the two bounds as typed. Either may be blank, or both. */
@@ -55,8 +86,8 @@ data class GoalsUiState(
     /** One row per [Nutrient], in enum order; a blank value means "no goal". */
     val nutrientGoals: List<NutrientGoalInput> = emptyList(),
     val fluidTypeGoals: List<FluidTypeGoalInput> = emptyList(),
-    val fitnessGoals: List<FitnessGoalRow> = emptyList(),
-    val availableMuscleGroups: List<MuscleGroup> = emptyList(),
+    val fitnessGoalSections: List<FitnessGoalSection> = emptyList(),
+    val maxWeightGoals: List<MaxWeightGoalRow> = emptyList(),
     /** Sleep length in **hours** as typed ("7,5"); the repository stores minutes. */
     val sleepDurationMinHours: String = "",
     val sleepDurationMaxHours: String = "",
@@ -83,7 +114,10 @@ class GoalsViewModel @Inject constructor(
             val prefs = userPreferencesRepository.userPreferences.first()
             val types = fluidRepository.observeTypes().first()
             val muscleGroups = strengthExerciseRepository.observeMuscleGroups().first()
+            val exercises = strengthExerciseRepository.observeAll().first()
             val fitnessGoals = fitnessGoalRepository.observeAll().first()
+            val maxWeightGoals = fitnessGoalRepository.observeMaxWeightGoals().first()
+            val maxWeightByExercise = fitnessGoalRepository.observeMaxWeightPerExercise().first()
             _state.value = GoalsUiState(
                 waterGoal = prefs.dailyWaterGoalMl.toString(),
                 nutrientGoals = Nutrient.entries.map { nutrient ->
@@ -101,8 +135,18 @@ class GoalsViewModel @Inject constructor(
                         maxText = type.dailyGoalMaxMl?.toString().orEmpty(),
                     )
                 },
-                fitnessGoals = fitnessGoals.map { it.toRow(muscleGroups) },
-                availableMuscleGroups = muscleGroups,
+                fitnessGoalSections = fitnessGoalSections(muscleGroups, exercises, fitnessGoals),
+                maxWeightGoals = exercises.map { exercise ->
+                    val goal = maxWeightGoals.firstOrNull { it.exerciseId == exercise.id }
+                    MaxWeightGoalRow(
+                        exerciseId = exercise.id,
+                        exerciseName = exercise.name,
+                        targetText = goal?.targetWeightKg?.formatDecimal(2).orEmpty(),
+                        targetEpochDay = goal?.targetEpochDay,
+                        currentMaxKg = maxWeightByExercise[exercise.id],
+                        startWeightKg = goal?.startWeightKg,
+                    )
+                },
                 sleepDurationMinHours = prefs.sleepDurationGoalMinutes?.min
                     ?.let { it.toInt().minutesAsHours().formatGoalHours() }.orEmpty(),
                 sleepDurationMaxHours = prefs.sleepDurationGoalMinutes?.max
@@ -112,15 +156,113 @@ class GoalsViewModel @Inject constructor(
         }
     }
 
-    private fun FitnessGoal.toRow(muscleGroups: List<MuscleGroup>) = FitnessGoalRow(
-        id = id,
-        metric = metric,
-        period = period,
-        muscleGroupId = muscleGroupId,
-        muscleGroupName = muscleGroups.firstOrNull { it.id == muscleGroupId }?.name,
-        movementDirection = movementDirection,
-        targetText = targetValue.toString(),
-    )
+    /**
+     * Every goal the app can hold, in sections — not only the ones already set. A goal that has to
+     * be conjured out of a dropdown before it can be typed is a goal most people never find; a list
+     * of empty fields says what is on offer and takes the target in one gesture.
+     */
+    private fun fitnessGoalSections(
+        muscleGroups: List<MuscleGroup>,
+        exercises: List<StrengthExercise>,
+        goals: List<FitnessGoal>,
+    ): List<FitnessGoalSection> {
+        fun targetOf(
+            metric: FitnessGoalMetric,
+            period: GoalPeriod,
+            muscleGroupId: String? = null,
+            movementDirection: MovementDirection? = null,
+            exerciseId: String? = null,
+        ): String = goals.firstOrNull {
+            it.metric == metric && it.period == period && it.muscleGroupId == muscleGroupId &&
+                it.movementDirection == movementDirection && it.exerciseId == exerciseId
+        }?.targetValue?.formatDecimal(2).orEmpty()
+
+        fun row(
+            key: String,
+            metric: FitnessGoalMetric,
+            label: String,
+            muscleGroupId: String? = null,
+            movementDirection: MovementDirection? = null,
+            exerciseId: String? = null,
+        ) = FitnessGoalRow(
+            key = key,
+            metric = metric,
+            label = label,
+            unit = metric.unit(),
+            muscleGroupId = muscleGroupId,
+            movementDirection = movementDirection,
+            exerciseId = exerciseId,
+            weeklyText = targetOf(metric, GoalPeriod.WEEKLY, muscleGroupId, movementDirection, exerciseId),
+            monthlyText = targetOf(metric, GoalPeriod.MONTHLY, muscleGroupId, movementDirection, exerciseId),
+        )
+
+        return buildList {
+            add(
+                FitnessGoalSection(
+                    "Cardio",
+                    listOf(
+                        row("cardio-sessions", FitnessGoalMetric.CARDIO_SESSIONS, "Einheiten"),
+                        row("cardio-duration", FitnessGoalMetric.CARDIO_DURATION_MINUTES, "Dauer"),
+                    ),
+                ),
+            )
+            add(
+                FitnessGoalSection(
+                    "Kraft gesamt",
+                    listOf(row("strength-sets", FitnessGoalMetric.STRENGTH_SETS_TOTAL, "Sätze gesamt")),
+                ),
+            )
+            if (muscleGroups.isNotEmpty()) {
+                add(
+                    FitnessGoalSection(
+                        "Sätze pro Muskelgruppe",
+                        muscleGroups.map { group ->
+                            row(
+                                key = "muscle-${group.id}",
+                                metric = FitnessGoalMetric.STRENGTH_SETS_MUSCLE_GROUP,
+                                label = group.name,
+                                muscleGroupId = group.id,
+                            )
+                        },
+                    ),
+                )
+            }
+            add(
+                FitnessGoalSection(
+                    "Sätze pro Bewegungsrichtung",
+                    MovementDirection.entries.map { direction ->
+                        row(
+                            key = "direction-${direction.name}",
+                            metric = FitnessGoalMetric.STRENGTH_SETS_MOVEMENT_DIRECTION,
+                            label = direction.label(),
+                            movementDirection = direction,
+                        )
+                    },
+                ),
+            )
+            exercises.forEach { exercise ->
+                add(
+                    FitnessGoalSection(
+                        exercise.name,
+                        listOf(
+                            row(
+                                key = "maxweight-increase-${exercise.id}",
+                                metric = FitnessGoalMetric.STRENGTH_MAX_WEIGHT_INCREASE,
+                                label = "Steigerung Maximalgewicht",
+                                exerciseId = exercise.id,
+                            ),
+                            row(
+                                key = "volume-increase-${exercise.id}",
+                                metric = FitnessGoalMetric.STRENGTH_VOLUME_INCREASE,
+                                label = "Steigerung Gesamtvolumen",
+                                exerciseId = exercise.id,
+                            ),
+                        ),
+                    ),
+                )
+            }
+        }
+    }
 
     fun onWaterGoalChange(value: String) { _state.value = _state.value.copy(waterGoal = value) }
 
@@ -163,38 +305,37 @@ class GoalsViewModel @Inject constructor(
         )
     }
 
-    fun onFitnessGoalTargetChange(goalId: String, value: String) {
+    fun onFitnessGoalTargetChange(rowKey: String, period: GoalPeriod, value: String) {
         _state.value = _state.value.copy(
-            fitnessGoals = _state.value.fitnessGoals.map {
-                if (it.id == goalId) it.copy(targetText = value) else it
+            fitnessGoalSections = _state.value.fitnessGoalSections.map { section ->
+                section.copy(
+                    rows = section.rows.map { row ->
+                        when {
+                            row.key != rowKey -> row
+                            period == GoalPeriod.MONTHLY -> row.copy(monthlyText = value)
+                            else -> row.copy(weeklyText = value)
+                        }
+                    },
+                )
             },
         )
     }
 
-    fun addFitnessGoal(
-        metric: FitnessGoalMetric,
-        period: GoalPeriod,
-        muscleGroupId: String?,
-        movementDirection: MovementDirection?,
-        targetValue: Double,
-    ) {
-        viewModelScope.launch {
-            fitnessGoalRepository.setGoal(metric, period, muscleGroupId, movementDirection, targetValue)
-            reloadFitnessGoals()
-        }
+    fun onMaxWeightGoalTargetChange(exerciseId: String, value: String) {
+        updateMaxWeightGoal(exerciseId) { it.copy(targetText = value) }
     }
 
-    fun removeFitnessGoal(goalId: String) {
-        viewModelScope.launch {
-            fitnessGoalRepository.deleteGoal(goalId)
-            reloadFitnessGoals()
-        }
+    /** Null clears the date, which is how a long-term goal is taken back off an exercise. */
+    fun onMaxWeightGoalDateChange(exerciseId: String, epochDay: Long?) {
+        updateMaxWeightGoal(exerciseId) { it.copy(targetEpochDay = epochDay) }
     }
 
-    private suspend fun reloadFitnessGoals() {
-        val muscleGroups = _state.value.availableMuscleGroups
-        val fitnessGoals = fitnessGoalRepository.observeAll().first()
-        _state.value = _state.value.copy(fitnessGoals = fitnessGoals.map { it.toRow(muscleGroups) })
+    private fun updateMaxWeightGoal(exerciseId: String, transform: (MaxWeightGoalRow) -> MaxWeightGoalRow) {
+        _state.value = _state.value.copy(
+            maxWeightGoals = _state.value.maxWeightGoals.map {
+                if (it.exerciseId == exerciseId) transform(it) else it
+            },
+        )
     }
 
     fun save() {
@@ -225,9 +366,42 @@ class GoalsViewModel @Inject constructor(
                     dailyGoalMaxMl = row.maxText.toLocaleDoubleOrNull(),
                 )
             }
-            s.fitnessGoals.forEach { row ->
-                row.targetText.toLocaleDoubleOrNull()?.let {
-                    fitnessGoalRepository.setGoal(row.metric, row.period, row.muscleGroupId, row.movementDirection, it)
+            // Every row is written on every save, in both periods: with the whole list on screen, an
+            // emptied field is an instruction to drop that goal, and only writing the filled ones
+            // would make deleting one impossible.
+            s.fitnessGoalSections.flatMap { it.rows }.forEach { row ->
+                listOf(GoalPeriod.WEEKLY to row.weeklyText, GoalPeriod.MONTHLY to row.monthlyText)
+                    .forEach { (period, text) ->
+                        val target = text.toLocaleDoubleOrNull()?.takeIf { it > 0.0 }
+                        if (target == null) {
+                            fitnessGoalRepository.clearGoal(
+                                row.metric,
+                                period,
+                                row.muscleGroupId,
+                                row.movementDirection,
+                                row.exerciseId,
+                            )
+                        } else {
+                            fitnessGoalRepository.setGoal(
+                                row.metric,
+                                period,
+                                row.muscleGroupId,
+                                row.movementDirection,
+                                target,
+                                row.exerciseId,
+                            )
+                        }
+                    }
+            }
+            // A long-term goal needs both halves: a weight without a date is not a plan, and a date
+            // without a weight is not a goal. Either missing takes the goal off the exercise.
+            s.maxWeightGoals.forEach { row ->
+                val target = row.targetText.toLocaleDoubleOrNull()?.takeIf { it > 0.0 }
+                val date = row.targetEpochDay
+                if (target != null && date != null) {
+                    fitnessGoalRepository.setMaxWeightGoal(row.exerciseId, target, date)
+                } else {
+                    fitnessGoalRepository.clearMaxWeightGoal(row.exerciseId)
                 }
             }
             // Typed in hours, stored in minutes: comparing a night to its goal is minute arithmetic,

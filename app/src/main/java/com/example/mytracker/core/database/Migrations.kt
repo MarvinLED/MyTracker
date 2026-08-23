@@ -889,3 +889,29 @@ object MIGRATION_24_25 : Migration(24, 25) {
         db.execSQL("ALTER TABLE `blood_pressure_entries` ADD COLUMN `pulse2` REAL")
     }
 }
+
+object MIGRATION_25_26 : Migration(25, 26) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        // Fitness-Ziele gain a per-exercise scope: the two Steigerungen (Maximalgewicht and
+        // Gesamtvolumen) are about one exercise the way the existing ones are about one muscle
+        // group. Nullable, because every goal written so far is about none.
+        db.execSQL("ALTER TABLE `fitness_goals` ADD COLUMN `exerciseId` TEXT")
+
+        // The long-term target for one exercise's top set. Its own table rather than another
+        // fitness_goals row: it runs to a date instead of recurring in a period, and it carries the
+        // starting point that "auf Kurs" is computed from — see StrengthMaxWeightGoal.
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `strength_max_weight_goals` (`id` TEXT NOT NULL, " +
+                "`exerciseId` TEXT NOT NULL, `targetWeightKg` REAL NOT NULL, " +
+                "`targetEpochDay` INTEGER NOT NULL, `startWeightKg` REAL NOT NULL, " +
+                "`startEpochDay` INTEGER NOT NULL, `createdAt` INTEGER NOT NULL, " +
+                "PRIMARY KEY(`id`))",
+        )
+        // One goal per exercise: two targets for the same lift would be two answers to "am I on
+        // track?", and the upsert relies on this to correct a goal instead of adding one.
+        db.execSQL(
+            "CREATE UNIQUE INDEX IF NOT EXISTS `index_strength_max_weight_goals_exerciseId` " +
+                "ON `strength_max_weight_goals` (`exerciseId`)",
+        )
+    }
+}

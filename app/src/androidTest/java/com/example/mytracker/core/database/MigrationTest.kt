@@ -880,4 +880,69 @@ class MigrationTest {
         }
         db.close()
     }
+
+    @Test
+    fun migrate25To26_keepsExistingFitnessGoalsUnscopedAndAddsTheLongTermTable() {
+        val v25 = helper.createDatabase(dbName, 25)
+        v25.execSQL(
+            "INSERT INTO fitness_goals (id, metric, period, muscleGroupId, targetValue, createdAt) " +
+                "VALUES ('STRENGTH_SETS_TOTAL-WEEKLY', 'STRENGTH_SETS_TOTAL', 'WEEKLY', NULL, 40.0, " +
+                "1700000000000)",
+        )
+        v25.close()
+
+        val db = helper.runMigrationsAndValidate(dbName, 26, true, MIGRATION_25_26)
+
+        // A goal written before per-exercise goals existed is about no exercise, not about the
+        // first one in the library.
+        db.query("SELECT exerciseId, targetValue FROM fitness_goals WHERE id = 'STRENGTH_SETS_TOTAL-WEEKLY'")
+            .use { cursor ->
+                cursor.moveToFirst()
+                assertTrue(cursor.isNull(0))
+                assertEquals(40.0, cursor.getDouble(1), 0.001)
+            }
+
+        db.execSQL(
+            "INSERT INTO strength_max_weight_goals (id, exerciseId, targetWeightKg, targetEpochDay, " +
+                "startWeightKg, startEpochDay, createdAt) VALUES ('maxweight-bench', 'bench', 100.0, " +
+                "20800, 80.0, 20000, 1700000000000)",
+        )
+        db.query("SELECT targetWeightKg, startWeightKg, startEpochDay FROM strength_max_weight_goals")
+            .use { cursor ->
+                cursor.moveToFirst()
+                assertEquals(100.0, cursor.getDouble(0), 0.001)
+                // The starting point is stored, not derived: without it "auf Kurs" cannot be computed.
+                assertEquals(80.0, cursor.getDouble(1), 0.001)
+                assertEquals(20000, cursor.getLong(2))
+            }
+        db.close()
+    }
+
+    @Test
+    fun migrate25To26_allowsOnlyOneLongTermGoalPerExercise() {
+        helper.createDatabase(dbName, 25).close()
+
+        val db = helper.runMigrationsAndValidate(dbName, 26, true, MIGRATION_25_26)
+
+        db.execSQL(
+            "INSERT INTO strength_max_weight_goals (id, exerciseId, targetWeightKg, targetEpochDay, " +
+                "startWeightKg, startEpochDay, createdAt) VALUES ('maxweight-bench', 'bench', 100.0, " +
+                "20800, 80.0, 20000, 1700000000000)",
+        )
+
+        // Two targets for the same lift would be two answers to "am I on track?"; the upsert relies
+        // on this index to correct a goal instead of adding one beside it.
+        var rejected = false
+        try {
+            db.execSQL(
+                "INSERT INTO strength_max_weight_goals (id, exerciseId, targetWeightKg, targetEpochDay, " +
+                    "startWeightKg, startEpochDay, createdAt) VALUES ('maxweight-bench-2', 'bench', " +
+                    "110.0, 20900, 80.0, 20000, 1700000000000)",
+            )
+        } catch (_: android.database.sqlite.SQLiteConstraintException) {
+            rejected = true
+        }
+        assertTrue(rejected)
+        db.close()
+    }
 }

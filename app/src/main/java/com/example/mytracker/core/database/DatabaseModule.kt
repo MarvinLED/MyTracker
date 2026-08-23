@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Room
 import com.example.mytracker.bloodpressure.BloodPressureDao
 import com.example.mytracker.fitness.FitnessGoalDao
+import com.example.mytracker.fitness.StrengthMaxWeightGoalDao
 import com.example.mytracker.fitness.cardio.CardioActivityTypeDao
 import com.example.mytracker.fitness.cardio.CardioDao
 import com.example.mytracker.fitness.strength.MuscleGroupDao
@@ -69,6 +70,7 @@ object DatabaseModule {
                 MIGRATION_22_23,
                 MIGRATION_23_24,
                 MIGRATION_24_25,
+                MIGRATION_25_26,
             )
             // Upgrades now always go through a real, data-preserving Migration above — a missing
             // migration crashes loudly in development instead of silently wiping a real user's
@@ -136,6 +138,10 @@ object DatabaseModule {
 
     @Provides
     fun provideFitnessGoalDao(database: AppDatabase): FitnessGoalDao = database.fitnessGoalDao()
+
+    @Provides
+    fun provideStrengthMaxWeightGoalDao(database: AppDatabase): StrengthMaxWeightGoalDao =
+        database.strengthMaxWeightGoalDao()
 
     @Provides
     fun provideBodySiteDao(database: AppDatabase): BodySiteDao = database.bodySiteDao()

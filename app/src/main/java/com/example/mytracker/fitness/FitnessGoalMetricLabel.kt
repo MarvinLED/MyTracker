@@ -6,4 +6,25 @@ fun FitnessGoalMetric.label(): String = when (this) {
     FitnessGoalMetric.STRENGTH_SETS_TOTAL -> "Kraft-Sätze gesamt"
     FitnessGoalMetric.STRENGTH_SETS_MUSCLE_GROUP -> "Kraft-Sätze pro Muskelgruppe"
     FitnessGoalMetric.STRENGTH_SETS_MOVEMENT_DIRECTION -> "Kraft-Sätze pro Bewegungsrichtung"
+    FitnessGoalMetric.STRENGTH_MAX_WEIGHT_INCREASE -> "Steigerung Maximalgewicht"
+    FitnessGoalMetric.STRENGTH_VOLUME_INCREASE -> "Steigerung Gesamtvolumen"
 }
+
+/** The unit [FitnessGoal.targetValue] is read in. Empty for the metrics that simply count. */
+fun FitnessGoalMetric.unit(): String = when (this) {
+    FitnessGoalMetric.CARDIO_DURATION_MINUTES -> "min"
+    FitnessGoalMetric.STRENGTH_MAX_WEIGHT_INCREASE, FitnessGoalMetric.STRENGTH_VOLUME_INCREASE -> "kg"
+    else -> ""
+}
+
+/**
+ * True for the metrics that are measured against the period *before* rather than against zero. A
+ * progress of 0 means "no better than last time" for these, not "nothing done yet" — which is why
+ * they are labelled with a sign wherever they are shown.
+ */
+val FitnessGoalMetric.isIncrease: Boolean
+    get() = this == FitnessGoalMetric.STRENGTH_MAX_WEIGHT_INCREASE ||
+        this == FitnessGoalMetric.STRENGTH_VOLUME_INCREASE
+
+/** True for the metrics that need an exercise to be about anything. */
+val FitnessGoalMetric.isExerciseScoped: Boolean get() = isIncrease
