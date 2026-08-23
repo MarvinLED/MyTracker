@@ -16,7 +16,6 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -37,6 +36,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.mytracker.core.metrics.AnalyseDateRange
 import com.example.mytracker.core.metrics.Granularity
 import com.example.mytracker.core.metrics.label
+import com.example.mytracker.core.ui.AppFilterChip
 import com.example.mytracker.core.ui.DatedLineChart
 import com.example.mytracker.fitness.strength.MovementDirection
 import com.example.mytracker.fitness.strength.MuscleGroup
@@ -96,20 +96,20 @@ fun AnalyseScreen(
         ) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 AnalyseDateRange.entries.forEach { range ->
-                    FilterChip(
+                    AppFilterChip(
                         selected = range == state.dateRange,
+                        label = range.label(),
                         onClick = { viewModel.onDateRangeChange(range) },
-                        label = { Text(range.label()) },
                     )
                 }
             }
 
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Granularity.entries.forEach { granularity ->
-                    FilterChip(
+                    AppFilterChip(
                         selected = granularity == state.granularity,
+                        label = granularity.label(),
                         onClick = { viewModel.onGranularityChange(granularity) },
-                        label = { Text(granularity.label()) },
                     )
                 }
             }
@@ -124,10 +124,16 @@ fun AnalyseScreen(
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
                             metrics.forEach { metric ->
-                                FilterChip(
+                                AppFilterChip(
                                     selected = metric.id in state.selectedMetricIds,
+                                    label = metric.displayName,
                                     onClick = { viewModel.onMetricToggle(metric.id) },
-                                    label = { Text(metric.displayName) },
+                                    // The comparison chart draws the first pick with palette[0] and
+                                    // the second with palette[1]; the chip wears whichever it got,
+                                    // so which line is which needs no guessing.
+                                    color = state.selectedMetricIds.indexOf(metric.id)
+                                        .takeIf { it >= 0 }
+                                        ?.let { chartPalette[it % chartPalette.size] },
                                 )
                             }
                         }
@@ -184,10 +190,18 @@ fun AnalyseScreen(
                             modifier = Modifier.fillMaxWidth(),
                         ) {
                             muscleGroups.forEach { group ->
-                                FilterChip(
+                                AppFilterChip(
                                     selected = group.id in state.muscleGroupDetailIds,
+                                    label = group.name,
                                     onClick = { viewModel.onMuscleGroupDetailToggle(group) },
-                                    label = { Text(group.name) },
+                                    // Looked up in the series list rather than in the id list: a
+                                    // group whose name no longer resolves is dropped from the
+                                    // series, and counting ids would then hand every chip after it
+                                    // the colour of a different line.
+                                    color = state.muscleGroupDetailSeries
+                                        .indexOfFirst { it.label == group.name }
+                                        .takeIf { it >= 0 }
+                                        ?.let { chartPalette[it % chartPalette.size] },
                                 )
                             }
                         }
@@ -221,10 +235,10 @@ fun AnalyseScreen(
                     Text("Sätze/Volumen pro Bewegungsrichtung", style = MaterialTheme.typography.titleMedium)
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         MovementDirection.entries.forEach { direction ->
-                            FilterChip(
+                            AppFilterChip(
                                 selected = state.movementDirectionDetail == direction,
+                                label = direction.label(),
                                 onClick = { viewModel.onMovementDirectionDetailChange(direction) },
-                                label = { Text(direction.label()) },
                             )
                         }
                     }
@@ -288,15 +302,15 @@ private fun ExerciseDetailPicker(
 @Composable
 private fun DetailModeChips(mode: DetailMode, onModeChange: (DetailMode) -> Unit) {
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        FilterChip(
+        AppFilterChip(
             selected = mode == DetailMode.SETS,
+            label = "Sätze",
             onClick = { onModeChange(DetailMode.SETS) },
-            label = { Text("Sätze") },
         )
-        FilterChip(
+        AppFilterChip(
             selected = mode == DetailMode.VOLUME,
+            label = "Volumen",
             onClick = { onModeChange(DetailMode.VOLUME) },
-            label = { Text("Volumen") },
         )
     }
 }

@@ -65,9 +65,18 @@ data class UserPreferences(
 }
 
 @Singleton
+/**
+ * The read-only slice of the preferences, for the screens that only ever *consult* a setting — how
+ * to render a weight, say. Split out so those screens can be tested without an Android [Context]:
+ * the repository itself is bound to a DataStore and cannot exist outside a device.
+ */
+interface UserPreferencesSource {
+    val userPreferences: Flow<UserPreferences>
+}
+
 class UserPreferencesRepository @Inject constructor(
     @param:ApplicationContext private val context: Context,
-) {
+) : UserPreferencesSource {
     private object Keys {
         val WATER_GOAL = doublePreferencesKey("daily_water_goal_ml")
         val WEIGHT_UNIT = stringPreferencesKey("weight_unit")
@@ -110,7 +119,7 @@ class UserPreferencesRepository @Inject constructor(
         else -> NutrientGoal(min = value, max = value)
     }
 
-    val userPreferences: Flow<UserPreferences> = context.userPreferencesDataStore.data.map { prefs ->
+    override val userPreferences: Flow<UserPreferences> = context.userPreferencesDataStore.data.map { prefs ->
         UserPreferences(
             dailyWaterGoalMl = prefs[Keys.WATER_GOAL] ?: DEFAULT_WATER_GOAL_ML,
             weightUnit = prefs[Keys.WEIGHT_UNIT]?.let { WeightUnit.valueOf(it) } ?: WeightUnit.KG,

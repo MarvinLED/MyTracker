@@ -27,6 +27,22 @@ interface BodyMeasurementDao {
     @Query("SELECT * FROM body_measurements WHERE bodySiteId = :bodySiteId AND epochDay = :epochDay")
     suspend fun getForSiteAndDay(bodySiteId: String, epochDay: Long): BodyMeasurement?
 
+    /** Every measurement taken on one day — one editing session's worth. */
+    @Query("SELECT * FROM body_measurements WHERE epochDay = :epochDay")
+    suspend fun getForDay(epochDay: Long): List<BodyMeasurement>
+
+    /**
+     * Drops one site's value for one day. By (site, day) rather than by row, because that pair is
+     * the unique key the deterministic id is built from — an editor that cleared a field would
+     * otherwise have to know the id it was reconstructing.
+     */
+    @Query("DELETE FROM body_measurements WHERE bodySiteId = :bodySiteId AND epochDay = :epochDay")
+    suspend fun deleteForSiteAndDay(bodySiteId: String, epochDay: Long)
+
+    /** Drops a whole measuring session — see [MeasurementRepository.deleteDay]. */
+    @Query("DELETE FROM body_measurements WHERE epochDay = :epochDay")
+    suspend fun deleteForDay(epochDay: Long)
+
     /** Wipes the Maße for a replacing import; the Körperstellen themselves stay. */
     @Query("DELETE FROM body_measurements")
     suspend fun deleteAll()

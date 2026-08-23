@@ -62,4 +62,17 @@ class MeasurementRepository @Inject constructor(
     suspend fun deleteMeasurement(measurement: BodyMeasurement) {
         bodyMeasurementDao.delete(measurement)
     }
+
+    /**
+     * Removes one site's value for one day — what clearing a field in the editor means. Not the same
+     * as leaving it blank while logging a new day: there, nothing was ever written.
+     */
+    suspend fun deleteMeasurement(bodySiteId: String, epochDay: Long) {
+        bodyMeasurementDao.deleteForSiteAndDay(bodySiteId, epochDay)
+    }
+
+    /** Removes a whole measuring session: every site measured on that day. */
+    suspend fun deleteDay(epochDay: Long) {
+        bodyMeasurementDao.deleteForDay(epochDay)
+    }
 }

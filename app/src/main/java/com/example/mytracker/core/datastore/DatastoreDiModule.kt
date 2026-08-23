@@ -13,4 +13,7 @@ interface DatastoreDiModule {
     @Binds
     @IntoSet
     fun bindSettingsExportProvider(impl: SettingsExportProvider): BackupExportProvider
+
+    @Binds
+    fun bindUserPreferencesSource(impl: UserPreferencesRepository): UserPreferencesSource
 }

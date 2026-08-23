@@ -118,22 +118,29 @@ fun DatedLineChart(
     overlaid: Boolean = false,
     sharedScale: Boolean = false,
 ) {
-    val drawable = lines.filter { it.points.size >= 2 }
+    // A single point is a series: the first measurement of a new body site, or the only weigh-in
+    // inside a one-week window. Dropping it left an empty chart next to a list that plainly had an
+    // entry in it, which reads as a bug rather than as "not enough data".
+    val drawable = lines.filter { it.points.isNotEmpty() }
     if (drawable.isEmpty()) {
-        Box(modifier = modifier.fillMaxWidth().height(panelHeight.dp), contentAlignment = Alignment.Center) {
-            Text(
-                "Nicht genug Datenpunkte im Zeitraum.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
+        EmptyChartPanel(
+            modifier = modifier,
+            heightDp = panelHeight,
+            // Two different situations, and telling them apart is the whole use of this state:
+            // nothing is switched on, versus nothing was measured in the window.
+            message = if (lines.isEmpty()) "Keine Reihe ausgewählt." else "Keine Datenpunkte im Zeitraum.",
+        )
         return
     }
 
     // One x-scale for every panel, so the crosshair lines up across them.
     val allDays = drawable.flatMap { line -> line.points.map { it.epochDay } }
-    val minDay = allDays.min()
-    val maxDay = allDays.max()
+    // Everything on one day has no span to spread over. Left as is, the point would sit hard on the
+    // left edge and read as the cut-off start of a line; a day either side puts it in the middle,
+    // where a single reading belongs.
+    val singleDay = allDays.min() == allDays.max()
+    val minDay = if (singleDay) allDays.min() - 1 else allDays.min()
+    val maxDay = if (singleDay) allDays.max() + 1 else allDays.max()
     val dayRange = (maxDay - minDay).coerceAtLeast(1)
 
     var selectedDay by remember(minDay, maxDay) { mutableStateOf<Long?>(null) }
@@ -248,6 +255,36 @@ private fun SelectionReadout(lines: List<ChartLine>, selectedDay: Long?) {
  */
 private fun Double.withUnit(unit: String): String =
     if (unit.startsWith("/")) "${formatCompact()}$unit" else "${formatCompact()} $unit"
+
+/**
+ * The chart with nothing in it: the plot area and its grid, drawn at full height, with the reason
+ * written across it.
+ *
+ * A frame rather than a bare sentence, because this state is reached by *toggling series off* as
+ * much as by having no data. Collapsing to a line of text moves everything below it up the screen
+ * and takes the chips that switch the series back on along with it — the reader loses the thing
+ * they need in order to undo what they just did.
+ */
+@Composable
+private fun EmptyChartPanel(modifier: Modifier, heightDp: Int, message: String) {
+    val gridColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.35f)
+    Box(
+        modifier = modifier.fillMaxWidth().height(heightDp.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Canvas(modifier = Modifier.fillMaxWidth().fillMaxHeight()) {
+            listOf(0f, 0.5f, 1f).forEach { fraction ->
+                val y = size.height * fraction
+                drawLine(gridColor, Offset(0f, y), Offset(size.width, y), strokeWidth = 1f)
+            }
+        }
+        Text(
+            message,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
 
 /** A series' y bounds. Shared by both modes so a line can never be scaled two different ways. */
 private data class LineScale(val min: Double, val max: Double) {
@@ -416,7 +453,9 @@ private fun OverlaidPanel(
 
                 drawSeries(line, sorted, ::xFor, ::yFor)
 
-                if (line.markers && sorted.size <= 40) {
+                // A one-point series gets its dot even when the series asked for none: with no
+                // segment to stroke, the dot is the only thing there is to draw.
+                if ((line.markers || sorted.size == 1) && sorted.size <= 40) {
                     sorted.forEach { point ->
                         drawCircle(line.color, radius = 5f, center = Offset(xFor(point.epochDay), yFor(point.value)))
                     }
@@ -486,7 +525,8 @@ private fun LinePanel(
             drawSeries(line, sorted, ::xFor, ::yFor)
 
             // Markers only when they'd stay distinguishable; a 365-day series would be a solid band.
-            if (line.markers && sorted.size <= 40) {
+            // A lone point always gets one — see the overlaid panel.
+            if ((line.markers || sorted.size == 1) && sorted.size <= 40) {
                 sorted.forEach { point ->
                     drawCircle(
                         color = line.color,

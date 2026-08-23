@@ -6,7 +6,7 @@ import com.example.mytracker.core.datastore.UserPreferencesRepository
 import com.example.mytracker.core.datastore.WeightUnit
 import com.example.mytracker.core.metrics.MetricPoint
 import com.example.mytracker.core.util.DateUtils
-import com.example.mytracker.core.util.kgToLb
+import com.example.mytracker.core.util.toWeightUnit
 import com.example.mytracker.core.util.lbToKg
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -47,11 +47,6 @@ data class WeightUiState(
     val chartRange: WeightChartRange = WeightChartRange.MONTH,
 )
 
-private fun Double.toDisplayUnit(unit: WeightUnit): Double = when (unit) {
-    WeightUnit.KG -> this
-    WeightUnit.LB -> kgToLb()
-}
-
 /**
  * Deliberately skips this app's usual prev/next-day navigation (see e.g.
  * [com.example.mytracker.fluid.FluidViewModel]) since there's at most one weight value per
@@ -84,14 +79,14 @@ class WeightViewModel @Inject constructor(
         WeightUiState(
             editingEpochDay = epochDay,
             weightUnit = prefs.weightUnit,
-            editingDisplayValue = entryForDay?.weightKg?.toDisplayUnit(prefs.weightUnit),
+            editingDisplayValue = entryForDay?.weightKg?.toWeightUnit(prefs.weightUnit),
             history = history
                 .sortedByDescending { it.epochDay }
-                .map { WeightHistoryRow(it, it.weightKg.toDisplayUnit(prefs.weightUnit)) },
+                .map { WeightHistoryRow(it, it.weightKg.toWeightUnit(prefs.weightUnit)) },
             chartPoints = history
                 .filter { cutoff == null || it.epochDay >= cutoff }
                 .sortedBy { it.epochDay }
-                .map { MetricPoint(it.epochDay, it.weightKg.toDisplayUnit(prefs.weightUnit)) },
+                .map { MetricPoint(it.epochDay, it.weightKg.toWeightUnit(prefs.weightUnit)) },
             chartRange = range,
         )
     }

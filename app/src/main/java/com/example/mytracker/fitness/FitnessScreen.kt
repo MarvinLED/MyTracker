@@ -23,7 +23,6 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -42,6 +41,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.mytracker.core.ui.AppFilterChip
 import com.example.mytracker.core.util.DateUtils
 import com.example.mytracker.core.util.formatCompact
 import com.example.mytracker.core.util.label
@@ -195,15 +195,15 @@ fun FitnessScreen(
                 modifier = Modifier.padding(vertical = 8.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                FilterChip(
+                AppFilterChip(
                     selected = state.selectedTab == FitnessTab.STRENGTH,
+                    label = "Kraft",
                     onClick = { viewModel.onTabSelected(FitnessTab.STRENGTH) },
-                    label = { Text("Kraft") },
                 )
-                FilterChip(
+                AppFilterChip(
                     selected = state.selectedTab == FitnessTab.CARDIO,
+                    label = "Kardio",
                     onClick = { viewModel.onTabSelected(FitnessTab.CARDIO) },
-                    label = { Text("Kardio") },
                 )
             }
 
