@@ -129,6 +129,61 @@ suspend fun increaseAgainstLastTrainedPeriod(
     )
 }
 
+/** How many finished periods a streak looks back over. Two months of weeks, or two quarters of months. */
+const val STREAK_PERIODS = 8
+
+/**
+ * How a goal has been going over the periods that are already finished — the current one is left
+ * out, since a half-finished week is neither met nor missed.
+ *
+ * Pauses are neutral in both directions: they are not counted as missed ([considered] excludes
+ * them) and they do not break [currentRun]. A goal that reset its run every time someone took a
+ * deload week would punish exactly the weeks a training plan is supposed to contain.
+ */
+data class FitnessGoalStreak(
+    val met: Int,
+    /** Periods that were actually judged — trained, with something to measure against. */
+    val considered: Int,
+    val paused: Int,
+    /** Met periods in a row, counted back from the most recent finished one. */
+    val currentRun: Int,
+) {
+    val hasHistory: Boolean get() = considered > 0 || paused > 0
+}
+
+/**
+ * Folds one goal's finished periods, newest first, into a streak. [progressForPeriodsBack] is asked
+ * for each of them in turn — the caller knows how to evaluate a goal, this knows what the answers
+ * add up to.
+ */
+suspend fun goalStreak(
+    periods: Int = STREAK_PERIODS,
+    progressForPeriodsBack: suspend (Int) -> FitnessGoalProgress,
+): FitnessGoalStreak {
+    var met = 0
+    var considered = 0
+    var paused = 0
+    var run = 0
+    var runOpen = true
+    for (back in 1..periods) {
+        val progress = progressForPeriodsBack(back)
+        when {
+            progress.isPaused -> paused++
+            !progress.hasReference -> Unit // Nothing to judge it against; neither met nor missed.
+            progress.isMet -> {
+                met++
+                considered++
+                if (runOpen) run++
+            }
+            else -> {
+                considered++
+                runOpen = false
+            }
+        }
+    }
+    return FitnessGoalStreak(met = met, considered = considered, paused = paused, currentRun = run)
+}
+
 /**
  * How far a long-term max-weight goal has come, and whether that is far enough by now.
  *

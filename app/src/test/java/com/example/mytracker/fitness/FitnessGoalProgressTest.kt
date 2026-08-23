@@ -289,4 +289,71 @@ class FitnessGoalProgressTest {
             ),
         )
     }
+
+    /** Shorthand for the three answers a period can give. */
+    private fun met(target: Double = 5.0) = FitnessGoalProgress(value = target, target = target, referencePeriodsBack = 1)
+    private fun missed(target: Double = 5.0) = FitnessGoalProgress(value = 0.0, target = target, referencePeriodsBack = 1)
+    private fun paused(target: Double = 5.0) =
+        FitnessGoalProgress(value = 0.0, target = target, isPaused = true, hasReference = false)
+
+    @Test
+    fun aStreakCountsOnlyTheFinishedPeriodsItCouldJudge() = runBlocking {
+        val results = listOf(met(), met(), missed(), met(), paused(), met(), met(), missed())
+
+        val streak = goalStreak(periods = 8) { back -> results[back - 1] }
+
+        // Seven judged, one paused — and the paused week is not counted as missed.
+        assertEquals(5, streak.met)
+        assertEquals(7, streak.considered)
+        assertEquals(1, streak.paused)
+    }
+
+    @Test
+    fun aPauseDoesNotBreakTheRun() = runBlocking {
+        // Newest first: met, met, paused, met — the pause sits inside the run.
+        val results = listOf(met(), met(), paused(), met(), missed())
+
+        val streak = goalStreak(periods = 5) { back -> results[back - 1] }
+
+        // Resetting the run for a deload week would punish exactly the weeks a plan is meant to have.
+        assertEquals(3, streak.currentRun)
+    }
+
+    @Test
+    fun aMissedPeriodEndsTheRunButNotTheCount() = runBlocking {
+        val results = listOf(met(), missed(), met(), met())
+
+        val streak = goalStreak(periods = 4) { back -> results[back - 1] }
+
+        assertEquals(1, streak.currentRun)
+        assertEquals(3, streak.met)
+        assertEquals(4, streak.considered)
+    }
+
+    @Test
+    fun periodsWithNothingToCompareAgainstAreLeftOutEntirely() = runBlocking {
+        val noReference = FitnessGoalProgress(value = 0.0, target = 5.0, hasReference = false)
+
+        val streak = goalStreak(periods = 3) { noReference }
+
+        // Neither met nor missed: a period that had nothing to beat cannot fail at beating it.
+        assertEquals(0, streak.met)
+        assertEquals(0, streak.considered)
+        assertEquals(0, streak.paused)
+        assertFalse(streak.hasHistory)
+    }
+
+    @Test
+    fun aStreakSaysNothingUntilThereAreTwoPeriodsToLookBackOver() {
+        assertNull(FitnessGoalStreak(met = 1, considered = 1, paused = 0, currentRun = 1).summaryText(GoalPeriod.WEEKLY))
+        assertEquals(
+            "6 von 8 Wochen erreicht · 3 in Folge · 1 pausiert",
+            FitnessGoalStreak(met = 6, considered = 8, paused = 1, currentRun = 3).summaryText(GoalPeriod.WEEKLY),
+        )
+        // A run of one is just "the last one" and claims nothing worth a clause of its own.
+        assertEquals(
+            "2 von 4 Monaten erreicht",
+            FitnessGoalStreak(met = 2, considered = 4, paused = 0, currentRun = 1).summaryText(GoalPeriod.MONTHLY),
+        )
+    }
 }

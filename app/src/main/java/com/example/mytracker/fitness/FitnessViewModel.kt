@@ -3,6 +3,7 @@ package com.example.mytracker.fitness
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.mytracker.core.util.DateUtils
+import com.example.mytracker.core.util.GoalPeriod
 import com.example.mytracker.core.util.formatCompact
 import com.example.mytracker.core.util.formatDecimal
 import com.example.mytracker.core.util.label
@@ -48,6 +49,8 @@ data class FitnessGoalProgressRow(
     val valueText: String,
     val fraction: Float,
     val isMet: Boolean,
+    /** "6 von 8 Wochen erreicht · 3 in Folge", or null while the goal has no finished periods yet. */
+    val streakText: String? = null,
 )
 
 /**
@@ -135,6 +138,7 @@ class FitnessViewModel @Inject constructor(
                         progress = fitnessGoalRepository.getProgress(goal, today),
                         muscleGroupNames = muscleGroupNames,
                         exerciseNames = exerciseNames,
+                        streak = fitnessGoalRepository.getStreak(goal, today),
                     )
                 },
             maxWeightGoalRows = goalData.maxWeightGoals
@@ -182,6 +186,7 @@ fun FitnessGoal.toProgressRow(
     progress: FitnessGoalProgress,
     muscleGroupNames: Map<String, String>,
     exerciseNames: Map<String, String>,
+    streak: FitnessGoalStreak? = null,
 ): FitnessGoalProgressRow = FitnessGoalProgressRow(
     id = id,
     label = listOfNotNull(metric.label(), scopeLabel(muscleGroupNames, exerciseNames), period.label())
@@ -189,7 +194,28 @@ fun FitnessGoal.toProgressRow(
     valueText = progress.valueText(unit()),
     fraction = progress.fraction,
     isMet = progress.isMet,
+    streakText = streak?.summaryText(period),
 )
+
+/**
+ * A streak in words. One period is not a record of anything, so nothing is claimed until there are
+ * at least two finished ones to look back over.
+ */
+fun FitnessGoalStreak.summaryText(period: GoalPeriod): String? {
+    if (!hasHistory || considered < 2) return null
+    val unit = when (period) {
+        GoalPeriod.WEEKLY -> "Wochen"
+        GoalPeriod.MONTHLY -> "Monaten"
+        GoalPeriod.DAILY -> "Tagen"
+    }
+    return buildString {
+        append("$met von $considered $unit erreicht")
+        if (currentRun >= 2) append(" · $currentRun in Folge")
+        // Named rather than swallowed: the count is over fewer periods than the window, and the
+        // pauses are the reason why.
+        if (paused > 0) append(" · $paused pausiert")
+    }
+}
 
 /**
  * What one goal's standing reads as. A Steigerung carries its sign — "±0 von +5 kg" says "trained,

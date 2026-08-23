@@ -137,6 +137,43 @@ class StrengthExerciseDetailViewModel @Inject constructor(
         )
     }
 
+    /**
+     * The goal block, prepared apart from the rest of the screen.
+     *
+     * Evaluating a goal — and especially its streak, which walks back over eight finished periods —
+     * is a couple of dozen database queries. It depends on the goals and on the sets, and on nothing
+     * else: computed inside the main [combine] it would be redone on every tap of the weight stepper,
+     * which is the one place on this screen where taps come in bursts.
+     */
+    private val goalPresentation: kotlinx.coroutines.flow.Flow<GoalPresentation> =
+        combine(goalData, allSets, _exerciseName) { goals, sets, exerciseName ->
+            val today = DateUtils.todayEpochDay()
+            GoalPresentation(
+                data = goals,
+                rows = goals.goals.map { goal ->
+                    goal.toProgressRow(
+                        progress = fitnessGoalRepository.getProgress(goal, today),
+                        muscleGroupNames = emptyMap(),
+                        exerciseNames = mapOf(route.exerciseId to exerciseName),
+                        streak = fitnessGoalRepository.getStreak(goal, today),
+                    )
+                },
+                maxWeightRow = goals.maxWeightGoal?.toProgressRow(
+                    exerciseName = exerciseName,
+                    currentMaxKg = sets.mapNotNull { it.weightKg }.maxOrNull(),
+                    bodyWeightKg = goals.bodyWeightKg,
+                    today = today,
+                ),
+            )
+        }
+
+    /** [ExerciseGoalData] plus what it works out to on screen — see [goalPresentation]. */
+    private data class GoalPresentation(
+        val data: ExerciseGoalData = ExerciseGoalData(),
+        val rows: List<FitnessGoalProgressRow> = emptyList(),
+        val maxWeightRow: MaxWeightGoalProgressRow? = null,
+    )
+
     val uiState: StateFlow<StrengthExerciseDetailUiState> = combine(
         allSets,
         _selectedEpochDay,
@@ -144,11 +181,10 @@ class StrengthExerciseDetailViewModel @Inject constructor(
         combine(_weightKg, _isBodyweight, _reps, _lastRemoved) { weight, bodyweight, reps, removed ->
             StepperState(weight, bodyweight, reps, removed != null)
         },
-        combine(_exerciseName, _note, _chartRange, _panels, goalData) { name, note, range, panels, goals ->
+        combine(_exerciseName, _note, _chartRange, _panels, goalPresentation) { name, note, range, panels, goals ->
             ScreenState(name, note, range, panels, goals)
         },
     ) { sets, day, draft, stepper, screen ->
-        val today = DateUtils.todayEpochDay()
         val persisted = sets.sessionOn(day)
         // The draft wins while it exists, so the UI never waits for a database round-trip.
         val current = draft?.let { drafted ->
@@ -178,21 +214,10 @@ class StrengthExerciseDetailViewModel @Inject constructor(
             chartGranularity = granularity,
             volumeSeries = window.dailyVolumePoints().bucketBy(granularity, MetricAggregation.SUM),
             maxWeightSeries = window.dailyMaxWeightPoints().bucketBy(granularity, MetricAggregation.MAX),
-            goalPlanSeries = screen.goals.planPointsIn(window),
-            goalRows = screen.goals.goals.map { goal ->
-                goal.toProgressRow(
-                    progress = fitnessGoalRepository.getProgress(goal, today),
-                    muscleGroupNames = emptyMap(),
-                    exerciseNames = mapOf(route.exerciseId to screen.exerciseName),
-                )
-            },
-            maxWeightGoalRow = screen.goals.maxWeightGoal?.toProgressRow(
-                exerciseName = screen.exerciseName,
-                currentMaxKg = sets.mapNotNull { it.weightKg }.maxOrNull(),
-                bodyWeightKg = screen.goals.bodyWeightKg,
-                today = today,
-            ),
-            goalSince = screen.goals.goalSince,
+            goalPlanSeries = screen.goals.data.planPointsIn(window),
+            goalRows = screen.goals.rows,
+            maxWeightGoalRow = screen.goals.maxWeightRow,
+            goalSince = screen.goals.data.goalSince,
             isGoalsExpanded = screen.panels.goalsExpanded,
             isEntryExpanded = screen.panels.entryExpanded,
             isChartExpanded = screen.panels.chartExpanded,
@@ -223,7 +248,7 @@ class StrengthExerciseDetailViewModel @Inject constructor(
         val note: String,
         val chartRange: ChartRange,
         val panels: PanelState,
-        val goals: ExerciseGoalData,
+        val goals: GoalPresentation,
     )
 
     /**

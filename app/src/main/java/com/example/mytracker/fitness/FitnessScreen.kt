@@ -151,6 +151,15 @@ fun FitnessScreen(
                         Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                             Text(row.label, style = MaterialTheme.typography.bodyMedium)
                             Text(row.valueText)
+                            // What the goal has been doing, not only what it is doing: one week says
+                            // little, eight say whether the target is the right one.
+                            row.streakText?.let {
+                                Text(
+                                    it,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
                             LinearProgressIndicator(
                                 progress = { row.fraction },
                                 modifier = Modifier.fillMaxWidth(),

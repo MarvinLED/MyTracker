@@ -244,6 +244,21 @@ class FitnessGoalRepository @Inject constructor(
         )
     }
 
+    /**
+     * How this goal has been going over the last finished periods — see [goalStreak].
+     *
+     * Each period is evaluated exactly as the current one is, by asking [getProgress] as of that
+     * period's last day. That is what keeps "erreicht" meaning the same thing looking back as it
+     * does looking at this week.
+     */
+    suspend fun getStreak(
+        goal: FitnessGoal,
+        today: Long = DateUtils.todayEpochDay(),
+        periods: Int = STREAK_PERIODS,
+    ): FitnessGoalStreak = goalStreak(periods) { back ->
+        getProgress(goal, periodBefore(goal.period, today, back).last)
+    }
+
     fun observeMaxWeightGoals(): Flow<List<StrengthMaxWeightGoal>> = maxWeightGoalDao.observeAll()
 
     fun observeMaxWeightGoalForExercise(exerciseId: String): Flow<StrengthMaxWeightGoal?> =

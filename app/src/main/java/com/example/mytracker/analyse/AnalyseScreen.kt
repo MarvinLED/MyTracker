@@ -3,6 +3,7 @@ package com.example.mytracker.analyse
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -175,20 +176,41 @@ fun AnalyseScreen(
                     if (muscleGroups.isEmpty()) {
                         Text("Noch keine Muskelgruppen angelegt.")
                     } else {
-                        MuscleGroupDetailPicker(
-                            muscleGroups = muscleGroups,
-                            selectedMuscleGroupId = state.muscleGroupDetailMuscleGroupId,
-                            onMuscleGroupChange = viewModel::onMuscleGroupDetailChange,
-                        )
+                        // Chips rather than a dropdown: several groups at once is the point, and a
+                        // dropdown that has to be reopened per group makes comparing them a chore.
+                        FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp),
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            muscleGroups.forEach { group ->
+                                FilterChip(
+                                    selected = group.id in state.muscleGroupDetailIds,
+                                    onClick = { viewModel.onMuscleGroupDetailToggle(group) },
+                                    label = { Text(group.name) },
+                                )
+                            }
+                        }
                         DetailModeChips(
                             mode = state.muscleGroupDetailMode,
                             onModeChange = viewModel::onMuscleGroupDetailModeChange,
                         )
-                        val muscleGroupSeries = state.muscleGroupDetailSeries?.toChartLine(chartPalette[0])
-                        if (muscleGroupSeries != null) {
-                            DatedLineChart(lines = listOf(muscleGroupSeries))
+                        val muscleGroupLines = state.muscleGroupDetailSeries.mapIndexed { index, series ->
+                            series.toChartLine(chartPalette[index % chartPalette.size])
+                                // Volume and sets are both amounts done in a period, so their axis
+                                // starts at zero — half as much work has to look like half as much.
+                                .copy(zeroBased = true)
+                        }
+                        if (muscleGroupLines.isNotEmpty()) {
+                            // One axis for all of them: the groups are in the same unit, and lines on
+                            // separate scales would make an imbalance look like a match.
+                            DatedLineChart(
+                                lines = muscleGroupLines,
+                                overlaid = true,
+                                sharedScale = true,
+                            )
                         } else {
-                            Text("Wähle eine Muskelgruppe aus.")
+                            Text("Wähle mindestens eine Muskelgruppe aus.")
                         }
                     }
                 }
@@ -262,43 +284,6 @@ private fun ExerciseDetailPicker(
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun MuscleGroupDetailPicker(
-    muscleGroups: List<MuscleGroup>,
-    selectedMuscleGroupId: String?,
-    onMuscleGroupChange: (MuscleGroup) -> Unit,
-) {
-    var menuExpanded by remember { mutableStateOf(false) }
-    val selectedName = muscleGroups.find { it.id == selectedMuscleGroupId }?.name.orEmpty()
-
-    ExposedDropdownMenuBox(
-        expanded = menuExpanded,
-        onExpandedChange = { menuExpanded = it },
-    ) {
-        OutlinedTextField(
-            modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable, true).fillMaxWidth(),
-            readOnly = true,
-            value = selectedName,
-            onValueChange = {},
-            label = { Text("Muskelgruppe") },
-            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = menuExpanded) },
-        )
-        ExposedDropdownMenu(
-            expanded = menuExpanded,
-            onDismissRequest = { menuExpanded = false },
-        ) {
-            muscleGroups.forEach { group ->
-                DropdownMenuItem(
-                    text = { Text(group.name) },
-                    onClick = {
-                        onMuscleGroupChange(group)
-                        menuExpanded = false
-                    },
-                )
-            }
-        }
-    }
-}
 
 @Composable
 private fun DetailModeChips(mode: DetailMode, onModeChange: (DetailMode) -> Unit) {

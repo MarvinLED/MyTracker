@@ -364,4 +364,43 @@ class FitnessGoalProgressQueriesTest {
         assertEquals(1.25, progress.relativeStrength!!, 0.0001)
         assertFalse(progress.isReached)
     }
+
+    @Test
+    fun streak_countsTheFinishedWeeksAndLeavesAPauseOutOfTheJudgement() = runBlocking {
+        // Four weeks: two with a gain over the week before, one week off, and a starting week.
+        logSession(LocalDate.parse("2026-07-22").toEpochDay(), weightKg = 80.0, reps = 5, sets = 3) // 1200 kg
+        logSession(LocalDate.parse("2026-07-29").toEpochDay(), weightKg = 80.0, reps = 5, sets = 5) // 2000 kg
+        // Week of 2026-08-03: nothing at all.
+        logSession(LocalDate.parse("2026-08-12").toEpochDay(), weightKg = 80.0, reps = 5, sets = 7) // 2800 kg
+
+        val streak = repository.getStreak(
+            goal(FitnessGoalMetric.STRENGTH_VOLUME_INCREASE, 500.0),
+            today = today,
+            periods = 4,
+        )
+
+        // Two weeks gained 800 kg over the week they are measured against; the empty week is a pause
+        // and the first trained week had nothing to beat, so neither counts as missed.
+        assertEquals(2, streak.met)
+        assertEquals(2, streak.considered)
+        assertEquals(1, streak.paused)
+        // And the pause did not break the run.
+        assertEquals(2, streak.currentRun)
+    }
+
+    @Test
+    fun streak_leavesTheRunningPeriodOut() = runBlocking {
+        // Only this week has any training at all: nothing finished yet to judge.
+        logSession(thisMonday, weightKg = 80.0, reps = 5, sets = 3)
+
+        val streak = repository.getStreak(
+            goal(FitnessGoalMetric.STRENGTH_VOLUME_INCREASE, 500.0),
+            today = today,
+            periods = 4,
+        )
+
+        // A half-finished week is neither met nor missed, so it stays out of the count entirely.
+        assertEquals(0, streak.met)
+        assertEquals(0, streak.considered)
+    }
 }

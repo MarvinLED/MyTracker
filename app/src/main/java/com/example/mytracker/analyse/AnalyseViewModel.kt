@@ -38,7 +38,11 @@ private data class AnalyseSelection(
     val selectedMetricIds: List<String> = listOf("cardio.duration_minutes", "strength.volume_kg"),
     val exerciseDetailExerciseId: String? = null,
     val exerciseDetailMode: DetailMode = DetailMode.VOLUME,
-    val muscleGroupDetailMuscleGroupId: String? = null,
+    /**
+     * Several at once, not one: the question about muscle groups is almost always how they compare —
+     * whether Rücken keeps up with Brust — and one group at a time cannot answer it.
+     */
+    val muscleGroupDetailIds: List<String> = emptyList(),
     val muscleGroupDetailMode: DetailMode = DetailMode.VOLUME,
     val movementDirectionDetail: MovementDirection? = null,
     val movementDirectionDetailMode: DetailMode = DetailMode.VOLUME,
@@ -53,9 +57,10 @@ data class AnalyseUiState(
     val exerciseDetailExerciseId: String? = null,
     val exerciseDetailMode: DetailMode = DetailMode.VOLUME,
     val exerciseDetailSeries: ChartSeries? = null,
-    val muscleGroupDetailMuscleGroupId: String? = null,
+    val muscleGroupDetailIds: List<String> = emptyList(),
     val muscleGroupDetailMode: DetailMode = DetailMode.VOLUME,
-    val muscleGroupDetailSeries: ChartSeries? = null,
+    /** One series per selected muscle group, in the order they were picked. */
+    val muscleGroupDetailSeries: List<ChartSeries> = emptyList(),
     val movementDirectionDetail: MovementDirection? = null,
     val movementDirectionDetailMode: DetailMode = DetailMode.VOLUME,
     val movementDirectionDetailSeries: ChartSeries? = null,
@@ -100,7 +105,9 @@ class AnalyseViewModel @Inject constructor(
                 }
             } ?: flowOf(emptyList())
 
-            val muscleGroupDetailFlow: Flow<List<MetricPoint>> = selection.muscleGroupDetailMuscleGroupId?.let { groupId ->
+            // One flow per selected group, combined into a list in the same order. `combine` over an
+            // empty list emits nothing at all, which would stall the whole screen — hence the guard.
+            val muscleGroupFlows = selection.muscleGroupDetailIds.map { groupId ->
                 when (selection.muscleGroupDetailMode) {
                     DetailMode.VOLUME -> strengthLogRepository
                         .observeDailyVolumeTotalsForMuscleGroup(groupId, range.startInclusive, range.endInclusive)
@@ -109,7 +116,9 @@ class AnalyseViewModel @Inject constructor(
                         .observeDailySetsTotalsForMuscleGroup(groupId, range.startInclusive, range.endInclusive)
                         .map { rows -> rows.map { MetricPoint(it.epochDay, it.value) } }
                 }
-            } ?: flowOf(emptyList())
+            }
+            val muscleGroupDetailFlow: Flow<List<List<MetricPoint>>> =
+                if (muscleGroupFlows.isEmpty()) flowOf(emptyList()) else combine(muscleGroupFlows) { it.toList() }
 
             val movementDirectionDetailFlow: Flow<List<MetricPoint>> = selection.movementDirectionDetail?.let { direction ->
                 when (selection.movementDirectionDetailMode) {
@@ -130,7 +139,6 @@ class AnalyseViewModel @Inject constructor(
                 movementDirectionDetailFlow,
             ) { primaryPoints, secondaryPoints, exercisePoints, muscleGroupPoints, movementDirectionPoints ->
                 val exerciseName = exercises.value.find { it.id == selection.exerciseDetailExerciseId }?.name
-                val muscleGroupName = muscleGroups.value.find { it.id == selection.muscleGroupDetailMuscleGroupId }?.name
 
                 AnalyseUiState(
                     dateRange = selection.dateRange,
@@ -162,11 +170,14 @@ class AnalyseViewModel @Inject constructor(
                             color = Color.Unspecified,
                         )
                     },
-                    muscleGroupDetailMuscleGroupId = selection.muscleGroupDetailMuscleGroupId,
+                    muscleGroupDetailIds = selection.muscleGroupDetailIds,
                     muscleGroupDetailMode = selection.muscleGroupDetailMode,
-                    muscleGroupDetailSeries = muscleGroupName?.let { name ->
+                    muscleGroupDetailSeries = selection.muscleGroupDetailIds.mapIndexedNotNull { index, groupId ->
+                        val name = muscleGroups.value.find { it.id == groupId }?.name ?: return@mapIndexedNotNull null
                         ChartSeries(
-                            points = muscleGroupPoints.bucketBy(selection.granularity, MetricAggregation.SUM),
+                            points = muscleGroupPoints.getOrNull(index)
+                                ?.bucketBy(selection.granularity, MetricAggregation.SUM)
+                                .orEmpty(),
                             label = name,
                             unit = if (selection.muscleGroupDetailMode == DetailMode.VOLUME) "kg" else "Sätze",
                             color = Color.Unspecified,
@@ -213,8 +224,12 @@ class AnalyseViewModel @Inject constructor(
         _selection.value = _selection.value.copy(exerciseDetailMode = mode)
     }
 
-    fun onMuscleGroupDetailChange(group: MuscleGroup) {
-        _selection.value = _selection.value.copy(muscleGroupDetailMuscleGroupId = group.id)
+    /** Adds or removes one group from the comparison; picking none leaves the chart empty. */
+    fun onMuscleGroupDetailToggle(group: MuscleGroup) {
+        val selected = _selection.value.muscleGroupDetailIds
+        _selection.value = _selection.value.copy(
+            muscleGroupDetailIds = if (group.id in selected) selected - group.id else selected + group.id,
+        )
     }
 
     fun onMuscleGroupDetailModeChange(mode: DetailMode) {

@@ -34,6 +34,7 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -302,6 +303,51 @@ private fun FitnessGoalsSection(state: GoalsUiState, viewModel: GoalsViewModel) 
                 section.rows.size > MaxUnfoldedGoalRows ->
                     FoldableGoalGroup(section, maxWeightGoal = null, bodyWeightKg = null, viewModel = viewModel)
                 else -> FitnessGoalGroup(section = section, viewModel = viewModel)
+            }
+        }
+
+        GoalChangeHistory(rows = state.goalChanges)
+    }
+}
+
+/**
+ * What the targets have been, and since when. The goal rows above are overwritten in place, so this
+ * log is the only place the question "seit wann trainiere ich eigentlich auf 100 kg?" has an answer
+ * at all — and the only way to tell a target that was never reached from one that was raised twice.
+ *
+ * Folded away by default: it is for looking back, not for setting anything.
+ */
+@Composable
+private fun GoalChangeHistory(rows: List<GoalChangeRow>) {
+    if (rows.isEmpty()) return
+    var expanded by rememberSaveable { mutableStateOf(false) }
+
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth().clickable { expanded = !expanded },
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                "Zieländerungen",
+                style = MaterialTheme.typography.titleSmall,
+                modifier = Modifier.weight(1f),
+            )
+            Icon(
+                if (expanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
+                contentDescription = if (expanded) "Zuklappen" else "Aufklappen",
+            )
+        }
+        if (expanded) {
+            rows.forEachIndexed { index, row ->
+                if (index > 0) HorizontalDivider()
+                Column(modifier = Modifier.padding(vertical = 4.dp)) {
+                    Text(row.label, style = MaterialTheme.typography.bodyMedium)
+                    Text(
+                        "${row.dateText} · ${row.changeText}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
         }
     }

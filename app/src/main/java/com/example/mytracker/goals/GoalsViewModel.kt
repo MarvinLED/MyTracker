@@ -23,6 +23,7 @@ import com.example.mytracker.fitness.strength.StrengthExerciseRepository
 import com.example.mytracker.fluid.FluidRepository
 import com.example.mytracker.fluid.FluidType
 import dagger.hilt.android.lifecycle.HiltViewModel
+import java.util.Locale
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -84,6 +85,18 @@ data class MaxWeightGoalRow(
     val isRelative: Boolean = false,
 )
 
+/**
+ * One entry of the Zieländerungs-Historie, ready to read: which goal, when, and what it went from
+ * and to. The "von" is the row before it for the same goal — the log stores states, and what anyone
+ * wants to see is the step between two of them.
+ */
+data class GoalChangeRow(
+    val id: String,
+    val label: String,
+    val dateText: String,
+    val changeText: String,
+)
+
 /** One nutrient's goal row: the two bounds as typed. Either may be blank, or both. */
 data class NutrientGoalInput(
     val nutrient: Nutrient,
@@ -100,6 +113,8 @@ data class GoalsUiState(
     val maxWeightGoals: List<MaxWeightGoalRow> = emptyList(),
     /** The latest logged body weight — what a relative target is multiplied by. Null until one exists. */
     val bodyWeightKg: Double? = null,
+    /** The Fitness-Zieländerungen, newest first — see [GoalChangeRow]. */
+    val goalChanges: List<GoalChangeRow> = emptyList(),
     /** Sleep length in **hours** as typed ("7,5"); the repository stores minutes. */
     val sleepDurationMinHours: String = "",
     val sleepDurationMaxHours: String = "",
@@ -131,6 +146,7 @@ class GoalsViewModel @Inject constructor(
             val maxWeightGoals = fitnessGoalRepository.observeMaxWeightGoals().first()
             val maxWeightByExercise = fitnessGoalRepository.observeMaxWeightPerExercise().first()
             val bodyWeightKg = fitnessGoalRepository.observeLatestBodyWeightKg().first()
+            val goalChanges = fitnessGoalRepository.observeGoalChanges().first()
             _state.value = GoalsUiState(
                 waterGoal = prefs.dailyWaterGoalMl.toString(),
                 nutrientGoals = Nutrient.entries.map { nutrient ->
@@ -165,6 +181,7 @@ class GoalsViewModel @Inject constructor(
                     )
                 },
                 bodyWeightKg = bodyWeightKg,
+                goalChanges = goalChangeRows(goalChanges),
                 sleepDurationMinHours = prefs.sleepDurationGoalMinutes?.min
                     ?.let { it.toInt().minutesAsHours().formatGoalHours() }.orEmpty(),
                 sleepDurationMaxHours = prefs.sleepDurationGoalMinutes?.max
@@ -504,6 +521,10 @@ class GoalsViewModel @Inject constructor(
                 ),
             )
             userPreferencesRepository.setBedtimeGoal(s.bedtimeGoalMinuteOfDay)
+            // Re-read: the history is the one part of this screen that the save itself writes to.
+            _state.value = _state.value.copy(
+                goalChanges = goalChangeRows(fitnessGoalRepository.observeGoalChanges().first()),
+            )
             _saved.emit(Unit)
         }
     }

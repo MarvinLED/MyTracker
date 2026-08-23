@@ -251,6 +251,13 @@ private fun GoalsCard(state: StrengthExerciseDetailUiState) {
                             MaterialTheme.colorScheme.onSurfaceVariant
                         },
                     )
+                    row.streakText?.let {
+                        Text(
+                            it,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                     LinearProgressIndicator(progress = { row.fraction }, modifier = Modifier.fillMaxWidth())
                 }
             }
