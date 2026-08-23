@@ -5,6 +5,13 @@ import com.example.mytracker.core.datastore.NutrientGoal
 import com.example.mytracker.core.util.formatCompact
 import com.example.mytracker.fitness.FitnessGoal
 import com.example.mytracker.fitness.FitnessGoalMetric
+import com.example.mytracker.fitness.FitnessGoalProgress
+import com.example.mytracker.fitness.periodEndDay
+import com.example.mytracker.fitness.unit
+import com.example.mytracker.fitness.valueText
+import com.example.mytracker.core.util.DateUtils
+import com.example.mytracker.core.util.GoalPeriod
+import com.example.mytracker.core.util.label
 import com.example.mytracker.fitness.label
 import com.example.mytracker.fitness.strength.label
 import com.example.mytracker.fluid.FluidType
@@ -161,28 +168,62 @@ fun taskRows(statuses: List<TaskStatus>): List<DayGoalRow> = statuses.dueToday()
 }
 
 /** The name a fitness goal goes by, including what it is scoped to when it is scoped to anything. */
-fun FitnessGoal.dayGoalLabel(muscleGroupNames: Map<String, String>): String = when (metric) {
+fun FitnessGoal.dayGoalLabel(
+    muscleGroupNames: Map<String, String>,
+    exerciseNames: Map<String, String> = emptyMap(),
+): String = when (metric) {
     FitnessGoalMetric.STRENGTH_SETS_MUSCLE_GROUP ->
         "Kraft-Sätze · ${muscleGroupId?.let { muscleGroupNames[it] } ?: "Muskelgruppe"}"
     FitnessGoalMetric.STRENGTH_SETS_MOVEMENT_DIRECTION ->
         "Kraft-Sätze · ${movementDirection?.label() ?: "Bewegungsrichtung"}"
+    FitnessGoalMetric.STRENGTH_VOLUME_INCREASE_MUSCLE_GROUP ->
+        "${metric.label()} · ${muscleGroupId?.let { muscleGroupNames[it] } ?: "Muskelgruppe"}"
+    FitnessGoalMetric.STRENGTH_VOLUME_INCREASE_MOVEMENT_DIRECTION ->
+        "${metric.label()} · ${movementDirection?.label() ?: "Bewegungsrichtung"}"
+    FitnessGoalMetric.STRENGTH_MAX_WEIGHT_INCREASE, FitnessGoalMetric.STRENGTH_VOLUME_INCREASE ->
+        "${metric.label()} · ${exerciseId?.let { exerciseNames[it] } ?: "Übung"}"
     else -> metric.label()
 }
 
-/** Callers pass only the DAILY goals; weekly and monthly ones are not this screen's business. */
+/** "noch 3 Tage" — how long is left to do something about a goal that does not end today. */
+fun remainingDaysLabel(daysLeft: Long): String? = when {
+    daysLeft <= 0 -> "letzter Tag"
+    daysLeft == 1L -> "noch 1 Tag"
+    else -> "noch $daysLeft Tage"
+}
+
+/**
+ * The fitness goals of the periods running *right now* — the week and the month included, not only
+ * the day. A weekly goal is the one people actually set, and one that is only visible on the Fitness
+ * screen is one nobody sees until the week is over; with the days left beside it, it is still
+ * something today can be spent on.
+ */
 fun fitnessGoalRows(
     goals: List<FitnessGoal>,
-    progressByGoalId: Map<String, Double>,
+    progressByGoalId: Map<String, FitnessGoalProgress>,
     muscleGroupNames: Map<String, String>,
-): List<DayGoalRow> = goals.map { goal ->
-    amountRow(
-        id = "fitness-${goal.id}",
-        label = goal.dayGoalLabel(muscleGroupNames),
-        consumed = progressByGoalId[goal.id] ?: 0.0,
-        goal = NutrientGoal(min = goal.targetValue),
-        unit = if (goal.metric == FitnessGoalMetric.CARDIO_DURATION_MINUTES) "min" else "",
-    )
-}
+    exerciseNames: Map<String, String> = emptyMap(),
+    today: Long = DateUtils.todayEpochDay(),
+): List<DayGoalRow> = goals
+    .sortedWith(compareBy({ it.period.ordinal }, { it.metric.ordinal }))
+    .map { goal ->
+        val progress = progressByGoalId[goal.id]
+            ?: FitnessGoalProgress(value = 0.0, target = goal.targetValue, isPercent = goal.isPercent)
+        // Only for the periods that outlive today: a Tagesziel ends when the day does, and telling
+        // someone it is the last day of today says nothing.
+        val remaining = if (goal.period == GoalPeriod.DAILY) {
+            null
+        } else {
+            remainingDaysLabel(periodEndDay(goal.period, today) - today)
+        }
+        DayGoalRow(
+            id = "fitness-${goal.id}",
+            label = "${goal.dayGoalLabel(muscleGroupNames, exerciseNames)} · ${goal.period.label()}",
+            valueText = listOfNotNull(progress.valueText(goal.unit()), remaining).joinToString(" · "),
+            isMet = progress.isMet,
+            fraction = progress.fraction,
+        )
+    }
 
 /**
  * Last night against the sleep goals. The rows are built in the sleep module — the bedtime's

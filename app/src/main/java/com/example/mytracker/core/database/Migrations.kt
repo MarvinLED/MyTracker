@@ -915,3 +915,31 @@ object MIGRATION_25_26 : Migration(25, 26) {
         )
     }
 }
+
+object MIGRATION_26_27 : Migration(26, 27) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        // Increases can be asked for in percent instead of kilos. Existing goals are absolute, which
+        // is what the 0 default says; SQLite has no boolean, so Room reads the integer back as one.
+        db.execSQL("ALTER TABLE `fitness_goals` ADD COLUMN `isPercent` INTEGER NOT NULL DEFAULT 0")
+
+        // A long-term target can be tied to body weight ("1,5 × KG") instead of a fixed number.
+        // Null keeps every goal written so far absolute, which is what it was.
+        db.execSQL("ALTER TABLE `strength_max_weight_goals` ADD COLUMN `targetBodyweightMultiple` REAL")
+
+        // When a Fitness-Ziel was set or moved. The goals themselves are overwritten in place, so
+        // without this a target raised twice looks like it was always what it is now. Nothing is
+        // backfilled: there is nothing to backfill from, the same as with the Nährstoff-Ziele.
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `fitness_goal_changes` (`id` TEXT NOT NULL, " +
+                "`goalKey` TEXT NOT NULL, `label` TEXT NOT NULL, " +
+                "`effectiveFromEpochDay` INTEGER NOT NULL, `targetValue` REAL, " +
+                "`isPercent` INTEGER NOT NULL, `targetEpochDay` INTEGER, " +
+                "`changedAt` INTEGER NOT NULL, PRIMARY KEY(`id`))",
+        )
+        // Both columns together: every read is "this goal's rows, newest first".
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS `index_fitness_goal_changes_goalKey_effectiveFromEpochDay` " +
+                "ON `fitness_goal_changes` (`goalKey`, `effectiveFromEpochDay`)",
+        )
+    }
+}

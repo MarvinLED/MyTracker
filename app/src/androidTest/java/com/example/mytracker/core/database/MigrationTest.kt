@@ -945,4 +945,78 @@ class MigrationTest {
         assertTrue(rejected)
         db.close()
     }
+
+    @Test
+    fun migrate26To27_keepsGoalsAbsoluteAndOpensTheChangeLog() {
+        val v26 = helper.createDatabase(dbName, 26)
+        v26.execSQL(
+            "INSERT INTO fitness_goals (id, metric, period, muscleGroupId, targetValue, createdAt, " +
+                "exerciseId) VALUES ('STRENGTH_VOLUME_INCREASE-WEEKLY-bench', 'STRENGTH_VOLUME_INCREASE', " +
+                "'WEEKLY', NULL, 300.0, 1700000000000, 'bench')",
+        )
+        v26.execSQL(
+            "INSERT INTO strength_max_weight_goals (id, exerciseId, targetWeightKg, targetEpochDay, " +
+                "startWeightKg, startEpochDay, createdAt) VALUES ('maxweight-bench', 'bench', 100.0, " +
+                "20800, 80.0, 20000, 1700000000000)",
+        )
+        v26.close()
+
+        val db = helper.runMigrationsAndValidate(dbName, 27, true, MIGRATION_26_27)
+
+        // A goal written before percentages existed is an absolute one, and a target written before
+        // relative goals existed is a number of kilos — neither may change meaning under the user.
+        db.query("SELECT isPercent FROM fitness_goals WHERE id = 'STRENGTH_VOLUME_INCREASE-WEEKLY-bench'")
+            .use { cursor ->
+                cursor.moveToFirst()
+                assertEquals(0, cursor.getInt(0))
+            }
+        db.query("SELECT targetBodyweightMultiple FROM strength_max_weight_goals WHERE id = 'maxweight-bench'")
+            .use { cursor ->
+                cursor.moveToFirst()
+                assertTrue(cursor.isNull(0))
+            }
+
+        // The log starts empty — there is nothing to backfill it from, the same as with the
+        // Nährstoff-Zieländerungen — and takes rows from the next change onwards.
+        db.query("SELECT COUNT(*) FROM fitness_goal_changes").use { cursor ->
+            cursor.moveToFirst()
+            assertEquals(0, cursor.getInt(0))
+        }
+        db.execSQL(
+            "INSERT INTO fitness_goal_changes (id, goalKey, label, effectiveFromEpochDay, targetValue, " +
+                "isPercent, targetEpochDay, changedAt) VALUES ('change-1', 'maxweight-bench', " +
+                "'Bankdrücken · Langfristiges Maximalgewicht', 20500, 105.0, 0, 20900, 1700000001000)",
+        )
+        db.query(
+            "SELECT label, targetValue, targetEpochDay FROM fitness_goal_changes WHERE id = 'change-1'",
+        ).use { cursor ->
+            cursor.moveToFirst()
+            // The label is snapshotted: an exercise deleted later must not turn its own history into
+            // "(gelöscht)".
+            assertEquals("Bankdrücken · Langfristiges Maximalgewicht", cursor.getString(0))
+            assertEquals(105.0, cursor.getDouble(1), 0.001)
+            assertEquals(20900, cursor.getLong(2))
+        }
+        db.close()
+    }
+
+    @Test
+    fun migrate26To27_recordsAClearedGoalAsANullTarget() {
+        helper.createDatabase(dbName, 26).close()
+
+        val db = helper.runMigrationsAndValidate(dbName, 27, true, MIGRATION_26_27)
+
+        // "Kein Ziel mehr" is a change worth keeping — it is what explains a run of unmet weeks
+        // ending — so the target column has to take a null.
+        db.execSQL(
+            "INSERT INTO fitness_goal_changes (id, goalKey, label, effectiveFromEpochDay, targetValue, " +
+                "isPercent, targetEpochDay, changedAt) VALUES ('change-2', 'goal-1', 'Sätze gesamt', " +
+                "20500, NULL, 0, NULL, 1700000001000)",
+        )
+        db.query("SELECT targetValue FROM fitness_goal_changes WHERE id = 'change-2'").use { cursor ->
+            cursor.moveToFirst()
+            assertTrue(cursor.isNull(0))
+        }
+        db.close()
+    }
 }

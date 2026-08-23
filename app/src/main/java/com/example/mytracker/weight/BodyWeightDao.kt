@@ -30,6 +30,10 @@ interface BodyWeightDao {
     @Delete
     suspend fun delete(entry: BodyWeightEntry)
 
+    /** The most recently weighed day, for anything read *against* body weight — relative strength. */
+    @Query("SELECT * FROM body_weight_entries ORDER BY epochDay DESC LIMIT 1")
+    fun observeLatest(): Flow<BodyWeightEntry?>
+
     @Query("SELECT * FROM body_weight_entries ORDER BY epochDay")
     suspend fun getAllOnce(): List<BodyWeightEntry>
 

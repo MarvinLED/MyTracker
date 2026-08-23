@@ -10,6 +10,8 @@ import com.example.mytracker.core.util.GoalPeriod
 import com.example.mytracker.fitness.FitnessGoal
 import com.example.mytracker.fitness.FitnessGoalDao
 import com.example.mytracker.fitness.FitnessGoalMetric
+import com.example.mytracker.fitness.FitnessGoalChange
+import com.example.mytracker.fitness.FitnessGoalChangeDao
 import com.example.mytracker.fitness.StrengthMaxWeightGoal
 import com.example.mytracker.fitness.StrengthMaxWeightGoalDao
 import com.example.mytracker.fitness.strength.MovementDirection
@@ -38,8 +40,22 @@ data class FitnessGoalDto(
     val movementDirection: MovementDirection? = null,
     /** Defaulted, so a backup written before the per-exercise goals reads back as what it was. */
     val exerciseId: String? = null,
+    val isPercent: Boolean = false,
     val targetValue: Double,
     val createdAtEpochMillis: Long,
+)
+
+/** When a Fitness-Ziel was set or moved. Irreplaceable the way the Nährstoff-Zieländerungen are. */
+@Serializable
+data class FitnessGoalChangeDto(
+    val id: String,
+    val goalKey: String,
+    val label: String,
+    val effectiveFromEpochDay: Long,
+    val targetValue: Double? = null,
+    val isPercent: Boolean = false,
+    val targetEpochDay: Long? = null,
+    val changedAtEpochMillis: Long,
 )
 
 /**
@@ -52,6 +68,7 @@ data class StrengthMaxWeightGoalDto(
     val id: String,
     val exerciseId: String,
     val targetWeightKg: Double,
+    val targetBodyweightMultiple: Double? = null,
     val targetEpochDay: Long,
     val startWeightKg: Double,
     val startEpochDay: Long,
@@ -78,6 +95,7 @@ data class GoalsDto(
     val bedtimeGoalMinuteOfDay: Int? = null,
     val fitnessGoals: List<FitnessGoalDto> = emptyList(),
     val strengthMaxWeightGoals: List<StrengthMaxWeightGoalDto> = emptyList(),
+    val fitnessGoalChanges: List<FitnessGoalChangeDto> = emptyList(),
     /**
      * When the nutrient goals were moved. Irreplaceable in a way the goals themselves are not: a
      * lost target can be typed in again, a lost record of when it changed cannot be reconstructed
@@ -111,6 +129,7 @@ private fun FitnessGoal.toDto() = FitnessGoalDto(
     muscleGroupId = muscleGroupId,
     movementDirection = movementDirection,
     exerciseId = exerciseId,
+    isPercent = isPercent,
     targetValue = targetValue,
     createdAtEpochMillis = createdAt.toEpochMilli(),
 )
@@ -122,14 +141,38 @@ private fun FitnessGoalDto.toEntity() = FitnessGoal(
     muscleGroupId = muscleGroupId,
     movementDirection = movementDirection,
     exerciseId = exerciseId,
+    isPercent = isPercent,
     targetValue = targetValue,
     createdAt = Instant.ofEpochMilli(createdAtEpochMillis),
+)
+
+private fun FitnessGoalChange.toDto() = FitnessGoalChangeDto(
+    id = id,
+    goalKey = goalKey,
+    label = label,
+    effectiveFromEpochDay = effectiveFromEpochDay,
+    targetValue = targetValue,
+    isPercent = isPercent,
+    targetEpochDay = targetEpochDay,
+    changedAtEpochMillis = changedAt.toEpochMilli(),
+)
+
+private fun FitnessGoalChangeDto.toEntity() = FitnessGoalChange(
+    id = id,
+    goalKey = goalKey,
+    label = label,
+    effectiveFromEpochDay = effectiveFromEpochDay,
+    targetValue = targetValue,
+    isPercent = isPercent,
+    targetEpochDay = targetEpochDay,
+    changedAt = Instant.ofEpochMilli(changedAtEpochMillis),
 )
 
 private fun StrengthMaxWeightGoal.toDto() = StrengthMaxWeightGoalDto(
     id = id,
     exerciseId = exerciseId,
     targetWeightKg = targetWeightKg,
+    targetBodyweightMultiple = targetBodyweightMultiple,
     targetEpochDay = targetEpochDay,
     startWeightKg = startWeightKg,
     startEpochDay = startEpochDay,
@@ -140,6 +183,7 @@ private fun StrengthMaxWeightGoalDto.toEntity() = StrengthMaxWeightGoal(
     id = id,
     exerciseId = exerciseId,
     targetWeightKg = targetWeightKg,
+    targetBodyweightMultiple = targetBodyweightMultiple,
     targetEpochDay = targetEpochDay,
     startWeightKg = startWeightKg,
     startEpochDay = startEpochDay,
@@ -164,6 +208,7 @@ class GoalsExportProvider @Inject constructor(
     private val userPreferencesRepository: UserPreferencesRepository,
     private val fitnessGoalDao: FitnessGoalDao,
     private val maxWeightGoalDao: StrengthMaxWeightGoalDao,
+    private val fitnessGoalChangeDao: FitnessGoalChangeDao,
     private val nutrientGoalChangeDao: NutrientGoalChangeDao,
 ) : BackupExportProvider {
     override val key = "goals"
@@ -185,6 +230,7 @@ class GoalsExportProvider @Inject constructor(
                 bedtimeGoalMinuteOfDay = prefs.bedtimeGoalMinuteOfDay,
                 fitnessGoals = fitnessGoalDao.getAllOnce().map { it.toDto() },
                 strengthMaxWeightGoals = maxWeightGoalDao.getAllOnce().map { it.toDto() },
+                fitnessGoalChanges = fitnessGoalChangeDao.getAllOnce().map { it.toDto() },
                 nutrientGoalChanges = nutrientGoalChangeDao.getAllOnce().map { it.toDto() },
             ),
         )
@@ -225,6 +271,11 @@ class GoalsExportProvider @Inject constructor(
                 maxWeightGoalDao.upsert(goalDto.toEntity())
             }
         }
+        // Same append-only merge as the Nährstoff-Zieländerungen below.
+        val knownFitnessChangeIds = fitnessGoalChangeDao.getAllOnce().mapTo(mutableSetOf()) { it.id }
+        fitnessGoalChangeDao.insertAll(
+            dto.fitnessGoalChanges.filterNot { it.id in knownFitnessChangeIds }.map { it.toEntity() },
+        )
         // Append-only log, so a merge is "add the rows this device does not have". Matching on the
         // id is enough: a change row is never edited after the fact, so same id means same event.
         val knownIds = nutrientGoalChangeDao.getAllOnce().mapTo(mutableSetOf()) { it.id }
@@ -240,6 +291,7 @@ class GoalsExportProvider @Inject constructor(
         userPreferencesRepository.setBedtimeGoal(null)
         fitnessGoalDao.deleteAll()
         maxWeightGoalDao.deleteAll()
+        fitnessGoalChangeDao.deleteAll()
         // Goes with the goals: a replacing import that kept the old log would date this device's
         // history of changes to targets that are no longer here.
         nutrientGoalChangeDao.deleteAll()

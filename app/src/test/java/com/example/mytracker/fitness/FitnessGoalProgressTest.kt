@@ -3,8 +3,10 @@ package com.example.mytracker.fitness
 import com.example.mytracker.core.util.GoalPeriod
 import java.time.Instant
 import java.time.LocalDate
+import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -58,7 +60,9 @@ class FitnessGoalProgressTest {
         targetDay: String = "2026-12-31",
         start: Double = 80.0,
         startDay: String = "2026-01-01",
+        bodyweightMultiple: Double? = null,
     ) = StrengthMaxWeightGoal(
+        targetBodyweightMultiple = bodyweightMultiple,
         id = "maxweight-bench",
         exerciseId = "bench",
         targetWeightKg = target,
@@ -123,5 +127,166 @@ class FitnessGoalProgressTest {
 
         assertTrue(progress.isReached)
         assertEquals(1f, progress.fraction, 0.0001f)
+    }
+
+    @Test
+    fun periodsFurtherBackAreWholeOnesToo() {
+        // Three weeks back from a Wednesday is still Monday to Sunday, not a rolling 21 days.
+        val range = periodBefore(GoalPeriod.WEEKLY, day("2026-08-19"), periodsBack = 3)
+
+        assertEquals(day("2026-07-27"), range.first)
+        assertEquals(day("2026-08-02"), range.last)
+    }
+
+    @Test
+    fun periodEndIsTheDeadlineNotToday() {
+        assertEquals(day("2026-08-23"), periodEndDay(GoalPeriod.WEEKLY, day("2026-08-19")))
+        assertEquals(day("2026-02-28"), periodEndDay(GoalPeriod.MONTHLY, day("2026-02-05")))
+        assertEquals(day("2026-08-19"), periodEndDay(GoalPeriod.DAILY, day("2026-08-19")))
+    }
+
+    @Test
+    fun anUntrainedPeriodIsPausedRatherThanFailed() = runBlocking {
+        val progress = increaseAgainstLastTrainedPeriod(
+            currentValue = 0.0,
+            currentTrained = false,
+            target = 300.0,
+            isPercent = false,
+            trainedIn = { true },
+            valueIn = { 1000.0 },
+        )
+
+        // A deload week is not a collapse in volume, and a red bar for having rested is exactly the
+        // signal that makes people stop trusting the goal.
+        assertTrue(progress.isPaused)
+        assertFalse(progress.isMet)
+        assertEquals(0f, progress.fraction, 0.0001f)
+    }
+
+    @Test
+    fun emptyPeriodsAreSkippedWhenLookingForSomethingToBeat() = runBlocking {
+        // Trained this week and three weeks ago; the two weeks between were a break.
+        val progress = increaseAgainstLastTrainedPeriod(
+            currentValue = 1400.0,
+            currentTrained = true,
+            target = 200.0,
+            isPercent = false,
+            trainedIn = { back -> back == 3 },
+            valueIn = { 1000.0 },
+        )
+
+        // Counting the empty weeks as zero volume would hand this week a gain of 1400 kg it did not
+        // earn, and tick the goal off for coming back from a holiday.
+        assertEquals(400.0, progress.value, 0.0001)
+        assertEquals(3, progress.referencePeriodsBack)
+        assertTrue(progress.isMet)
+    }
+
+    @Test
+    fun nothingToCompareAgainstIsSaidRatherThanCountedAsZero() = runBlocking {
+        val progress = increaseAgainstLastTrainedPeriod(
+            currentValue = 1400.0,
+            currentTrained = true,
+            target = 200.0,
+            isPercent = false,
+            trainedIn = { false },
+            valueIn = { 0.0 },
+        )
+
+        assertFalse(progress.hasReference)
+        assertFalse(progress.isMet)
+        assertFalse(progress.isPaused)
+    }
+
+    @Test
+    fun percentIsMeasuredAgainstTheReferencePeriod() = runBlocking {
+        val progress = increaseAgainstLastTrainedPeriod(
+            currentValue = 1100.0,
+            currentTrained = true,
+            target = 5.0,
+            isPercent = true,
+            trainedIn = { it == 1 },
+            valueIn = { 1000.0 },
+        )
+
+        // +2,5 kg is a different demand on Kreuzheben than on Seitheben; a percentage scales with
+        // whatever the lift already is.
+        assertEquals(10.0, progress.value, 0.0001)
+        assertTrue(progress.isPercent)
+        assertTrue(progress.isMet)
+    }
+
+    @Test
+    fun aReferenceOfZeroHasNoPercentage() = runBlocking {
+        val progress = increaseAgainstLastTrainedPeriod(
+            currentValue = 1100.0,
+            currentTrained = true,
+            target = 5.0,
+            isPercent = true,
+            // A bodyweight-only week: trained, but no volume at all to be a percentage of.
+            trainedIn = { true },
+            valueIn = { 0.0 },
+        )
+
+        assertFalse(progress.hasReference)
+        assertFalse(progress.isMet)
+    }
+
+    @Test
+    fun aRelativeTargetMovesWithTheBodyWeight() {
+        val relative = goal(target = 0.0, bodyweightMultiple = 1.5)
+
+        val heavier = maxWeightGoalProgress(relative, currentMaxKg = 110.0, bodyWeightKg = 80.0, today = day("2026-07-02"))
+        val lighter = maxWeightGoalProgress(relative, currentMaxKg = 110.0, bodyWeightKg = 70.0, today = day("2026-07-02"))
+
+        // 1,5 × 80 kg is not reached at 110 kg; 1,5 × 70 kg is. Dropping five kilos really does lower
+        // the bar, and a goal that ignored that would quietly turn into a heavier one.
+        assertEquals(120.0, heavier.targetKg, 0.0001)
+        assertFalse(heavier.isReached)
+        assertEquals(105.0, lighter.targetKg, 0.0001)
+        assertTrue(lighter.isReached)
+        assertEquals(1.375, heavier.relativeStrength!!, 0.001)
+    }
+
+    @Test
+    fun aRelativeTargetFallsBackToItsStoredKilosWithoutABodyWeight() {
+        val relative = goal(target = 120.0, bodyweightMultiple = 1.5)
+
+        val progress = maxWeightGoalProgress(relative, currentMaxKg = 110.0, bodyWeightKg = null, today = day("2026-07-02"))
+
+        // Multiplying by a body weight nobody logged would make the target zero kilos — i.e. reached.
+        assertEquals(120.0, progress.targetKg, 0.0001)
+        assertFalse(progress.isReached)
+        assertNull(progress.relativeStrength)
+    }
+
+    @Test
+    fun thePlanIsClippedToTheWindowTheChartShows() {
+        val plan = maxWeightGoalPlanPoints(
+            goal(),
+            targetKg = 100.0,
+            windowStart = day("2026-04-02"),
+            windowEnd = day("2026-10-01"),
+        )!!
+
+        // Two points, both inside the window: letting the line run to a target date months past the
+        // last training day would stretch the x axis and squeeze the history into a corner.
+        assertEquals(2, plan.size)
+        assertEquals(day("2026-04-02"), plan.first().first)
+        assertEquals(day("2026-10-01"), plan.last().first)
+        assertTrue(plan.first().second in 80.0..100.0)
+        assertTrue(plan.last().second > plan.first().second)
+    }
+
+    @Test
+    fun aPlanOutsideTheWindowIsNotDrawnAtAll() {
+        assertNull(
+            maxWeightGoalPlanPoints(
+                goal(),
+                targetKg = 100.0,
+                windowStart = day("2027-06-01"),
+                windowEnd = day("2027-12-01"),
+            ),
+        )
     }
 }

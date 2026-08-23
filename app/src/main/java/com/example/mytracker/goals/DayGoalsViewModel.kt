@@ -80,15 +80,19 @@ class DayGoalsViewModel @Inject constructor(
         ).asSection("Habits")
     }
 
+    // Every period that is running today, not only DAILY: a Wochenziel is what people actually set,
+    // and one that only shows up on the Fitness screen is one nobody sees until the week is over.
     private val fitnessSection = combine(
         fitnessGoalRepository.observeAll(),
         strengthExerciseRepository.observeMuscleGroups(),
-    ) { goals, muscleGroups ->
-        val daily = goals.filter { it.period == GoalPeriod.DAILY }
+        strengthExerciseRepository.observeAll(),
+    ) { goals, muscleGroups, exercises ->
         fitnessGoalRows(
-            goals = daily,
-            progressByGoalId = daily.associate { it.id to fitnessGoalRepository.getPeriodProgress(it, today) },
+            goals = goals,
+            progressByGoalId = goals.associate { it.id to fitnessGoalRepository.getProgress(it, today) },
             muscleGroupNames = muscleGroups.associate { it.id to it.name },
+            exerciseNames = exercises.associate { it.id to it.name },
+            today = today,
         ).asSection("Fitness")
     }
 

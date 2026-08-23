@@ -207,6 +207,37 @@ interface StrengthSetDao {
     )
     suspend fun volumeBetweenForExercise(exerciseId: String, startInclusive: Long, endInclusive: Long): Double
 
+    /**
+     * How many sets this exercise had in a window. Pause detection reads this and not the volume: a
+     * bodyweight session carries no volume at all, and counting it as "nicht trainiert" would put a
+     * Klimmzug-Woche on the same footing as a week on the sofa.
+     */
+    @Query(
+        "SELECT COUNT(*) FROM strength_sets " +
+            "WHERE exerciseId = :exerciseId AND epochDay BETWEEN :startInclusive AND :endInclusive",
+    )
+    suspend fun countBetweenForExercise(exerciseId: String, startInclusive: Long, endInclusive: Long): Int
+
+    @Query(
+        "SELECT COALESCE(SUM(ss.reps * COALESCE(ss.weightKg, 0)), 0) FROM strength_sets ss " +
+            "JOIN strength_exercise_muscle_groups segm ON segm.exerciseId = ss.exerciseId " +
+            "WHERE segm.muscleGroupId = :muscleGroupId AND ss.epochDay BETWEEN :startInclusive AND :endInclusive",
+    )
+    suspend fun volumeBetweenForMuscleGroup(muscleGroupId: String, startInclusive: Long, endInclusive: Long): Double
+
+    /** [movementDirection] is a [MovementDirection] name; untagged exercises match nothing. */
+    @Query(
+        "SELECT COALESCE(SUM(ss.reps * COALESCE(ss.weightKg, 0)), 0) FROM strength_sets ss " +
+            "JOIN strength_exercises se ON se.id = ss.exerciseId " +
+            "WHERE se.movementDirection = :movementDirection " +
+            "AND ss.epochDay BETWEEN :startInclusive AND :endInclusive",
+    )
+    suspend fun volumeBetweenForMovementDirection(
+        movementDirection: String,
+        startInclusive: Long,
+        endInclusive: Long,
+    ): Double
+
     @Query("SELECT * FROM strength_sets ORDER BY epochDay, setIndex")
     suspend fun getAllOnce(): List<StrengthSet>
 }

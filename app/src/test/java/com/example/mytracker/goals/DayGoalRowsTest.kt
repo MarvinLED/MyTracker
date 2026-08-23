@@ -5,6 +5,7 @@ import com.example.mytracker.core.datastore.NutrientGoal
 import com.example.mytracker.core.util.GoalPeriod
 import com.example.mytracker.fitness.FitnessGoal
 import com.example.mytracker.fitness.FitnessGoalMetric
+import com.example.mytracker.fitness.FitnessGoalProgress
 import com.example.mytracker.fluid.FluidType
 import com.example.mytracker.habit.Habit
 import com.example.mytracker.habit.HabitGoal
@@ -135,13 +136,72 @@ class DayGoalRowsTest {
 
         val row = fitnessGoalRows(
             goals = listOf(goal),
-            progressByGoalId = mapOf("goal-1" to 6.0),
+            progressByGoalId = mapOf("goal-1" to FitnessGoalProgress(value = 6.0, target = 6.0)),
             muscleGroupNames = mapOf("mg-1" to "Rücken"),
+            today = 20_000L,
         ).single()
 
-        assertEquals("Kraft-Sätze · Rücken", row.label)
-        assertEquals("6 / ≥6", row.valueText)
+        assertEquals("Kraft-Sätze · Rücken · Täglich", row.label)
+        assertEquals("6 / 6", row.valueText)
         assertTrue(row.isMet)
+    }
+
+    @Test
+    fun fitnessRows_showAWeeklyGoalWithTheDaysLeftToDoSomethingAboutIt() {
+        val goal = FitnessGoal(
+            id = "goal-2",
+            metric = FitnessGoalMetric.STRENGTH_SETS_TOTAL,
+            period = GoalPeriod.WEEKLY,
+            targetValue = 40.0,
+            createdAt = AnInstant,
+        )
+        // 2026-08-19 is a Wednesday, so Sunday is four days off.
+        val wednesday = LocalDate.parse("2026-08-19").toEpochDay()
+
+        val row = fitnessGoalRows(
+            goals = listOf(goal),
+            progressByGoalId = mapOf("goal-2" to FitnessGoalProgress(value = 24.0, target = 40.0)),
+            muscleGroupNames = emptyMap(),
+            today = wednesday,
+        ).single()
+
+        // A weekly goal without its deadline is one nobody can act on today.
+        assertEquals("Kraft-Sätze gesamt · Wöchentlich", row.label)
+        assertEquals("24 / 40 · noch 4 Tage", row.valueText)
+        assertFalse(row.isMet)
+    }
+
+    @Test
+    fun fitnessRows_sayWhenAnIncreaseGoalIsOnlyPaused() {
+        val goal = FitnessGoal(
+            id = "goal-3",
+            metric = FitnessGoalMetric.STRENGTH_VOLUME_INCREASE,
+            period = GoalPeriod.WEEKLY,
+            exerciseId = "bench",
+            targetValue = 300.0,
+            createdAt = AnInstant,
+        )
+
+        val row = fitnessGoalRows(
+            goals = listOf(goal),
+            progressByGoalId = mapOf(
+                "goal-3" to FitnessGoalProgress(
+                    value = 0.0,
+                    target = 300.0,
+                    isPaused = true,
+                    hasReference = false,
+                ),
+            ),
+            muscleGroupNames = emptyMap(),
+            exerciseNames = mapOf("bench" to "Bankdrücken"),
+            today = LocalDate.parse("2026-08-19").toEpochDay(),
+        ).single()
+
+        // A deload week is not a failure, and "0 von 300 kg" would be a red bar for having rested.
+        assertEquals("Steigerung Gesamtvolumen · Bankdrücken · Wöchentlich", row.label)
+        assertTrue(row.valueText.startsWith("Pausiert"))
+        assertFalse(row.isMet)
+        assertEquals(0f, row.fraction)
     }
 
     @Test

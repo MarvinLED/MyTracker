@@ -11,6 +11,16 @@ import com.example.mytracker.core.metrics.MetricPoint
 import com.example.mytracker.core.metrics.bucketBy
 import com.example.mytracker.core.metrics.granularityFor
 import com.example.mytracker.core.util.DateUtils
+import com.example.mytracker.fitness.FitnessGoal
+import com.example.mytracker.fitness.FitnessGoalProgressRow
+import com.example.mytracker.fitness.FitnessGoalRepository
+import com.example.mytracker.fitness.MaxWeightGoalProgressRow
+import com.example.mytracker.fitness.StrengthMaxWeightGoal
+import com.example.mytracker.fitness.effectiveTargetKg
+import com.example.mytracker.fitness.maxWeightGoalPlanPoints
+import com.example.mytracker.fitness.toProgressRow
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -48,13 +58,27 @@ data class StrengthExerciseDetailUiState(
     val volumeSeries: List<MetricPoint> = emptyList(),
     val maxWeightSeries: List<MetricPoint> = emptyList(),
     /**
+     * The long-term goal drawn into the chart: the straight line from where the plan started to what
+     * it is due to be, clipped to the window on screen. Two points, which is all a plan is.
+     */
+    val goalPlanSeries: List<MetricPoint> = emptyList(),
+    /** This exercise's Steigerungsziele, with where they stand this week and this month. */
+    val goalRows: List<FitnessGoalProgressRow> = emptyList(),
+    val maxWeightGoalRow: MaxWeightGoalProgressRow? = null,
+    /** "seit 3. Mai 2026" — when the current target was set, out of the goal change log. */
+    val goalSince: String? = null,
+    val isGoalsExpanded: Boolean = true,
+    /**
      * The two lower blocks fold away so the session comparison — the answer to "war das gut?" —
      * needs no scrolling. The Eingabe starts open because it is why the screen gets opened; the
      * Verlauf starts closed because it is for reviewing, not for logging.
      */
     val isEntryExpanded: Boolean = true,
     val isChartExpanded: Boolean = false,
-)
+) {
+    /** Nothing to draw a Ziele block for when this exercise has no goals at all. */
+    val hasGoals: Boolean get() = goalRows.isNotEmpty() || maxWeightGoalRow != null
+}
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
@@ -62,6 +86,7 @@ class StrengthExerciseDetailViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val strengthLogRepository: StrengthLogRepository,
     private val strengthExerciseRepository: StrengthExerciseRepository,
+    private val fitnessGoalRepository: FitnessGoalRepository,
 ) : ViewModel() {
     private val route: StrengthExerciseDetailRoute = savedStateHandle.toRoute()
 
@@ -91,6 +116,27 @@ class StrengthExerciseDetailViewModel @Inject constructor(
         strengthLogRepository.observeSetsForExercise(route.exerciseId)
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    private val goalData: kotlinx.coroutines.flow.Flow<ExerciseGoalData> = combine(
+        fitnessGoalRepository.observeAll(),
+        fitnessGoalRepository.observeMaxWeightGoalForExercise(route.exerciseId),
+        fitnessGoalRepository.observeLatestBodyWeightKg(),
+        fitnessGoalRepository.observeGoalChanges(),
+    ) { goals, maxWeightGoal, bodyWeightKg, changes ->
+        val sinceFormatter = DateTimeFormatter.ofPattern("d. MMM yyyy", Locale.GERMAN)
+        ExerciseGoalData(
+            goals = goals.filter { it.exerciseId == route.exerciseId },
+            maxWeightGoal = maxWeightGoal,
+            bodyWeightKg = bodyWeightKg,
+            // The newest change that set (rather than cleared) this goal: what the target has been
+            // in force since. Without the log this question has no answer at all — the goal row is
+            // overwritten in place.
+            goalSince = changes
+                .filter { it.goalKey == "maxweight-${route.exerciseId}" && it.targetValue != null }
+                .maxByOrNull { it.effectiveFromEpochDay }
+                ?.let { DateUtils.localDateOfEpochDay(it.effectiveFromEpochDay).format(sinceFormatter) },
+        )
+    }
+
     val uiState: StateFlow<StrengthExerciseDetailUiState> = combine(
         allSets,
         _selectedEpochDay,
@@ -98,10 +144,11 @@ class StrengthExerciseDetailViewModel @Inject constructor(
         combine(_weightKg, _isBodyweight, _reps, _lastRemoved) { weight, bodyweight, reps, removed ->
             StepperState(weight, bodyweight, reps, removed != null)
         },
-        combine(_exerciseName, _note, _chartRange, _panels) { name, note, range, panels ->
-            ScreenState(name, note, range, panels)
+        combine(_exerciseName, _note, _chartRange, _panels, goalData) { name, note, range, panels, goals ->
+            ScreenState(name, note, range, panels, goals)
         },
     ) { sets, day, draft, stepper, screen ->
+        val today = DateUtils.todayEpochDay()
         val persisted = sets.sessionOn(day)
         // The draft wins while it exists, so the UI never waits for a database round-trip.
         val current = draft?.let { drafted ->
@@ -131,6 +178,22 @@ class StrengthExerciseDetailViewModel @Inject constructor(
             chartGranularity = granularity,
             volumeSeries = window.dailyVolumePoints().bucketBy(granularity, MetricAggregation.SUM),
             maxWeightSeries = window.dailyMaxWeightPoints().bucketBy(granularity, MetricAggregation.MAX),
+            goalPlanSeries = screen.goals.planPointsIn(window),
+            goalRows = screen.goals.goals.map { goal ->
+                goal.toProgressRow(
+                    progress = fitnessGoalRepository.getProgress(goal, today),
+                    muscleGroupNames = emptyMap(),
+                    exerciseNames = mapOf(route.exerciseId to screen.exerciseName),
+                )
+            },
+            maxWeightGoalRow = screen.goals.maxWeightGoal?.toProgressRow(
+                exerciseName = screen.exerciseName,
+                currentMaxKg = sets.mapNotNull { it.weightKg }.maxOrNull(),
+                bodyWeightKg = screen.goals.bodyWeightKg,
+                today = today,
+            ),
+            goalSince = screen.goals.goalSince,
+            isGoalsExpanded = screen.panels.goalsExpanded,
             isEntryExpanded = screen.panels.entryExpanded,
             isChartExpanded = screen.panels.chartExpanded,
         )
@@ -147,8 +210,12 @@ class StrengthExerciseDetailViewModel @Inject constructor(
         val canUndo: Boolean,
     )
 
-    /** Which of the two foldable blocks are open; see [StrengthExerciseDetailUiState.isEntryExpanded]. */
-    private data class PanelState(val entryExpanded: Boolean = true, val chartExpanded: Boolean = false)
+    /** Which of the foldable blocks are open; see [StrengthExerciseDetailUiState.isEntryExpanded]. */
+    private data class PanelState(
+        val goalsExpanded: Boolean = true,
+        val entryExpanded: Boolean = true,
+        val chartExpanded: Boolean = false,
+    )
 
     /** The screen-level bits, bundled because [combine] takes a fixed number of sources. */
     private data class ScreenState(
@@ -156,7 +223,36 @@ class StrengthExerciseDetailViewModel @Inject constructor(
         val note: String,
         val chartRange: ChartRange,
         val panels: PanelState,
+        val goals: ExerciseGoalData,
     )
+
+    /**
+     * What this exercise is being trained *towards*, on the page where it is trained. A goal that
+     * only lives on the Ziele screen is one nobody consults while deciding whether to add a plate.
+     */
+    private data class ExerciseGoalData(
+        val goals: List<FitnessGoal> = emptyList(),
+        val maxWeightGoal: StrengthMaxWeightGoal? = null,
+        val bodyWeightKg: Double? = null,
+        val goalSince: String? = null,
+    ) {
+        /** The plan clipped to the days the chart is showing — see [maxWeightGoalPlanPoints]. */
+        fun planPointsIn(window: List<StrengthSet>): List<MetricPoint> {
+            val goal = maxWeightGoal ?: return emptyList()
+            val first = window.minOfOrNull { it.epochDay } ?: return emptyList()
+            val last = window.maxOfOrNull { it.epochDay } ?: return emptyList()
+            return maxWeightGoalPlanPoints(
+                goal = goal,
+                targetKg = goal.effectiveTargetKg(bodyWeightKg),
+                windowStart = first,
+                windowEnd = last,
+            )?.map { (day, value) -> MetricPoint(day, value) }.orEmpty()
+        }
+    }
+
+    fun toggleGoalsExpanded() {
+        _panels.value = _panels.value.copy(goalsExpanded = !_panels.value.goalsExpanded)
+    }
 
     fun toggleEntryExpanded() {
         _panels.value = _panels.value.copy(entryExpanded = !_panels.value.entryExpanded)

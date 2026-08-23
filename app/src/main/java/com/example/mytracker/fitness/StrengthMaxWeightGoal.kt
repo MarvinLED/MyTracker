@@ -24,6 +24,12 @@ import kotlinx.coroutines.flow.Flow
  *
  * One goal per exercise ([exerciseId] unique): two targets for the same lift with different dates
  * would be two answers to "am I on track?".
+ *
+ * [targetBodyweightMultiple], when set, makes the target relative: "1,5 × Körpergewicht" instead of
+ * "120 kg". It then *moves with the body weight*, which is the honest thing for a relative-strength
+ * goal — dropping five kilos really does lower the bar, and a goal that ignored that would quietly
+ * turn into a heavier one. [targetWeightKg] carries the weight the multiple last worked out to, so
+ * a goal still reads as a number when no weight has been logged yet.
  */
 @Entity(
     tableName = "strength_max_weight_goals",
@@ -33,6 +39,7 @@ data class StrengthMaxWeightGoal(
     @PrimaryKey val id: String,
     val exerciseId: String,
     val targetWeightKg: Double,
+    val targetBodyweightMultiple: Double? = null,
     val targetEpochDay: Long,
     val startWeightKg: Double,
     val startEpochDay: Long,
@@ -49,6 +56,9 @@ interface StrengthMaxWeightGoalDao {
 
     @Query("SELECT * FROM strength_max_weight_goals WHERE exerciseId = :exerciseId")
     suspend fun getForExercise(exerciseId: String): StrengthMaxWeightGoal?
+
+    @Query("SELECT * FROM strength_max_weight_goals WHERE exerciseId = :exerciseId")
+    fun observeForExercise(exerciseId: String): Flow<StrengthMaxWeightGoal?>
 
     @Upsert
     suspend fun upsert(goal: StrengthMaxWeightGoal)

@@ -7,6 +7,8 @@ import com.example.mytracker.bloodpressure.BloodPressureDao
 import com.example.mytracker.bloodpressure.BloodPressureEntry
 import com.example.mytracker.fitness.FitnessGoal
 import com.example.mytracker.fitness.FitnessGoalDao
+import com.example.mytracker.fitness.FitnessGoalChange
+import com.example.mytracker.fitness.FitnessGoalChangeDao
 import com.example.mytracker.fitness.StrengthMaxWeightGoal
 import com.example.mytracker.fitness.StrengthMaxWeightGoalDao
 import com.example.mytracker.fitness.cardio.CardioActivityType
@@ -97,6 +99,7 @@ import com.example.mytracker.weight.BodyWeightEntry
         BodyWeightEntry::class,
         FitnessGoal::class,
         StrengthMaxWeightGoal::class,
+        FitnessGoalChange::class,
         BodySite::class,
         BodyMeasurement::class,
         BloodPressureEntry::class,
@@ -108,7 +111,7 @@ import com.example.mytracker.weight.BodyWeightEntry
         TaskCompletion::class,
         NutrientGoalChange::class,
     ],
-    version = 26,
+    version = 27,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -134,6 +137,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun bodyWeightDao(): BodyWeightDao
     abstract fun fitnessGoalDao(): FitnessGoalDao
     abstract fun strengthMaxWeightGoalDao(): StrengthMaxWeightGoalDao
+    abstract fun fitnessGoalChangeDao(): FitnessGoalChangeDao
     abstract fun bodySiteDao(): BodySiteDao
     abstract fun bodyMeasurementDao(): BodyMeasurementDao
     abstract fun bloodPressureDao(): BloodPressureDao

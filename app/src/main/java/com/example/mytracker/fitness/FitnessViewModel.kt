@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.mytracker.core.util.DateUtils
 import com.example.mytracker.core.util.formatCompact
+import com.example.mytracker.core.util.formatDecimal
 import com.example.mytracker.core.util.label
 import com.example.mytracker.fitness.cardio.CardioRepository
 import com.example.mytracker.fitness.strength.StrengthExerciseRepository
@@ -92,11 +93,12 @@ class FitnessViewModel @Inject constructor(
             fitnessGoalRepository.observeAll(),
             fitnessGoalRepository.observeMaxWeightGoals(),
             fitnessGoalRepository.observeMaxWeightPerExercise(),
-        ) { goals, maxWeightGoals, maxWeightPerExercise ->
-            Triple(goals, maxWeightGoals, maxWeightPerExercise)
+            fitnessGoalRepository.observeLatestBodyWeightKg(),
+        ) { goals, maxWeightGoals, maxWeightPerExercise, bodyWeightKg ->
+            GoalData(goals, maxWeightGoals, maxWeightPerExercise, bodyWeightKg)
         },
         strengthExerciseRepository.observeMuscleGroups(),
-    ) { tab, (exercises, lastSessions), (activityTypes, lastCardio), (goals, maxWeightGoals, maxWeightPerExercise), muscleGroups ->
+    ) { tab, (exercises, lastSessions), (activityTypes, lastCardio), goalData, muscleGroups ->
         val items = when (tab) {
             // Already sorted by `name COLLATE NOCASE` in the DAO.
             FitnessTab.STRENGTH -> exercises.map { item ->
@@ -126,21 +128,22 @@ class FitnessViewModel @Inject constructor(
         FitnessUiState(
             selectedTab = tab,
             items = items,
-            goalRows = goals
+            goalRows = goalData.goals
                 .sortedWith(compareBy({ it.metric.ordinal }, { it.period.ordinal }))
                 .map { goal ->
                     goal.toProgressRow(
-                        progress = fitnessGoalRepository.getPeriodProgress(goal, today),
+                        progress = fitnessGoalRepository.getProgress(goal, today),
                         muscleGroupNames = muscleGroupNames,
                         exerciseNames = exerciseNames,
                     )
                 },
-            maxWeightGoalRows = maxWeightGoals
+            maxWeightGoalRows = goalData.maxWeightGoals
                 .sortedBy { exerciseNames[it.exerciseId].orEmpty() }
                 .map { goal ->
                     goal.toProgressRow(
                         exerciseName = exerciseNames[goal.exerciseId] ?: "Übung",
-                        currentMaxKg = maxWeightPerExercise[goal.exerciseId],
+                        currentMaxKg = goalData.maxWeightPerExercise[goal.exerciseId],
+                        bodyWeightKg = goalData.bodyWeightKg,
                         today = today,
                     )
                 },
@@ -159,6 +162,14 @@ class FitnessViewModel @Inject constructor(
     }
 }
 
+/** The goal-related flows, bundled: combine has no five-argument tuple to hand them over in. */
+private data class GoalData(
+    val goals: List<FitnessGoal>,
+    val maxWeightGoals: List<StrengthMaxWeightGoal>,
+    val maxWeightPerExercise: Map<String, Double>,
+    val bodyWeightKg: Double?,
+)
+
 /** The scope a goal is about, spelled out — "Bankdrücken", "Brust", "Druck" — or nothing. */
 private fun FitnessGoal.scopeLabel(
     muscleGroupNames: Map<String, String>,
@@ -167,42 +178,63 @@ private fun FitnessGoal.scopeLabel(
     ?: muscleGroupId?.let { muscleGroupNames[it] }
     ?: movementDirection?.label()
 
-private fun FitnessGoal.toProgressRow(
-    progress: Double,
+fun FitnessGoal.toProgressRow(
+    progress: FitnessGoalProgress,
     muscleGroupNames: Map<String, String>,
     exerciseNames: Map<String, String>,
-): FitnessGoalProgressRow {
-    val scope = scopeLabel(muscleGroupNames, exerciseNames)
-    val unit = metric.unit().let { if (it.isBlank()) "" else " $it" }
-    return FitnessGoalProgressRow(
-        id = id,
-        label = listOfNotNull(metric.label(), scope, period.label()).joinToString(" · "),
-        // Signed for the Steigerungen: "0 von 5 kg" would read as "nothing trained yet", while
-        // "±0 von +5 kg" says what actually happened — trained, but no heavier than before.
-        valueText = if (metric.isIncrease) {
-            "${progress.formatSigned()} von ${targetValue.formatSigned()}$unit"
-        } else {
-            "${progress.formatCompact()} / ${targetValue.formatCompact()}$unit"
-        },
-        fraction = if (targetValue > 0) (progress / targetValue).toFloat().coerceIn(0f, 1f) else 0f,
-        isMet = targetValue > 0 && progress >= targetValue,
-    )
+): FitnessGoalProgressRow = FitnessGoalProgressRow(
+    id = id,
+    label = listOfNotNull(metric.label(), scopeLabel(muscleGroupNames, exerciseNames), period.label())
+        .joinToString(" · "),
+    valueText = progress.valueText(unit()),
+    fraction = progress.fraction,
+    isMet = progress.isMet,
+)
+
+/**
+ * What one goal's standing reads as. A Steigerung carries its sign — "±0 von +5 kg" says "trained,
+ * but no heavier than before", where a plain "0 von 5" would read as "nothing done yet" — and the
+ * two cases that are neither met nor missed say so in words rather than as an empty bar.
+ */
+fun FitnessGoalProgress.valueText(unit: String): String {
+    val suffix = if (unit.isBlank()) "" else " $unit"
+    return when {
+        isPaused -> "Pausiert · in diesem Zeitraum nicht trainiert"
+        !hasReference -> "Kein Vergleichszeitraum"
+        referencePeriodsBack > 0 -> {
+            val reference = when (referencePeriodsBack) {
+                1 -> ""
+                // Named, because the number only means something once it is clear what it beat:
+                // a gain over three weeks ago is a different claim from one over last week.
+                else -> " (ggü. vor $referencePeriodsBack Zeiträumen)"
+            }
+            "${value.formatSigned()} von ${target.formatSigned()}$suffix$reference"
+        }
+        else -> "${value.formatCompact()} / ${target.formatCompact()}$suffix"
+    }
 }
 
-private fun StrengthMaxWeightGoal.toProgressRow(
+fun StrengthMaxWeightGoal.toProgressRow(
     exerciseName: String,
     currentMaxKg: Double?,
+    bodyWeightKg: Double?,
     today: Long,
 ): MaxWeightGoalProgressRow {
-    val progress = maxWeightGoalProgress(this, currentMaxKg, today)
+    val progress = maxWeightGoalProgress(this, currentMaxKg, bodyWeightKg, today)
     val dateFormatter = DateTimeFormatter.ofPattern("d. MMM yyyy", Locale.GERMAN)
     val behind = progress.expectedKg - (currentMaxKg ?: startWeightKg)
+    // A relative goal names the multiple as well as the kilos it currently works out to: the
+    // multiple is the goal, the kilos are only what it means at today's body weight.
+    val targetLabel = targetBodyweightMultiple
+        ?.let { "${it.formatCompact()} × KG (${progress.targetKg.formatCompact()} kg)" }
+        ?: "${progress.targetKg.formatCompact()} kg"
     return MaxWeightGoalProgressRow(
         id = id,
-        label = "$exerciseName · ${targetWeightKg.formatCompact()} kg bis " +
+        label = "$exerciseName · $targetLabel bis " +
             DateUtils.localDateOfEpochDay(targetEpochDay).format(dateFormatter),
-        valueText = "Aktuell ${(currentMaxKg ?: startWeightKg).formatCompact()} kg · " +
-            "Soll heute ${progress.expectedKg.formatCompact()} kg",
+        valueText = "Aktuell ${(currentMaxKg ?: startWeightKg).formatCompact()} kg" +
+            progress.relativeStrength?.let { " (${it.formatDecimal(2)} × KG)" }.orEmpty() +
+            " · Soll heute ${progress.expectedKg.formatCompact()} kg",
         statusText = when {
             progress.isReached -> "Erreicht"
             progress.daysRemaining < 0 -> "Zieldatum überschritten"
@@ -216,7 +248,7 @@ private fun StrengthMaxWeightGoal.toProgressRow(
 }
 
 /** "+2,5" / "±0" / "-1" — a gain has to carry its sign to be read as one. */
-private fun Double.formatSigned(): String = when {
+fun Double.formatSigned(): String = when {
     this > 0 -> "+${formatCompact()}"
     this == 0.0 -> "±0"
     else -> formatCompact()

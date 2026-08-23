@@ -8,14 +8,23 @@ fun FitnessGoalMetric.label(): String = when (this) {
     FitnessGoalMetric.STRENGTH_SETS_MOVEMENT_DIRECTION -> "Kraft-Sätze pro Bewegungsrichtung"
     FitnessGoalMetric.STRENGTH_MAX_WEIGHT_INCREASE -> "Steigerung Maximalgewicht"
     FitnessGoalMetric.STRENGTH_VOLUME_INCREASE -> "Steigerung Gesamtvolumen"
+    FitnessGoalMetric.STRENGTH_VOLUME_INCREASE_MUSCLE_GROUP -> "Steigerung Volumen (Muskelgruppe)"
+    FitnessGoalMetric.STRENGTH_VOLUME_INCREASE_MOVEMENT_DIRECTION -> "Steigerung Volumen (Bewegungsrichtung)"
 }
 
 /** The unit [FitnessGoal.targetValue] is read in. Empty for the metrics that simply count. */
 fun FitnessGoalMetric.unit(): String = when (this) {
     FitnessGoalMetric.CARDIO_DURATION_MINUTES -> "min"
-    FitnessGoalMetric.STRENGTH_MAX_WEIGHT_INCREASE, FitnessGoalMetric.STRENGTH_VOLUME_INCREASE -> "kg"
+    FitnessGoalMetric.STRENGTH_MAX_WEIGHT_INCREASE,
+    FitnessGoalMetric.STRENGTH_VOLUME_INCREASE,
+    FitnessGoalMetric.STRENGTH_VOLUME_INCREASE_MUSCLE_GROUP,
+    FitnessGoalMetric.STRENGTH_VOLUME_INCREASE_MOVEMENT_DIRECTION,
+    -> "kg"
     else -> ""
 }
+
+/** The unit one goal is actually read in — percent once it is set that way. */
+fun FitnessGoal.unit(): String = if (isPercent) "%" else metric.unit()
 
 /**
  * True for the metrics that are measured against the period *before* rather than against zero. A
@@ -23,8 +32,16 @@ fun FitnessGoalMetric.unit(): String = when (this) {
  * they are labelled with a sign wherever they are shown.
  */
 val FitnessGoalMetric.isIncrease: Boolean
-    get() = this == FitnessGoalMetric.STRENGTH_MAX_WEIGHT_INCREASE ||
-        this == FitnessGoalMetric.STRENGTH_VOLUME_INCREASE
+    get() = when (this) {
+        FitnessGoalMetric.STRENGTH_MAX_WEIGHT_INCREASE,
+        FitnessGoalMetric.STRENGTH_VOLUME_INCREASE,
+        FitnessGoalMetric.STRENGTH_VOLUME_INCREASE_MUSCLE_GROUP,
+        FitnessGoalMetric.STRENGTH_VOLUME_INCREASE_MOVEMENT_DIRECTION,
+        -> true
+        else -> false
+    }
 
 /** True for the metrics that need an exercise to be about anything. */
-val FitnessGoalMetric.isExerciseScoped: Boolean get() = isIncrease
+val FitnessGoalMetric.isExerciseScoped: Boolean
+    get() = this == FitnessGoalMetric.STRENGTH_MAX_WEIGHT_INCREASE ||
+        this == FitnessGoalMetric.STRENGTH_VOLUME_INCREASE

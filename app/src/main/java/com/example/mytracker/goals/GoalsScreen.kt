@@ -9,6 +9,7 @@ import androidx.compose.material3.SelectableDates
 import androidx.compose.material3.rememberDatePickerState
 import com.example.mytracker.core.util.DateUtils
 import com.example.mytracker.core.util.formatCompact
+import com.example.mytracker.core.util.formatDecimal
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneOffset
@@ -293,10 +294,14 @@ private fun FitnessGoalsSection(state: GoalsUiState, viewModel: GoalsViewModel) 
             val maxWeightGoal = section.rows.firstOrNull()?.exerciseId?.let { exerciseId ->
                 state.maxWeightGoals.firstOrNull { it.exerciseId == exerciseId }
             }
-            if (maxWeightGoal == null) {
-                FitnessGoalGroup(section = section, viewModel = viewModel)
-            } else {
-                ExerciseGoalGroup(section = section, maxWeightGoal = maxWeightGoal, viewModel = viewModel)
+            when {
+                maxWeightGoal != null ->
+                    FoldableGoalGroup(section, maxWeightGoal, state.bodyWeightKg, viewModel)
+                // Muskelgruppen and Bewegungsrichtungen carry two rows each and run long; Cardio and
+                // Kraft gesamt are three rows in total and fold to nothing worth hiding.
+                section.rows.size > MaxUnfoldedGoalRows ->
+                    FoldableGoalGroup(section, maxWeightGoal = null, bodyWeightKg = null, viewModel = viewModel)
+                else -> FitnessGoalGroup(section = section, viewModel = viewModel)
             }
         }
     }
@@ -312,18 +317,23 @@ private fun FitnessGoalGroup(section: FitnessGoalSection, viewModel: GoalsViewMo
 }
 
 /**
- * One exercise's goals, folded away until opened: the two Steigerungen and the long-term target for
- * the top set. They belong in one block because they are three answers to the same question — how
- * this lift is meant to move — at three horizons.
+ * A section folded away until opened: an exercise's three goals, or one of the long scope lists.
+ * A library of twenty exercises is four fields each, and unfolded that is a screen nobody scrolls
+ * to the bottom of.
+ *
+ * [maxWeightGoal] is what makes it an exercise block — the two Steigerungen and the long-term target
+ * belong together because they are three answers to the same question, how this lift is meant to
+ * move, at three horizons.
  */
 @Composable
-private fun ExerciseGoalGroup(
+private fun FoldableGoalGroup(
     section: FitnessGoalSection,
-    maxWeightGoal: MaxWeightGoalRow,
+    maxWeightGoal: MaxWeightGoalRow?,
+    bodyWeightKg: Double?,
     viewModel: GoalsViewModel,
 ) {
     val hasGoals = section.rows.any { it.weeklyText.isNotBlank() || it.monthlyText.isNotBlank() } ||
-        (maxWeightGoal.targetText.isNotBlank() && maxWeightGoal.targetEpochDay != null)
+        (maxWeightGoal != null && maxWeightGoal.targetText.isNotBlank() && maxWeightGoal.targetEpochDay != null)
     // Opened when something is set: a goal that is folded out of sight is one nobody remembers is on.
     var expanded by rememberSaveable(section.title) { mutableStateOf(hasGoals) }
 
@@ -347,7 +357,7 @@ private fun ExerciseGoalGroup(
         }
         if (expanded) {
             section.rows.forEach { row -> FitnessGoalRowFields(row, viewModel) }
-            MaxWeightGoalFields(row = maxWeightGoal, viewModel = viewModel)
+            maxWeightGoal?.let { MaxWeightGoalFields(row = it, bodyWeightKg = bodyWeightKg, viewModel = viewModel) }
         }
     }
 }
@@ -362,7 +372,16 @@ private fun FitnessGoalRowFields(row: FitnessGoalRow, viewModel: GoalsViewModel)
     ) {
         Column(modifier = Modifier.weight(1f)) {
             Text(row.label, style = MaterialTheme.typography.bodyMedium)
-            if (row.unit.isNotBlank()) {
+            if (row.isIncrease) {
+                // +2,5 kg is a different demand on Kreuzheben than on Seitheben; the percentage
+                // scales with whatever the lift already is. One pair of chips governs both periods.
+                UnitChoiceChips(
+                    absoluteLabel = row.unit,
+                    isRelative = row.isPercent,
+                    onChange = { viewModel.onFitnessGoalPercentChange(row.key, it) },
+                    relativeLabel = "%",
+                )
+            } else if (row.unit.isNotBlank()) {
                 Text(
                     "in ${row.unit}",
                     style = MaterialTheme.typography.labelSmall,
@@ -393,19 +412,50 @@ private fun FitnessGoalRowFields(row: FitnessGoalRow, viewModel: GoalsViewModel)
  * The long-term target for one exercise's top set: a weight and the date it is due by. Both or
  * neither — the date is what separates a plan from a wish, and it is also what "auf Kurs" is
  * computed against on the Fitness screen.
+ *
+ * The target can be a multiple of body weight instead of a fixed number. It then moves with the
+ * body weight, which is the honest thing for a relative-strength goal: dropping five kilos really
+ * does lower the bar, and a goal that ignored that would quietly turn into a heavier one.
  */
 @Composable
-private fun MaxWeightGoalFields(row: MaxWeightGoalRow, viewModel: GoalsViewModel) {
+private fun MaxWeightGoalFields(row: MaxWeightGoalRow, bodyWeightKg: Double?, viewModel: GoalsViewModel) {
     val dateFormatter = remember { DateTimeFormatter.ofPattern("d. MMM yyyy", Locale.GERMAN) }
     var showDatePicker by remember { mutableStateOf(false) }
+    val typed = row.targetText.toLocaleDoubleOrNull()
 
     Column(verticalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.fillMaxWidth()) {
         Text("Langfristiges Ziel Maximalgewicht", style = MaterialTheme.typography.bodyMedium)
-        row.currentMaxKg?.let { current ->
+        UnitChoiceChips(
+            absoluteLabel = "kg",
+            isRelative = row.isRelative,
+            onChange = { viewModel.onMaxWeightGoalRelativeChange(row.exerciseId, it) },
+            relativeLabel = "× KG",
+        )
+        val current = row.currentMaxKg
+        val relativeNow = current?.let { max -> bodyWeightKg?.takeIf { it > 0 }?.let { max / it } }
+        current?.let {
             Text(
-                "Aktuell: ${current.formatCompact()} kg",
+                "Aktuell: ${it.formatCompact()} kg" +
+                    relativeNow?.let { relative -> " (${relative.formatDecimal(2)} × KG)" }.orEmpty(),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        if (row.isRelative) {
+            Text(
+                bodyWeightKg?.let { weight ->
+                    typed?.let { "Entspricht heute ${(it * weight).formatCompact()} kg bei ${weight.formatCompact()} kg KG" }
+                        ?: "Körpergewicht: ${weight.formatCompact()} kg"
+                }
+                    // Without a logged body weight the multiple has nothing to multiply, and the goal
+                    // would silently store a target of zero kilos.
+                    ?: "Noch kein Körpergewicht erfasst — ein relatives Ziel braucht eines.",
+                style = MaterialTheme.typography.labelSmall,
+                color = if (bodyWeightKg == null) {
+                    MaterialTheme.colorScheme.error
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                },
             )
         }
         Row(
@@ -416,7 +466,7 @@ private fun MaxWeightGoalFields(row: MaxWeightGoalRow, viewModel: GoalsViewModel
             OutlinedTextField(
                 value = row.targetText,
                 onValueChange = { viewModel.onMaxWeightGoalTargetChange(row.exerciseId, it) },
-                label = { Text("Ziel (kg)") },
+                label = { Text(if (row.isRelative) "Ziel (× KG)" else "Ziel (kg)") },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 modifier = Modifier.width(120.dp),
@@ -447,6 +497,35 @@ private fun MaxWeightGoalFields(row: MaxWeightGoalRow, viewModel: GoalsViewModel
         )
     }
 }
+
+/**
+ * The two ways one target can be read: in its own unit, or relative — percent for a Steigerung,
+ * a multiple of body weight for a long-term target. Chips rather than a switch because neither of
+ * the two is the "on" state.
+ */
+@Composable
+private fun UnitChoiceChips(
+    absoluteLabel: String,
+    relativeLabel: String,
+    isRelative: Boolean,
+    onChange: (Boolean) -> Unit,
+) {
+    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        FilterChip(
+            selected = !isRelative,
+            onClick = { onChange(false) },
+            label = { Text(absoluteLabel, style = MaterialTheme.typography.labelSmall) },
+        )
+        FilterChip(
+            selected = isRelative,
+            onClick = { onChange(true) },
+            label = { Text(relativeLabel, style = MaterialTheme.typography.labelSmall) },
+        )
+    }
+}
+
+/** Past this many rows a section folds; below it, folding hides less than the fold itself costs. */
+private const val MaxUnfoldedGoalRows = 4
 
 /**
  * The calendar for a target date. The mirror image of the Blutdruck screen's: only days **after**

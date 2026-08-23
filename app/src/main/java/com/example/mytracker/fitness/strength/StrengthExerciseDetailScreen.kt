@@ -22,6 +22,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -42,6 +43,7 @@ import com.example.mytracker.core.metrics.ChartRange
 import com.example.mytracker.core.metrics.label
 import com.example.mytracker.core.metrics.pointLabel
 import com.example.mytracker.core.ui.ChartLine
+import com.example.mytracker.core.ui.ChartLineStyle
 import com.example.mytracker.core.ui.DatedLineChart
 import com.example.mytracker.fluid.fluidPalette
 import com.example.mytracker.ui.theme.AppDomain
@@ -91,6 +93,17 @@ fun StrengthExerciseDetailScreen(
                 onPickDate = { showDatePicker = true },
                 onSelectDay = viewModel::selectDay,
             )
+
+            if (state.hasGoals) {
+                SectionHeader(
+                    title = "Ziele",
+                    expanded = state.isGoalsExpanded,
+                    onToggle = viewModel::toggleGoalsExpanded,
+                )
+                AnimatedVisibility(visible = state.isGoalsExpanded) {
+                    GoalsCard(state = state)
+                }
+            }
 
             SectionHeader(
                 title = "Training hinzufügen",
@@ -148,11 +161,16 @@ fun StrengthExerciseDetailScreen(
                         }
                         // Built here rather than via ChartSeries.toChartLine, which infers zeroBased
                         // from the unit string and would put volume on a non-zero axis too.
+                        //
+                        // The units are what group the axes (see DatedLineChart's sharedScale), and
+                        // they have to differ: volume runs in the thousands and a top set in the
+                        // tens, so one axis for both would flatten the heavier line to the floor.
+                        // "kg gesamt" is also the more honest name for a volume anyway.
                         DatedLineChart(
-                            lines = listOf(
+                            lines = listOfNotNull(
                                 ChartLine(
                                     label = "Volumen",
-                                    unit = "kg",
+                                    unit = "kg gesamt",
                                     color = palette[0],
                                     points = state.volumeSeries,
                                     zeroBased = true,
@@ -165,9 +183,24 @@ fun StrengthExerciseDetailScreen(
                                     // A working range of 80–100 kg on a zero axis is a flat line.
                                     zeroBased = false,
                                 ),
+                                // The plan on the same axis as the line it is a plan for — that is
+                                // the whole point, and why it shares the "kg" unit. Dashed and
+                                // without markers: it is a target, not a set of measurements.
+                                state.goalPlanSeries.takeIf { it.size >= 2 }?.let { points ->
+                                    ChartLine(
+                                        label = "Soll",
+                                        unit = "kg",
+                                        color = palette[3],
+                                        points = points,
+                                        zeroBased = false,
+                                        style = ChartLineStyle.DASHED,
+                                        markers = false,
+                                    )
+                                },
                             ),
                             panelHeight = 180,
                             overlaid = true,
+                            sharedScale = true,
                         )
                     }
                 }
@@ -190,6 +223,62 @@ fun StrengthExerciseDetailScreen(
             dismissButton = { TextButton(onClick = { showDatePicker = false }) { Text("Abbrechen") } },
         ) {
             DatePicker(state = pickerState)
+        }
+    }
+}
+
+/**
+ * What this exercise is being trained towards, where it is trained. The Steigerungen sit above the
+ * long-term goal because they are what today's session can still change; the long-term one is the
+ * context they add up to.
+ */
+@Composable
+private fun GoalsCard(state: StrengthExerciseDetailUiState) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            state.goalRows.forEach { row ->
+                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(row.label, style = MaterialTheme.typography.bodyMedium)
+                    Text(
+                        row.valueText,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (row.isMet) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        },
+                    )
+                    LinearProgressIndicator(progress = { row.fraction }, modifier = Modifier.fillMaxWidth())
+                }
+            }
+            state.maxWeightGoalRow?.let { row ->
+                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(row.label, style = MaterialTheme.typography.bodyMedium)
+                    Text(row.valueText, style = MaterialTheme.typography.bodySmall)
+                    Text(
+                        row.statusText,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = if (row.isOnTrack) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.error
+                        },
+                    )
+                    LinearProgressIndicator(progress = { row.fraction }, modifier = Modifier.fillMaxWidth())
+                    // Out of the change log: the goal row itself is overwritten in place, so this is
+                    // the only place the answer to "seit wann eigentlich?" survives.
+                    state.goalSince?.let { since ->
+                        Text(
+                            "Ziel gesetzt am $since",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
         }
     }
 }

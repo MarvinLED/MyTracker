@@ -6,12 +6,14 @@ import com.example.mytracker.core.datastore.Nutrient
 import com.example.mytracker.core.datastore.NutrientGoal
 import com.example.mytracker.core.datastore.UserPreferencesRepository
 import com.example.mytracker.core.util.GoalPeriod
+import com.example.mytracker.core.util.label
 import com.example.mytracker.core.util.minutesAsHours
 import com.example.mytracker.core.util.formatDecimal
 import com.example.mytracker.core.util.toLocaleDoubleOrNull
 import com.example.mytracker.fitness.FitnessGoal
 import com.example.mytracker.fitness.FitnessGoalMetric
 import com.example.mytracker.fitness.FitnessGoalRepository
+import com.example.mytracker.fitness.isIncrease
 import com.example.mytracker.fitness.unit
 import com.example.mytracker.fitness.strength.MovementDirection
 import com.example.mytracker.fitness.strength.MuscleGroup
@@ -47,13 +49,19 @@ data class FitnessGoalRow(
     val key: String,
     val metric: FitnessGoalMetric,
     val label: String,
+    /** Label including the section, for the change log — a history row has no section around it. */
+    val logLabel: String,
     val unit: String,
     val muscleGroupId: String? = null,
     val movementDirection: MovementDirection? = null,
     val exerciseId: String? = null,
     val weeklyText: String = "",
     val monthlyText: String = "",
-)
+    /** Increase goals only: whether the two targets are read as percent instead of kilos. */
+    val isPercent: Boolean = false,
+) {
+    val isIncrease: Boolean get() = metric.isIncrease
+}
 
 /** The rows grouped the way the screen shows them, so a long list stays navigable. */
 data class FitnessGoalSection(val title: String, val rows: List<FitnessGoalRow>)
@@ -72,6 +80,8 @@ data class MaxWeightGoalRow(
     val currentMaxKg: Double? = null,
     /** Where the plan started, once one is on file — see [com.example.mytracker.fitness.StrengthMaxWeightGoal]. */
     val startWeightKg: Double? = null,
+    /** True when [targetText] is a multiple of body weight rather than a weight in kilos. */
+    val isRelative: Boolean = false,
 )
 
 /** One nutrient's goal row: the two bounds as typed. Either may be blank, or both. */
@@ -88,6 +98,8 @@ data class GoalsUiState(
     val fluidTypeGoals: List<FluidTypeGoalInput> = emptyList(),
     val fitnessGoalSections: List<FitnessGoalSection> = emptyList(),
     val maxWeightGoals: List<MaxWeightGoalRow> = emptyList(),
+    /** The latest logged body weight — what a relative target is multiplied by. Null until one exists. */
+    val bodyWeightKg: Double? = null,
     /** Sleep length in **hours** as typed ("7,5"); the repository stores minutes. */
     val sleepDurationMinHours: String = "",
     val sleepDurationMaxHours: String = "",
@@ -118,6 +130,7 @@ class GoalsViewModel @Inject constructor(
             val fitnessGoals = fitnessGoalRepository.observeAll().first()
             val maxWeightGoals = fitnessGoalRepository.observeMaxWeightGoals().first()
             val maxWeightByExercise = fitnessGoalRepository.observeMaxWeightPerExercise().first()
+            val bodyWeightKg = fitnessGoalRepository.observeLatestBodyWeightKg().first()
             _state.value = GoalsUiState(
                 waterGoal = prefs.dailyWaterGoalMl.toString(),
                 nutrientGoals = Nutrient.entries.map { nutrient ->
@@ -141,12 +154,17 @@ class GoalsViewModel @Inject constructor(
                     MaxWeightGoalRow(
                         exerciseId = exercise.id,
                         exerciseName = exercise.name,
-                        targetText = goal?.targetWeightKg?.formatDecimal(2).orEmpty(),
+                        // A relative goal is typed as the multiple it is, not as the kilos it
+                        // happens to work out to today — those move with the body weight.
+                        targetText = (goal?.targetBodyweightMultiple ?: goal?.targetWeightKg)
+                            ?.formatDecimal(2).orEmpty(),
                         targetEpochDay = goal?.targetEpochDay,
                         currentMaxKg = maxWeightByExercise[exercise.id],
                         startWeightKg = goal?.startWeightKg,
+                        isRelative = goal?.targetBodyweightMultiple != null,
                     )
                 },
+                bodyWeightKg = bodyWeightKg,
                 sleepDurationMinHours = prefs.sleepDurationGoalMinutes?.min
                     ?.let { it.toInt().minutesAsHours().formatGoalHours() }.orEmpty(),
                 sleepDurationMaxHours = prefs.sleepDurationGoalMinutes?.max
@@ -166,62 +184,91 @@ class GoalsViewModel @Inject constructor(
         exercises: List<StrengthExercise>,
         goals: List<FitnessGoal>,
     ): List<FitnessGoalSection> {
-        fun targetOf(
+        fun stored(
             metric: FitnessGoalMetric,
             period: GoalPeriod,
             muscleGroupId: String? = null,
             movementDirection: MovementDirection? = null,
             exerciseId: String? = null,
-        ): String = goals.firstOrNull {
+        ): FitnessGoal? = goals.firstOrNull {
             it.metric == metric && it.period == period && it.muscleGroupId == muscleGroupId &&
                 it.movementDirection == movementDirection && it.exerciseId == exerciseId
-        }?.targetValue?.formatDecimal(2).orEmpty()
+        }
 
         fun row(
             key: String,
             metric: FitnessGoalMetric,
             label: String,
+            sectionTitle: String,
             muscleGroupId: String? = null,
             movementDirection: MovementDirection? = null,
             exerciseId: String? = null,
-        ) = FitnessGoalRow(
-            key = key,
-            metric = metric,
-            label = label,
-            unit = metric.unit(),
-            muscleGroupId = muscleGroupId,
-            movementDirection = movementDirection,
-            exerciseId = exerciseId,
-            weeklyText = targetOf(metric, GoalPeriod.WEEKLY, muscleGroupId, movementDirection, exerciseId),
-            monthlyText = targetOf(metric, GoalPeriod.MONTHLY, muscleGroupId, movementDirection, exerciseId),
-        )
+        ): FitnessGoalRow {
+            val weekly = stored(metric, GoalPeriod.WEEKLY, muscleGroupId, movementDirection, exerciseId)
+            val monthly = stored(metric, GoalPeriod.MONTHLY, muscleGroupId, movementDirection, exerciseId)
+            return FitnessGoalRow(
+                key = key,
+                metric = metric,
+                label = label,
+                logLabel = "$sectionTitle · $label",
+                unit = metric.unit(),
+                muscleGroupId = muscleGroupId,
+                movementDirection = movementDirection,
+                exerciseId = exerciseId,
+                weeklyText = weekly?.targetValue?.formatDecimal(2).orEmpty(),
+                monthlyText = monthly?.targetValue?.formatDecimal(2).orEmpty(),
+                // Both periods of one row share the mode: "5 % pro Woche, aber 2000 kg pro Monat"
+                // is two different questions in one row, and the row has one pair of chips.
+                isPercent = weekly?.isPercent ?: monthly?.isPercent ?: false,
+            )
+        }
 
         return buildList {
             add(
                 FitnessGoalSection(
                     "Cardio",
                     listOf(
-                        row("cardio-sessions", FitnessGoalMetric.CARDIO_SESSIONS, "Einheiten"),
-                        row("cardio-duration", FitnessGoalMetric.CARDIO_DURATION_MINUTES, "Dauer"),
+                        row("cardio-sessions", FitnessGoalMetric.CARDIO_SESSIONS, "Einheiten", "Cardio"),
+                        row("cardio-duration", FitnessGoalMetric.CARDIO_DURATION_MINUTES, "Dauer", "Cardio"),
                     ),
                 ),
             )
             add(
                 FitnessGoalSection(
                     "Kraft gesamt",
-                    listOf(row("strength-sets", FitnessGoalMetric.STRENGTH_SETS_TOTAL, "Sätze gesamt")),
+                    listOf(
+                        row(
+                            "strength-sets",
+                            FitnessGoalMetric.STRENGTH_SETS_TOTAL,
+                            "Sätze gesamt",
+                            "Kraft gesamt",
+                        ),
+                    ),
                 ),
             )
             if (muscleGroups.isNotEmpty()) {
                 add(
                     FitnessGoalSection(
-                        "Sätze pro Muskelgruppe",
-                        muscleGroups.map { group ->
-                            row(
-                                key = "muscle-${group.id}",
-                                metric = FitnessGoalMetric.STRENGTH_SETS_MUSCLE_GROUP,
-                                label = group.name,
-                                muscleGroupId = group.id,
+                        "Muskelgruppen",
+                        muscleGroups.flatMap { group ->
+                            listOf(
+                                row(
+                                    key = "muscle-sets-${group.id}",
+                                    metric = FitnessGoalMetric.STRENGTH_SETS_MUSCLE_GROUP,
+                                    label = "${group.name} · Sätze",
+                                    sectionTitle = "Muskelgruppen",
+                                    muscleGroupId = group.id,
+                                ),
+                                // Volume and not a top set: the heaviest thing done for "Rücken" is
+                                // whichever exercise uses the biggest numbers, which says nothing
+                                // about the muscle group. Volume adds up across exercises.
+                                row(
+                                    key = "muscle-volume-${group.id}",
+                                    metric = FitnessGoalMetric.STRENGTH_VOLUME_INCREASE_MUSCLE_GROUP,
+                                    label = "${group.name} · Volumen-Steigerung",
+                                    sectionTitle = "Muskelgruppen",
+                                    muscleGroupId = group.id,
+                                ),
                             )
                         },
                     ),
@@ -229,13 +276,23 @@ class GoalsViewModel @Inject constructor(
             }
             add(
                 FitnessGoalSection(
-                    "Sätze pro Bewegungsrichtung",
-                    MovementDirection.entries.map { direction ->
-                        row(
-                            key = "direction-${direction.name}",
-                            metric = FitnessGoalMetric.STRENGTH_SETS_MOVEMENT_DIRECTION,
-                            label = direction.label(),
-                            movementDirection = direction,
+                    "Bewegungsrichtungen",
+                    MovementDirection.entries.flatMap { direction ->
+                        listOf(
+                            row(
+                                key = "direction-sets-${direction.name}",
+                                metric = FitnessGoalMetric.STRENGTH_SETS_MOVEMENT_DIRECTION,
+                                label = "${direction.label()} · Sätze",
+                                sectionTitle = "Bewegungsrichtungen",
+                                movementDirection = direction,
+                            ),
+                            row(
+                                key = "direction-volume-${direction.name}",
+                                metric = FitnessGoalMetric.STRENGTH_VOLUME_INCREASE_MOVEMENT_DIRECTION,
+                                label = "${direction.label()} · Volumen-Steigerung",
+                                sectionTitle = "Bewegungsrichtungen",
+                                movementDirection = direction,
+                            ),
                         )
                     },
                 ),
@@ -249,12 +306,14 @@ class GoalsViewModel @Inject constructor(
                                 key = "maxweight-increase-${exercise.id}",
                                 metric = FitnessGoalMetric.STRENGTH_MAX_WEIGHT_INCREASE,
                                 label = "Steigerung Maximalgewicht",
+                                sectionTitle = exercise.name,
                                 exerciseId = exercise.id,
                             ),
                             row(
                                 key = "volume-increase-${exercise.id}",
                                 metric = FitnessGoalMetric.STRENGTH_VOLUME_INCREASE,
                                 label = "Steigerung Gesamtvolumen",
+                                sectionTitle = exercise.name,
                                 exerciseId = exercise.id,
                             ),
                         ),
@@ -321,6 +380,24 @@ class GoalsViewModel @Inject constructor(
         )
     }
 
+    /** kg or %, for both periods of the row at once — see [FitnessGoalRow.isPercent]. */
+    fun onFitnessGoalPercentChange(rowKey: String, isPercent: Boolean) {
+        _state.value = _state.value.copy(
+            fitnessGoalSections = _state.value.fitnessGoalSections.map { section ->
+                section.copy(
+                    rows = section.rows.map { row ->
+                        if (row.key == rowKey) row.copy(isPercent = isPercent) else row
+                    },
+                )
+            },
+        )
+    }
+
+    /** Switches the long-term target between kilos and a multiple of body weight. */
+    fun onMaxWeightGoalRelativeChange(exerciseId: String, isRelative: Boolean) {
+        updateMaxWeightGoal(exerciseId) { it.copy(isRelative = isRelative) }
+    }
+
     fun onMaxWeightGoalTargetChange(exerciseId: String, value: String) {
         updateMaxWeightGoal(exerciseId) { it.copy(targetText = value) }
     }
@@ -373,22 +450,26 @@ class GoalsViewModel @Inject constructor(
                 listOf(GoalPeriod.WEEKLY to row.weeklyText, GoalPeriod.MONTHLY to row.monthlyText)
                     .forEach { (period, text) ->
                         val target = text.toLocaleDoubleOrNull()?.takeIf { it > 0.0 }
+                        val label = "${row.logLabel} · ${period.label()}"
                         if (target == null) {
                             fitnessGoalRepository.clearGoal(
-                                row.metric,
-                                period,
-                                row.muscleGroupId,
-                                row.movementDirection,
-                                row.exerciseId,
+                                metric = row.metric,
+                                period = period,
+                                muscleGroupId = row.muscleGroupId,
+                                movementDirection = row.movementDirection,
+                                exerciseId = row.exerciseId,
+                                label = label,
                             )
                         } else {
                             fitnessGoalRepository.setGoal(
-                                row.metric,
-                                period,
-                                row.muscleGroupId,
-                                row.movementDirection,
-                                target,
-                                row.exerciseId,
+                                metric = row.metric,
+                                period = period,
+                                muscleGroupId = row.muscleGroupId,
+                                movementDirection = row.movementDirection,
+                                targetValue = target,
+                                exerciseId = row.exerciseId,
+                                isPercent = row.isIncrease && row.isPercent,
+                                label = label,
                             )
                         }
                     }
@@ -398,10 +479,20 @@ class GoalsViewModel @Inject constructor(
             s.maxWeightGoals.forEach { row ->
                 val target = row.targetText.toLocaleDoubleOrNull()?.takeIf { it > 0.0 }
                 val date = row.targetEpochDay
+                val label = "${row.exerciseName} · Langfristiges Maximalgewicht"
                 if (target != null && date != null) {
-                    fitnessGoalRepository.setMaxWeightGoal(row.exerciseId, target, date)
+                    // A relative target still stores the kilos it currently means, so the goal reads
+                    // as a number even before the next weigh-in — but the multiple is what governs.
+                    val multiple = target.takeIf { row.isRelative }
+                    fitnessGoalRepository.setMaxWeightGoal(
+                        exerciseId = row.exerciseId,
+                        targetWeightKg = if (multiple != null) target * (s.bodyWeightKg ?: 0.0) else target,
+                        targetEpochDay = date,
+                        targetBodyweightMultiple = multiple,
+                        label = label,
+                    )
                 } else {
-                    fitnessGoalRepository.clearMaxWeightGoal(row.exerciseId)
+                    fitnessGoalRepository.clearMaxWeightGoal(row.exerciseId, label = label)
                 }
             }
             // Typed in hours, stored in minutes: comparing a night to its goal is minute arithmetic,

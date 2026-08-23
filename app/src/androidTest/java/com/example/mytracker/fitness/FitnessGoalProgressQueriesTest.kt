@@ -5,16 +5,20 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.example.mytracker.core.database.AppDatabase
 import com.example.mytracker.core.util.GoalPeriod
+import com.example.mytracker.fitness.strength.MuscleGroup
 import com.example.mytracker.fitness.strength.StrengthExercise
 import com.example.mytracker.fitness.strength.StrengthLogEntry
 import com.example.mytracker.fitness.strength.StrengthSet
+import com.example.mytracker.weight.BodyWeightEntry
 import java.time.Instant
 import java.time.LocalDate
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -44,6 +48,8 @@ class FitnessGoalProgressQueriesTest {
             db.cardioDao(),
             db.strengthSetDao(),
             db.strengthMaxWeightGoalDao(),
+            db.fitnessGoalChangeDao(),
+            db.bodyWeightDao(),
         )
         db.strengthExerciseDao().upsert(
             StrengthExercise(
@@ -58,8 +64,12 @@ class FitnessGoalProgressQueriesTest {
     @After
     fun tearDown() = db.close()
 
+    /** A session with no external weight at all — training that carries no volume. */
+    private suspend fun logBodyweightSession(epochDay: Long, reps: Int, sets: Int) =
+        logSession(epochDay, weightKg = null, reps = reps, sets = sets)
+
     /** One session of [reps] × [weightKg], [sets] sets, on [epochDay]. */
-    private suspend fun logSession(epochDay: Long, weightKg: Double, reps: Int, sets: Int) {
+    private suspend fun logSession(epochDay: Long, weightKg: Double?, reps: Int, sets: Int) {
         val entryId = "entry-$epochDay-$weightKg"
         db.strengthLogDao().upsert(
             StrengthLogEntry(
@@ -102,9 +112,9 @@ class FitnessGoalProgressQueriesTest {
         logSession(lastWednesday, weightKg = 80.0, reps = 5, sets = 3)
         logSession(thisMonday, weightKg = 82.5, reps = 5, sets = 3)
 
-        val progress = repository.getPeriodProgress(goal(FitnessGoalMetric.STRENGTH_MAX_WEIGHT_INCREASE, 5.0), today)
+        val progress = repository.getProgress(goal(FitnessGoalMetric.STRENGTH_MAX_WEIGHT_INCREASE, 5.0), today)
 
-        assertEquals(2.5, progress, 0.0001)
+        assertEquals(2.5, progress.value, 0.0001)
     }
 
     @Test
@@ -114,18 +124,22 @@ class FitnessGoalProgressQueriesTest {
         // Null and not 0 kg is what the query returns for "never trained before" — a first session
         // is not a gain of 82,5 kg, and reporting one would tick off any Steigerungsziel at once.
         assertNull(db.strengthSetDao().maxWeightBeforeForExercise("bench", thisMonday))
-        val progress = repository.getPeriodProgress(goal(FitnessGoalMetric.STRENGTH_MAX_WEIGHT_INCREASE, 5.0), today)
+        val progress = repository.getProgress(goal(FitnessGoalMetric.STRENGTH_MAX_WEIGHT_INCREASE, 5.0), today)
 
-        assertEquals(0.0, progress, 0.0001)
+        assertEquals(0.0, progress.value, 0.0001)
+        assertFalse(progress.hasReference)
     }
 
     @Test
-    fun maxWeightIncrease_isZeroInAWeekWithoutTraining() = runBlocking {
+    fun maxWeightIncrease_isPausedInAWeekWithoutTraining() = runBlocking {
         logSession(lastWednesday, weightKg = 80.0, reps = 5, sets = 3)
 
-        val progress = repository.getPeriodProgress(goal(FitnessGoalMetric.STRENGTH_MAX_WEIGHT_INCREASE, 5.0), today)
+        val progress = repository.getProgress(goal(FitnessGoalMetric.STRENGTH_MAX_WEIGHT_INCREASE, 5.0), today)
 
-        assertEquals(0.0, progress, 0.0001)
+        // A week off is a pause, not a lost kilo — and not a red bar either.
+        assertTrue(progress.isPaused)
+        assertFalse(progress.isMet)
+        assertEquals(0f, progress.fraction, 0.0001f)
     }
 
     @Test
@@ -134,9 +148,9 @@ class FitnessGoalProgressQueriesTest {
         logSession(thisMonday, weightKg = 80.0, reps = 5, sets = 3)
 
         // A lighter week is a step back, and the goal card says so rather than rounding it to zero.
-        val progress = repository.getPeriodProgress(goal(FitnessGoalMetric.STRENGTH_MAX_WEIGHT_INCREASE, 5.0), today)
+        val progress = repository.getProgress(goal(FitnessGoalMetric.STRENGTH_MAX_WEIGHT_INCREASE, 5.0), today)
 
-        assertEquals(-5.0, progress, 0.0001)
+        assertEquals(-5.0, progress.value, 0.0001)
     }
 
     @Test
@@ -145,9 +159,11 @@ class FitnessGoalProgressQueriesTest {
         logSession(lastWednesday, weightKg = 80.0, reps = 5, sets = 3)
         logSession(thisMonday, weightKg = 80.0, reps = 5, sets = 4)
 
-        val progress = repository.getPeriodProgress(goal(FitnessGoalMetric.STRENGTH_VOLUME_INCREASE, 300.0), today)
+        val progress = repository.getProgress(goal(FitnessGoalMetric.STRENGTH_VOLUME_INCREASE, 300.0), today)
 
-        assertEquals(400.0, progress, 0.0001)
+        assertEquals(400.0, progress.value, 0.0001)
+        assertEquals(1, progress.referencePeriodsBack)
+        assertTrue(progress.isMet)
     }
 
     @Test
@@ -155,9 +171,9 @@ class FitnessGoalProgressQueriesTest {
         logSession(lastWednesday, weightKg = 80.0, reps = 5, sets = 4)
         logSession(thisMonday, weightKg = 80.0, reps = 5, sets = 1)
 
-        val progress = repository.getPeriodProgress(goal(FitnessGoalMetric.STRENGTH_VOLUME_INCREASE, 300.0), today)
+        val progress = repository.getProgress(goal(FitnessGoalMetric.STRENGTH_VOLUME_INCREASE, 300.0), today)
 
-        assertEquals(-1200.0, progress, 0.0001)
+        assertEquals(-1200.0, progress.value, 0.0001)
     }
 
     @Test
@@ -188,5 +204,164 @@ class FitnessGoalProgressQueriesTest {
 
         repository.clearMaxWeightGoal("bench")
         assertEquals(0, repository.observeMaxWeightGoals().first().size)
+    }
+
+    @Test
+    fun volumeIncrease_skipsTheWeeksThatWereNotTrained() = runBlocking {
+        // Trained three weeks ago and again this week; the two weeks between were a break.
+        logSession(LocalDate.parse("2026-07-29").toEpochDay(), weightKg = 80.0, reps = 5, sets = 3)
+        logSession(thisMonday, weightKg = 80.0, reps = 5, sets = 4)
+
+        val progress = repository.getProgress(goal(FitnessGoalMetric.STRENGTH_VOLUME_INCREASE, 300.0), today)
+
+        // Against the last week actually trained (1200 kg), not against the empty week before this
+        // one — which would hand this week a gain of its whole volume for coming back from a break.
+        assertEquals(400.0, progress.value, 0.0001)
+        assertEquals(3, progress.referencePeriodsBack)
+    }
+
+    @Test
+    fun volumeIncrease_countsABodyweightWeekAsTrainedEvenThoughItHasNoVolume() = runBlocking {
+        logBodyweightSession(lastWednesday, reps = 10, sets = 3)
+        logSession(thisMonday, weightKg = 80.0, reps = 5, sets = 3)
+
+        val progress = repository.getProgress(goal(FitnessGoalMetric.STRENGTH_VOLUME_INCREASE, 300.0), today)
+
+        // Pause detection reads the set count, not the volume: a Klimmzug-Woche is training, and
+        // skipping it would compare against a week further back that was never meant to be the
+        // reference.
+        assertEquals(1, progress.referencePeriodsBack)
+        assertEquals(1200.0, progress.value, 0.0001)
+    }
+
+    @Test
+    fun percentIncrease_readsTheGainAgainstTheReferencePeriod() = runBlocking {
+        logSession(lastWednesday, weightKg = 80.0, reps = 5, sets = 4)
+        logSession(thisMonday, weightKg = 80.0, reps = 5, sets = 5)
+
+        repository.setGoal(
+            metric = FitnessGoalMetric.STRENGTH_VOLUME_INCREASE,
+            period = GoalPeriod.WEEKLY,
+            muscleGroupId = null,
+            movementDirection = null,
+            targetValue = 20.0,
+            exerciseId = "bench",
+            isPercent = true,
+        )
+        val stored = repository.observeAll().first()
+            .single { it.metric == FitnessGoalMetric.STRENGTH_VOLUME_INCREASE }
+
+        // 1600 kg against 2000 kg is a quarter more, and the goal was 20 %.
+        val progress = repository.getProgress(stored, today)
+        assertEquals(25.0, progress.value, 0.0001)
+        assertTrue(progress.isPercent)
+        assertTrue(progress.isMet)
+    }
+
+    @Test
+    fun muscleGroupVolumeIncrease_addsUpAcrossTheExercisesOfThatGroup() = runBlocking {
+        db.muscleGroupDao().upsert(
+            MuscleGroup(id = "back", name = "Rücken", sortOrder = 0, createdAt = Instant.EPOCH),
+        )
+        db.strengthExerciseDao().replaceMuscleGroupsForExercise("bench", listOf("back"))
+        logSession(lastWednesday, weightKg = 80.0, reps = 5, sets = 3)
+        logSession(thisMonday, weightKg = 80.0, reps = 5, sets = 4)
+
+        repository.setGoal(
+            metric = FitnessGoalMetric.STRENGTH_VOLUME_INCREASE_MUSCLE_GROUP,
+            period = GoalPeriod.WEEKLY,
+            muscleGroupId = "back",
+            movementDirection = null,
+            targetValue = 300.0,
+        )
+        val stored = repository.observeAll().first()
+            .single { it.metric == FitnessGoalMetric.STRENGTH_VOLUME_INCREASE_MUSCLE_GROUP }
+
+        val progress = repository.getProgress(stored, today)
+        assertEquals(400.0, progress.value, 0.0001)
+    }
+
+    @Test
+    fun changingAGoalIsWrittenToTheLogAndClearingItToo() = runBlocking {
+        repository.setGoal(
+            metric = FitnessGoalMetric.STRENGTH_VOLUME_INCREASE,
+            period = GoalPeriod.WEEKLY,
+            muscleGroupId = null,
+            movementDirection = null,
+            targetValue = 300.0,
+            exerciseId = "bench",
+            label = "Bankdrücken · Steigerung Gesamtvolumen · Wöchentlich",
+        )
+        // Saving the same target again is not a change: the Ziele screen writes every row on every
+        // save, and a log full of identical rows would answer nothing.
+        repository.setGoal(
+            metric = FitnessGoalMetric.STRENGTH_VOLUME_INCREASE,
+            period = GoalPeriod.WEEKLY,
+            muscleGroupId = null,
+            movementDirection = null,
+            targetValue = 300.0,
+            exerciseId = "bench",
+        )
+        repository.setGoal(
+            metric = FitnessGoalMetric.STRENGTH_VOLUME_INCREASE,
+            period = GoalPeriod.WEEKLY,
+            muscleGroupId = null,
+            movementDirection = null,
+            targetValue = 400.0,
+            exerciseId = "bench",
+        )
+        repository.clearGoal(
+            metric = FitnessGoalMetric.STRENGTH_VOLUME_INCREASE,
+            period = GoalPeriod.WEEKLY,
+            muscleGroupId = null,
+            movementDirection = null,
+            exerciseId = "bench",
+        )
+
+        val changes = repository.observeGoalChanges().first()
+        assertEquals(listOf(300.0, 400.0, null), changes.sortedBy { it.changedAt }.map { it.targetValue })
+        assertEquals(
+            "Bankdrücken · Steigerung Gesamtvolumen · Wöchentlich",
+            changes.minByOrNull { it.changedAt }?.label,
+        )
+    }
+
+    @Test
+    fun clearingAGoalThatWasNeverSetIsNotAChange() = runBlocking {
+        repository.clearGoal(
+            metric = FitnessGoalMetric.STRENGTH_VOLUME_INCREASE,
+            period = GoalPeriod.MONTHLY,
+            muscleGroupId = null,
+            movementDirection = null,
+            exerciseId = "bench",
+        )
+
+        // The Ziele screen saves a screen full of empty fields on every save; filling the log with
+        // "kein Ziel" rows for goals nobody ever set would bury the changes that happened.
+        assertTrue(repository.observeGoalChanges().first().isEmpty())
+    }
+
+    @Test
+    fun aRelativeLongTermGoalTravelsWithTheBodyWeight() = runBlocking {
+        db.bodyWeightDao().upsert(
+            BodyWeightEntry(id = "w-1", epochDay = today - 1, weightKg = 80.0, createdAt = Instant.EPOCH),
+        )
+        logSession(lastWednesday, weightKg = 100.0, reps = 5, sets = 3)
+
+        repository.setMaxWeightGoal(
+            exerciseId = "bench",
+            targetWeightKg = 120.0,
+            targetEpochDay = today + 200,
+            targetBodyweightMultiple = 1.5,
+        )
+
+        val goal = repository.observeMaxWeightGoals().first().single()
+        val bodyWeight = repository.observeLatestBodyWeightKg().first()
+        assertEquals(80.0, bodyWeight!!, 0.0001)
+
+        val progress = maxWeightGoalProgress(goal, currentMaxKg = 100.0, bodyWeightKg = bodyWeight, today = today)
+        assertEquals(120.0, progress.targetKg, 0.0001)
+        assertEquals(1.25, progress.relativeStrength!!, 0.0001)
+        assertFalse(progress.isReached)
     }
 }
