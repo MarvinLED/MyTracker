@@ -94,17 +94,6 @@ fun StrengthExerciseDetailScreen(
                 onSelectDay = viewModel::selectDay,
             )
 
-            if (state.hasGoals) {
-                SectionHeader(
-                    title = "Ziele",
-                    expanded = state.isGoalsExpanded,
-                    onToggle = viewModel::toggleGoalsExpanded,
-                )
-                AnimatedVisibility(visible = state.isGoalsExpanded) {
-                    GoalsCard(state = state)
-                }
-            }
-
             SectionHeader(
                 title = "Training hinzufügen",
                 expanded = state.isEntryExpanded,
@@ -124,6 +113,17 @@ fun StrengthExerciseDetailScreen(
                     onNoteChange = viewModel::onNoteChange,
                     onNoteCommit = viewModel::persistNote,
                 )
+            }
+
+            if (state.hasGoals) {
+                SectionHeader(
+                    title = "Ziele",
+                    expanded = state.isGoalsExpanded,
+                    onToggle = viewModel::toggleGoalsExpanded,
+                )
+                AnimatedVisibility(visible = state.isGoalsExpanded) {
+                    GoalsCard(state = state)
+                }
             }
 
             SectionHeader(

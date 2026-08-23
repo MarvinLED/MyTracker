@@ -75,14 +75,26 @@ class StrengthSessionStatsTest {
     }
 
     @Test
-    fun recentSessions_areNewestFirstAndCapped() {
+    fun sessionsBefore_areNewestFirstAndCapped() {
         val sets = listOf(
             row(day("2026-07-24"), 8, 60.0),
             row(day("2026-07-22"), 8, 58.0),
             row(day("2026-07-20"), 8, 55.0),
         )
-        val recent = sets.recentSessions(limit = 2)
+        val recent = sets.sessionsBefore(day = day("2026-07-26"), limit = 2)
         assertEquals(listOf(day("2026-07-24"), day("2026-07-22")), recent.map { it.epochDay })
+    }
+
+    @Test
+    fun sessionsBefore_leavesOutTheSelectedDayAndEverythingAfterIt() {
+        val sets = listOf(
+            row(day("2026-07-26"), 8, 62.0),
+            row(day("2026-07-24"), 8, 60.0),
+            row(day("2026-07-22"), 8, 58.0),
+        )
+        // Standing on the 24th, the 26th is not a session "before" it — it has no "vor x Tagen".
+        val recent = sets.sessionsBefore(day = day("2026-07-24"), limit = 5)
+        assertEquals(listOf(day("2026-07-22")), recent.map { it.epochDay })
     }
 
     @Test

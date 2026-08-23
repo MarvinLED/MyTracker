@@ -18,6 +18,8 @@ private val MetGreenDark = Color(0xFF0E9A2B)
 private val MetGreenLight = Color(0xFF008300)
 private val MissedRedDark = Color(0xFFE66767)
 private val MissedRedLight = Color(0xFFE34948)
+private val CautionAmberDark = Color(0xFFE3B341)
+private val CautionAmberLight = Color(0xFF8A6100)
 
 @Composable
 @ReadOnlyComposable
@@ -30,3 +32,16 @@ fun statusColor(isMet: Boolean): Color {
         else -> MissedRedLight
     }
 }
+
+/**
+ * The step between met and missed: a top set below last time's is worth noticing, but it is not the
+ * red of a missed goal — an easy day inside a plan is supposed to happen. Amber says "unter dem
+ * letzten Mal" without calling it a failure.
+ *
+ * Darkened well past the chart's yellow in light mode: amber on white is the one hue that reliably
+ * fails to be readable at body-text size.
+ */
+@Composable
+@ReadOnlyComposable
+fun cautionColor(): Color =
+    if (MaterialTheme.colorScheme.surface.luminance() < 0.5f) CautionAmberDark else CautionAmberLight

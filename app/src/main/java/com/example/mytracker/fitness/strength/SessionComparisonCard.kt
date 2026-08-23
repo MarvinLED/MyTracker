@@ -1,5 +1,6 @@
 package com.example.mytracker.fitness.strength
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -10,6 +11,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ChevronLeft
@@ -32,26 +34,29 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.mytracker.core.util.DateUtils
-import com.example.mytracker.core.util.formatCompact
+import com.example.mytracker.ui.theme.cautionColor
 import com.example.mytracker.ui.theme.statusColor
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 private val dayFormatter = DateTimeFormatter.ofPattern("EEE, d. MMMM", Locale.GERMAN)
-private val shortDayFormatter = DateTimeFormatter.ofPattern("d. MMM", Locale.GERMAN)
 private val BannerShape = RoundedCornerShape(10.dp)
 
 /**
- * The top block: which day is being edited, and how it compares to the session before it. It opens
+ * The top block: which day is being edited, and how it compares to the sessions before it. It opens
  * with the verdict — did this session beat the last one's volume — because that is the question the
- * screen exists to answer; the table below it is the evidence.
+ * screen exists to answer; the list below it is the evidence.
+ *
+ * The evidence is one row per session rather than a metrics table. The table read down the wrong
+ * axis: it put "Max" next to "Volumen" next to "Sätze" when what a lifter compares is one training
+ * against the training before it. A row per session says the same numbers along the axis they are
+ * actually read on, and leaves room to say per session whether it was a step up.
  *
  * This block is the one that never folds away, so the verdict is on screen whatever else is
- * collapsed. "Frühere Einheiten" inside it is collapsed by default — expanded it answers "how much
- * did I do in the last few workouts" beyond the single previous session.
+ * collapsed. Only the sessions past the first three wait behind "Frühere Einheiten".
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -64,6 +69,9 @@ fun SessionComparisonCard(
     modifier: Modifier = Modifier,
 ) {
     var showEarlier by remember { mutableStateOf(false) }
+    // A set rather than a single open row: two dates can be wanted at once, and closing one row
+    // because another was opened would be the card second-guessing what was asked for.
+    var openDates by remember { mutableStateOf(emptySet<Long>()) }
 
     Card(modifier = modifier.fillMaxWidth()) {
         Column(
@@ -87,70 +95,142 @@ fun SessionComparisonCard(
 
             VolumeTargetBanner(volumeTarget(state.currentSession, state.previousSession))
 
-            val previousLabel = state.previousSession
-                ?.let { DateUtils.formatDaysSince(DateUtils.daysBetweenEpochDays(it.epochDay, state.selectedEpochDay)) }
-                ?: "—"
-            Row {
-                Text("", modifier = Modifier.weight(1.1f))
-                ColumnHeader("Letztes ($previousLabel)", Modifier.weight(1f))
-                ColumnHeader("Dieses", Modifier.weight(1f))
-            }
-            StatRow(
-                label = "Max",
-                previous = state.previousSession?.maxWeightKg?.let { weightLabel(it) },
-                current = state.currentSession?.maxWeightKg?.let { weightLabel(it) },
-            )
-            StatRow(
-                label = "Volumen",
-                previous = state.previousSession?.let { "${it.volumeKg.formatCompact()} kg" },
-                current = state.currentSession?.let { "${it.volumeKg.formatCompact()} kg" },
-            )
-            StatRow(
-                label = "Sätze",
-                previous = state.previousSession?.setCount?.toString(),
-                current = state.currentSession?.setCount?.toString(),
-            )
-            // No "Δ Volumen" row here: the banner above already states the difference, and saying
-            // it twice made the one line that matters compete with itself.
-
             HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
 
-            SummaryLine("Zuletzt", state.previousSession)
-            SummaryLine("Dieses", state.currentSession)
+            val rows = state.sessionRows
+            val earlier = rows.drop(PINNED_SESSION_ROWS)
 
-            if (state.recentSessions.isNotEmpty()) {
+            fun toggleDate(epochDay: Long) {
+                openDates = if (epochDay in openDates) openDates - epochDay else openDates + epochDay
+            }
+
+            rows.take(PINNED_SESSION_ROWS).forEach { row ->
+                SessionRowItem(
+                    row = row,
+                    isSelectedDay = row.epochDay == state.selectedEpochDay,
+                    showDate = row.epochDay in openDates,
+                    onToggleDate = { toggleDate(row.epochDay) },
+                    onSelectDay = onSelectDay,
+                )
+            }
+
+            if (earlier.isNotEmpty()) {
+                if (showEarlier) {
+                    earlier.forEach { row ->
+                        SessionRowItem(
+                            row = row,
+                            isSelectedDay = false,
+                            showDate = row.epochDay in openDates,
+                            onToggleDate = { toggleDate(row.epochDay) },
+                            onSelectDay = onSelectDay,
+                        )
+                    }
+                }
+                // Below the rows once they are out: the handle that closes a list belongs at the end
+                // of it, where the thumb already is after reading through.
                 TextButton(onClick = { showEarlier = !showEarlier }) {
                     Icon(
                         if (showEarlier) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
                         contentDescription = null,
                     )
-                    Text("Frühere Einheiten")
+                    Text(if (showEarlier) "Einklappen" else "Frühere Einheiten")
                 }
-                if (showEarlier) {
-                    state.recentSessions.forEach { session ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { onSelectDay(session.epochDay) }
-                                .padding(vertical = 4.dp),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            Text(
-                                DateUtils.localDateOfEpochDay(session.epochDay).format(shortDayFormatter),
-                                style = MaterialTheme.typography.bodySmall,
-                            )
-                            Text(
-                                formatSetSummary(session.sets),
-                                modifier = Modifier.weight(1f),
-                                style = MaterialTheme.typography.bodySmall,
-                            )
-                            Text(
-                                "${session.volumeKg.formatCompact()} kg",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
+            }
+        }
+    }
+}
+
+/**
+ * One session: what it was, how heavy it got, and whether that beat the session before it.
+ *
+ * The heaviest set carries the verdict because it is the number a lifter steers by between sessions
+ * — but never by colour alone: the arrow's direction says the same thing, and the two weights are
+ * both on screen to be compared directly.
+ */
+@Composable
+private fun SessionRowItem(
+    row: SessionRow,
+    isSelectedDay: Boolean,
+    showDate: Boolean,
+    onToggleDate: () -> Unit,
+    onSelectDay: (Long) -> Unit,
+) {
+    val trendColor = when (row.trend) {
+        MaxWeightTrend.IMPROVED -> statusColor(isMet = true)
+        MaxWeightTrend.DECLINED -> cautionColor()
+        // A held top set and a day with nothing to compare both stay neutral.
+        else -> MaterialTheme.colorScheme.onSurface
+    }
+
+    Column {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onToggleDate)
+                .padding(vertical = 6.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    row.label,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = if (isSelectedDay) FontWeight.Bold else FontWeight.Normal,
+                )
+                Text(
+                    row.setSummary ?: "noch keine Sätze",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Column(horizontalAlignment = Alignment.End) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(2.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    when (row.trend) {
+                        MaxWeightTrend.IMPROVED -> Icon(
+                            Icons.Filled.ArrowUpward,
+                            contentDescription = "schwerer als davor",
+                            tint = trendColor,
+                            modifier = Modifier.size(16.dp),
+                        )
+                        MaxWeightTrend.DECLINED -> Icon(
+                            Icons.Filled.ArrowDownward,
+                            contentDescription = "leichter als davor",
+                            tint = trendColor,
+                            modifier = Modifier.size(16.dp),
+                        )
+                        else -> Unit
                     }
+                    Text(
+                        row.maxWeightText ?: "—",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = trendColor,
+                    )
+                }
+                Text(
+                    row.volumeText.orEmpty(),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        AnimatedVisibility(visible = showDate) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    row.dateText,
+                    modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                // Tapping a row used to jump straight to that day; now that a tap reveals the date,
+                // the jump needs somewhere visible to live rather than staying an unmarked gesture.
+                if (!isSelectedDay && row.hasSession) {
+                    TextButton(onClick = { onSelectDay(row.epochDay) }) { Text("Zu diesem Tag") }
                 }
             }
         }
@@ -199,45 +279,5 @@ private fun VolumeTargetBanner(target: VolumeTarget) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-    }
-}
-
-@Composable
-private fun ColumnHeader(text: String, modifier: Modifier) {
-    Text(
-        text,
-        modifier = modifier,
-        textAlign = TextAlign.End,
-        style = MaterialTheme.typography.labelSmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-    )
-}
-
-@Composable
-private fun StatRow(label: String, previous: String?, current: String?) {
-    Row {
-        Text(
-            label,
-            modifier = Modifier.weight(1.1f),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Text(previous ?: "—", modifier = Modifier.weight(1f), textAlign = TextAlign.End, style = MaterialTheme.typography.bodyMedium)
-        Text(current ?: "—", modifier = Modifier.weight(1f), textAlign = TextAlign.End, style = MaterialTheme.typography.bodyMedium)
-    }
-}
-
-@Composable
-private fun SummaryLine(label: String, session: SessionStats?) {
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(
-            "$label:",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Text(
-            session?.let { formatSetSummary(it.sets) } ?: "noch keine Sätze",
-            style = MaterialTheme.typography.bodySmall,
-        )
     }
 }

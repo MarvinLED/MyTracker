@@ -45,7 +45,8 @@ data class StrengthExerciseDetailUiState(
     val selectedEpochDay: Long = DateUtils.todayEpochDay(),
     val currentSession: SessionStats? = null,
     val previousSession: SessionStats? = null,
-    val recentSessions: List<SessionStats> = emptyList(),
+    /** This session and the ones before it, newest first — see [sessionRows]. */
+    val sessionRows: List<SessionRow> = emptyList(),
     /** The steppers' weight: the whole load normally, the *added* weight while [isBodyweight]. */
     val weightKg: Double = DEFAULT_WEIGHT_KG,
     val isBodyweight: Boolean = false,
@@ -69,9 +70,9 @@ data class StrengthExerciseDetailUiState(
     val goalSince: String? = null,
     val isGoalsExpanded: Boolean = true,
     /**
-     * The two lower blocks fold away so the session comparison — the answer to "war das gut?" —
-     * needs no scrolling. The Eingabe starts open because it is why the screen gets opened; the
-     * Verlauf starts closed because it is for reviewing, not for logging.
+     * The lower blocks fold away so the session comparison — the answer to "war das gut?" — needs no
+     * scrolling. The Eingabe starts open because it is why the screen gets opened; the Verlauf
+     * starts closed because it is for reviewing, not for logging.
      */
     val isEntryExpanded: Boolean = true,
     val isChartExpanded: Boolean = false,
@@ -194,7 +195,9 @@ class StrengthExerciseDetailViewModel @Inject constructor(
                 SessionStats(day, drafted, maxWeightOf(drafted), volumeOf(drafted))
             }
         } ?: persisted
-        val previous = sets.previousSessionDay(before = day)?.let { sets.sessionOn(it) }
+        // One more than the card lists: the oldest row still needs a session to be judged against.
+        val older = sets.sessionsBefore(day, limit = MAX_EARLIER_SESSIONS + 1)
+        val previous = older.firstOrNull()
         val window = sets.chartWindow(screen.chartRange)
         val granularity = screen.chartRange.granularityFor(window.spanDays())
 
@@ -203,8 +206,7 @@ class StrengthExerciseDetailViewModel @Inject constructor(
             selectedEpochDay = day,
             currentSession = current,
             previousSession = previous,
-            // Excludes the selected day: that one is already the "Dieses Training" column.
-            recentSessions = sets.filter { it.epochDay != day }.recentSessions(limit = 5),
+            sessionRows = sessionRows(selectedEpochDay = day, current = current, older = older),
             weightKg = stepper.weightKg,
             isBodyweight = stepper.isBodyweight,
             reps = stepper.reps,

@@ -53,9 +53,20 @@ fun List<StrengthSet>.sessionOn(epochDay: Long): SessionStats? {
 fun List<StrengthSet>.previousSessionDay(before: Long): Long? =
     filter { it.epochDay < before }.maxOfOrNull { it.epochDay }
 
-/** The most recent sessions, newest first — the "Frühere Einheiten" list. */
-fun List<StrengthSet>.recentSessions(limit: Int): List<SessionStats> =
-    map { it.epochDay }.distinct().sortedDescending().take(limit).mapNotNull { sessionOn(it) }
+/**
+ * The sessions strictly before [day], newest first — what the comparison card lists under the
+ * selected day.
+ *
+ * Backwards only, even when the selected day is a historic one: every row is labelled by how long
+ * *before* the selected day it was, and a session that came after it has no such distance to state.
+ */
+fun List<StrengthSet>.sessionsBefore(day: Long, limit: Int): List<SessionStats> =
+    filter { it.epochDay < day }
+        .map { it.epochDay }
+        .distinct()
+        .sortedDescending()
+        .take(limit)
+        .mapNotNull { sessionOn(it) }
 
 /** Daily totals, for feeding `bucketBy(WEEKLY, SUM)`. */
 fun List<StrengthSet>.dailyVolumePoints(): List<MetricPoint> =
