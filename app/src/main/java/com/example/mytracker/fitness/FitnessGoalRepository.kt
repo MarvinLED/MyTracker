@@ -121,10 +121,9 @@ class FitnessGoalRepository @Inject constructor(
      *
      * For the counting metrics that is simply the count so far. For the Steigerungen it is a
      * **difference**, and each is measured against what it is actually meant to beat: the top set
-     * against the best there has ever been before this period, a volume against the last period
-     * that was trained at all. Periods without training are skipped rather than counted as zero —
-     * a deload week is not a collapse in volume, and treating it as one both breaks the run of met
-     * weeks and hands the week after it a gain it did not earn.
+     * against the best there has ever been before this period, a volume against the period right
+     * before this one. A period without training is not skipped over: it is simply a period the
+     * goal was not reached in.
      */
     suspend fun getProgress(goal: FitnessGoal, today: Long = DateUtils.todayEpochDay()): FitnessGoalProgress {
         val current = currentPeriod(goal.period, today)
@@ -146,27 +145,25 @@ class FitnessGoalRepository @Inject constructor(
 
             FitnessGoalMetric.STRENGTH_MAX_WEIGHT_INCREASE -> {
                 val exerciseId = goal.exerciseId ?: return counted(0.0)
-                val trained = strengthSetDao.countBetweenForExercise(exerciseId, start, today) > 0
                 val best = strengthSetDao.maxWeightBetweenForExercise(exerciseId, start, today)
                 val previousBest = strengthSetDao.maxWeightBeforeForExercise(exerciseId, start)
                 when {
-                    // Nothing lifted this period: a pause, not a lost kilo.
-                    !trained -> FitnessGoalProgress(
-                        value = 0.0,
-                        target = goal.targetValue,
-                        isPercent = goal.isPercent,
-                        isPaused = true,
-                        hasReference = false,
-                    )
                     // Nothing to beat yet is not a gain of the whole bar: the first time an exercise
                     // is trained, "how much heavier than before" has no answer.
-                    best == null || previousBest == null || (goal.isPercent && previousBest <= 0.0) ->
+                    previousBest == null || (goal.isPercent && previousBest <= 0.0) ->
                         FitnessGoalProgress(
                             value = 0.0,
                             target = goal.targetValue,
                             isPercent = goal.isPercent,
                             hasReference = false,
                         )
+                    // Nothing lifted this period, so nothing was gained — "±0 von +5 kg" and not met.
+                    best == null -> FitnessGoalProgress(
+                        value = 0.0,
+                        target = goal.targetValue,
+                        isPercent = goal.isPercent,
+                        isIncrease = true,
+                    )
                     else -> FitnessGoalProgress(
                         value = if (goal.isPercent) {
                             (best - previousBest) / previousBest * 100.0
@@ -175,7 +172,7 @@ class FitnessGoalRepository @Inject constructor(
                         },
                         target = goal.targetValue,
                         isPercent = goal.isPercent,
-                        referencePeriodsBack = 1,
+                        isIncrease = true,
                     )
                 }
             }
@@ -221,7 +218,7 @@ class FitnessGoalRepository @Inject constructor(
     }
 
     /**
-     * The volume gain of one scope, against the most recent period it was actually trained in.
+     * The volume gain of one scope, against the period right before this one.
      *
      * The lookups are passed in rather than switched on here because only the query differs between
      * an exercise, a muscle group and a movement direction — the rule about which period counts is
@@ -233,14 +230,13 @@ class FitnessGoalRepository @Inject constructor(
         trainedIn: suspend (LongRange) -> Boolean,
         volumeIn: suspend (LongRange) -> Double,
     ): FitnessGoalProgress {
-        val current = currentPeriod(goal.period, today)
-        return increaseAgainstLastTrainedPeriod(
-            currentValue = if (trainedIn(current)) volumeIn(current) else 0.0,
-            currentTrained = trainedIn(current),
+        val previous = previousPeriod(goal.period, today)
+        return increaseAgainstPreviousPeriod(
+            currentValue = volumeIn(currentPeriod(goal.period, today)),
+            previousTrained = trainedIn(previous),
+            previousValue = volumeIn(previous),
             target = goal.targetValue,
             isPercent = goal.isPercent,
-            trainedIn = { back -> trainedIn(periodBefore(goal.period, today, back)) },
-            valueIn = { back -> volumeIn(periodBefore(goal.period, today, back)) },
         )
     }
 

@@ -211,31 +211,19 @@ fun FitnessGoalStreak.summaryText(period: GoalPeriod): String? {
     return buildString {
         append("$met von $considered $unit erreicht")
         if (currentRun >= 2) append(" · $currentRun in Folge")
-        // Named rather than swallowed: the count is over fewer periods than the window, and the
-        // pauses are the reason why.
-        if (paused > 0) append(" · $paused pausiert")
     }
 }
 
 /**
- * What one goal's standing reads as. A Steigerung carries its sign — "±0 von +5 kg" says "trained,
- * but no heavier than before", where a plain "0 von 5" would read as "nothing done yet" — and the
- * two cases that are neither met nor missed say so in words rather than as an empty bar.
+ * What one goal's standing reads as. A Steigerung carries its sign — "±0 von +5 kg" says "nothing
+ * gained over the period before", where a plain "0 von 5" would read as "nothing done yet" — and
+ * the one case that is neither met nor missed says so in words rather than as an empty bar.
  */
 fun FitnessGoalProgress.valueText(unit: String): String {
     val suffix = if (unit.isBlank()) "" else " $unit"
     return when {
-        isPaused -> "Pausiert · in diesem Zeitraum nicht trainiert"
         !hasReference -> "Kein Vergleichszeitraum"
-        referencePeriodsBack > 0 -> {
-            val reference = when (referencePeriodsBack) {
-                1 -> ""
-                // Named, because the number only means something once it is clear what it beat:
-                // a gain over three weeks ago is a different claim from one over last week.
-                else -> " (ggü. vor $referencePeriodsBack Zeiträumen)"
-            }
-            "${value.formatSigned()} von ${target.formatSigned()}$suffix$reference"
-        }
+        isIncrease -> "${value.formatSigned()} von ${target.formatSigned()}$suffix"
         else -> "${value.formatCompact()} / ${target.formatCompact()}$suffix"
     }
 }

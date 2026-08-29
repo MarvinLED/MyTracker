@@ -208,9 +208,9 @@ interface StrengthSetDao {
     suspend fun volumeBetweenForExercise(exerciseId: String, startInclusive: Long, endInclusive: Long): Double
 
     /**
-     * How many sets this exercise had in a window. Pause detection reads this and not the volume: a
-     * bodyweight session carries no volume at all, and counting it as "nicht trainiert" would put a
-     * Klimmzug-Woche on the same footing as a week on the sofa.
+     * How many sets this exercise had in a window. Whether a period counts as trained is read from
+     * this and not from the volume: a bodyweight session carries no volume at all, and counting it
+     * as "nicht trainiert" would put a Klimmzug-Woche on the same footing as a week on the sofa.
      */
     @Query(
         "SELECT COUNT(*) FROM strength_sets " +

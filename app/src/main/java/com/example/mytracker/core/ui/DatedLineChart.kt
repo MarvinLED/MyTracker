@@ -38,10 +38,14 @@ import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import com.example.mytracker.core.metrics.AxisTicks
+import com.example.mytracker.core.metrics.LogAxis
 import com.example.mytracker.core.metrics.extendedTo
+import com.example.mytracker.core.metrics.logAxis
 import com.example.mytracker.core.metrics.MetricPoint
 import com.example.mytracker.core.metrics.niceAxisTicks
 import com.example.mytracker.core.util.DateUtils
@@ -49,6 +53,7 @@ import com.example.mytracker.core.util.formatCompact
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlin.math.abs
+import kotlin.math.roundToInt
 
 /**
  * How a series' stroke is drawn. For telling apart lines that belong together on one hue — a
@@ -109,6 +114,13 @@ private const val MaxGutterColumns = 3
  * unit named on the top label once there is more than one. That is what lets a pulse ride along in
  * a blood-pressure chart — same days, same plot, its own axis — without dragging the mmHg lines
  * onto a scale three times too tall.
+ *
+ * [logScale] answers the other half of that problem. Series of different magnitudes on their own
+ * scales are each stretched to fill the panel, so their *shapes* are comparable but their changes
+ * are not: a line that doubled and one that gained a tenth can look alike. On a logarithmic axis
+ * equal distances are equal ratios, which makes the changes directly comparable — and different
+ * magnitudes then fit on one axis, so this is a single shared axis for every series whatever its
+ * unit, with the units left to the legend. It wins over [sharedScale] when both are set.
  */
 @Composable
 fun DatedLineChart(
@@ -117,6 +129,7 @@ fun DatedLineChart(
     panelHeight: Int = 140,
     overlaid: Boolean = false,
     sharedScale: Boolean = false,
+    logScale: Boolean = false,
 ) {
     // A single point is a series: the first measurement of a new body site, or the only weigh-in
     // inside a one-week window. Dropping it left an empty chart next to a list that plainly had an
@@ -163,6 +176,7 @@ fun DatedLineChart(
                 selectedDay = selectedDay,
                 heightDp = panelHeight,
                 sharedScale = sharedScale,
+                logScale = logScale,
                 onSelectFraction = { fraction ->
                     selectedDay = snap(drawable.flatMap { it.points }, fraction)
                 },
@@ -176,6 +190,7 @@ fun DatedLineChart(
                     selectedDay = selectedDay,
                     heightDp = panelHeight,
                     showSeriesLabel = drawable.size > 1,
+                    logScale = logScale,
                     onSelectFraction = { fraction -> selectedDay = snap(line.points, fraction) },
                 )
             }
@@ -191,8 +206,9 @@ fun DatedLineChart(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
-                // Not with a shared scale: the gutter's labelled axis already covers every series.
-                val showRanges = overlaid && !sharedScale && drawable.size > MaxGutterColumns
+                // Not with a shared or logarithmic scale: the gutter's labelled axis already covers
+                // every series.
+                val showRanges = overlaid && !sharedScale && !logScale && drawable.size > MaxGutterColumns
                 drawable.forEach { LegendEntry(it, scale = if (showRanges) scaleOf(it) else null) }
             }
         }
@@ -286,10 +302,26 @@ private fun EmptyChartPanel(modifier: Modifier, heightDp: Int, message: String) 
     }
 }
 
-/** A series' y bounds. Shared by both modes so a line can never be scaled two different ways. */
-private data class LineScale(val min: Double, val max: Double) {
+/**
+ * A series' y bounds. Shared by both modes so a line can never be scaled two different ways.
+ *
+ * [log] non-null maps the values logarithmically between the same bounds — see [LogAxis]. Everything
+ * that draws goes through [fractionOf], so a line, its grid and its labels cannot end up on two
+ * different mappings.
+ */
+private data class LineScale(val min: Double, val max: Double, val log: LogAxis? = null) {
     val range: Double get() = (max - min).let { if (it > 0) it else 1.0 }
+
+    /** Where a value sits between the bounds: 0 at the floor, 1 at the top. */
+    fun fractionOf(value: Double): Float =
+        log?.fractionOf(value) ?: ((value - min) / range).toFloat()
 }
+
+private fun LogAxis.asScale() = LineScale(min = min, max = max, log = this)
+
+/** The one logarithmic axis every series is drawn on, or null when none of them is above zero. */
+private fun logAxisOf(lines: List<ChartLine>): LogAxis? =
+    logAxis(lines.flatMap { line -> line.points.map { it.value } })
 
 /**
  * One axis per unit, in the order the units first appear — the first one is the primary, and the
@@ -342,29 +374,44 @@ private fun OverlaidPanel(
     selectedDay: Long?,
     heightDp: Int,
     sharedScale: Boolean,
+    logScale: Boolean,
     onSelectFraction: (Float) -> Unit,
 ) {
     val gridColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.35f)
     val crosshairColor = MaterialTheme.colorScheme.onSurfaceVariant
     val markerRing = MaterialTheme.colorScheme.surfaceContainer
     val series = remember(lines) { lines.map { it to it.points.sortedBy { p -> p.epochDay } } }
-    val ticksByUnit = remember(lines, sharedScale) { if (sharedScale) sharedTicksByUnit(lines) else null }
-    val scales = remember(lines, ticksByUnit) {
-        ticksByUnit?.let { byUnit ->
-            lines.map { line -> byUnit.getValue(line.unit).let { LineScale(it.min, it.max) } }
-        } ?: lines.map(::scaleOf)
+    // One axis for every series at once, whatever it measures: on a log scale the magnitudes no
+    // longer have to match, which is the entire reason to switch it on.
+    val logAxis = remember(lines, logScale) { if (logScale) logAxisOf(lines) else null }
+    val ticksByUnit = remember(lines, sharedScale, logAxis) {
+        if (sharedScale && logAxis == null) sharedTicksByUnit(lines) else null
+    }
+    val scales = remember(lines, ticksByUnit, logAxis) {
+        when {
+            logAxis != null -> lines.map { logAxis.asScale() }
+            ticksByUnit != null ->
+                lines.map { line -> ticksByUnit.getValue(line.unit).let { LineScale(it.min, it.max) } }
+            else -> lines.map(::scaleOf)
+        }
     }
     // Grid at every labelled step when they are labelled, otherwise the recessive baseline/mid/top
     // trio — enough to read a level off, not enough to compete. With two axes the primary one draws
     // it; every axis has the same number of steps, so the other column's labels land on it too.
-    val gridFractions = remember(ticksByUnit) {
-        ticksByUnit?.values?.firstOrNull()?.let { ticks ->
-            ticks.values.map { value -> 1f - ((value - ticks.min) / (ticks.max - ticks.min)).toFloat() }
-        } ?: listOf(0f, 0.5f, 1f)
+    val gridFractions = remember(ticksByUnit, logAxis) {
+        when {
+            logAxis != null -> logAxis.values.map { 1f - logAxis.fractionOf(it) }
+            else -> ticksByUnit?.values?.firstOrNull()?.let { ticks ->
+                ticks.values.map { value -> 1f - ((value - ticks.min) / (ticks.max - ticks.min)).toFloat() }
+            } ?: listOf(0f, 0.5f, 1f)
+        }
     }
 
     Row(modifier = Modifier.fillMaxWidth().height(heightDp.dp)) {
-        if (ticksByUnit != null) {
+        if (logAxis != null) {
+            LogAxisLabels(axis = logAxis, modifier = Modifier.fillMaxHeight())
+            Spacer(Modifier.width(6.dp))
+        } else if (ticksByUnit != null) {
             // One column per unit, not per line: with a shared scale a column per line would be the
             // same numbers again. Evenly spaced, which is what makes the labels line up with the grid.
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -448,8 +495,7 @@ private fun OverlaidPanel(
 
             series.forEachIndexed { index, (line, sorted) ->
                 val scale = scales[index]
-                fun yFor(value: Double) =
-                    size.height - (size.height * ((value - scale.min) / scale.range)).toFloat()
+                fun yFor(value: Double) = size.height * (1f - scale.fractionOf(value))
 
                 drawSeries(line, sorted, ::xFor, ::yFor)
 
@@ -472,6 +518,49 @@ private fun OverlaidPanel(
     }
 }
 
+/**
+ * The logarithmic axis' labels, each placed at its own height.
+ *
+ * A custom layout rather than the evenly spaced column the linear axes use: round numbers sit at
+ * uneven distances on a log axis — 2 is a third of the way from 1 to 10 — and spacing them evenly
+ * would put every label beside the wrong grid line, which is worse than no labels at all.
+ */
+@Composable
+private fun LogAxisLabels(axis: LogAxis, modifier: Modifier = Modifier) {
+    val labelColor = MaterialTheme.colorScheme.onSurfaceVariant
+    val labelStyle = MaterialTheme.typography.labelSmall
+    Layout(
+        modifier = modifier,
+        content = {
+            axis.values.forEach { value ->
+                Text(value.formatCompact(), style = labelStyle, color = labelColor, maxLines = 1)
+            }
+        },
+    ) { measurables, constraints ->
+        val placeables = measurables.map {
+            it.measure(constraints.copy(minWidth = 0, minHeight = 0, maxHeight = Constraints.Infinity))
+        }
+        val width = placeables.maxOfOrNull { it.width } ?: 0
+        // The panel always hands down a fixed height; falling back to the labels' own keeps this
+        // from asking for an infinite one if it is ever placed somewhere that does not.
+        val height = if (constraints.hasBoundedHeight) {
+            constraints.maxHeight
+        } else {
+            placeables.sumOf { it.height }
+        }
+        layout(width, height) {
+            placeables.forEachIndexed { index, placeable ->
+                // Centred on the step's own height, then kept inside the panel: the top and bottom
+                // labels would otherwise hang half out of it.
+                val y = ((1f - axis.fractionOf(axis.values[index])) * height - placeable.height / 2f)
+                    .roundToInt()
+                    .coerceIn(0, (height - placeable.height).coerceAtLeast(0))
+                placeable.place(x = width - placeable.width, y = y)
+            }
+        }
+    }
+}
+
 @Composable
 private fun LinePanel(
     line: ChartLine,
@@ -480,6 +569,7 @@ private fun LinePanel(
     selectedDay: Long?,
     heightDp: Int,
     showSeriesLabel: Boolean,
+    logScale: Boolean,
     onSelectFraction: (Float) -> Unit,
 ) {
     val gridColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.35f)
@@ -487,10 +577,13 @@ private fun LinePanel(
     val markerRing = MaterialTheme.colorScheme.surfaceContainer
     val sorted = remember(line.points) { line.points.sortedBy { it.epochDay } }
 
-    val scale = remember(line) { scaleOf(line) }
+    // A panel of its own already gives every series its whole height, so a log axis here is not
+    // about fitting them together — it is the same reading of one line's changes, in ratios.
+    val scale = remember(line, logScale) {
+        (if (logScale) logAxisOf(listOf(line))?.asScale() else null) ?: scaleOf(line)
+    }
     val maxValue = scale.max
     val minValue = scale.min
-    val valueRange = scale.range
 
     Box(modifier = Modifier.fillMaxWidth().height(heightDp.dp)) {
         Canvas(
@@ -509,7 +602,7 @@ private fun LinePanel(
                 },
         ) {
             fun xFor(epochDay: Long) = size.width * (epochDay - minDay).toFloat() / dayRange
-            fun yFor(value: Double) = size.height - (size.height * ((value - minValue) / valueRange)).toFloat()
+            fun yFor(value: Double) = size.height * (1f - scale.fractionOf(value))
 
             // Recessive baseline and mid grid line: enough to read a level off, not enough to compete.
             listOf(0f, 0.5f, 1f).forEach { fraction ->

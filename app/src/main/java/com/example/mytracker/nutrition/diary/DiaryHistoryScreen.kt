@@ -94,17 +94,17 @@ fun DiaryHistoryScreen(
                         label = { Text(range.label()) },
                     )
                 }
-                // The one chip carrying a tick when it is on, so it reads as a switch rather than a
-                // fourth span sitting beside Monat, Jahr and Insgesamt.
-                FilterChip(
+                // The two chips carrying a tick when they are on, so they read as switches rather
+                // than as further spans sitting beside Monat, Jahr und Insgesamt.
+                ToggleChip(
+                    label = "Heute",
                     selected = state.showToday,
-                    onClick = { viewModel.onShowTodayChange(!state.showToday) },
-                    label = { Text("Heute") },
-                    leadingIcon = if (state.showToday) {
-                        { Icon(Icons.Filled.Check, contentDescription = null) }
-                    } else {
-                        null
-                    },
+                    onToggle = { viewModel.onShowTodayChange(!state.showToday) },
+                )
+                ToggleChip(
+                    label = "Log-Skala",
+                    selected = state.logScale,
+                    onToggle = { viewModel.onLogScaleChange(!state.logScale) },
                 )
             }
 
@@ -120,6 +120,7 @@ fun DiaryHistoryScreen(
                     panelHeight = 280,
                     overlaid = true,
                     sharedScale = state.sharedScale,
+                    logScale = state.logScale,
                 )
                 // Spelled out rather than implied: once the range coarsens, a point is an average
                 // day of its week or month, and the goal line it is read against is too. The Ø mark
@@ -134,6 +135,19 @@ fun DiaryHistoryScreen(
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                // Only claimed when there is something to draw logarithmically: with every point at
+                // zero the chart falls back to a linear axis, and the note would describe a scale
+                // that is not on screen.
+                if (state.logScale && state.lines.any { line -> line.points.any { it.value > 0.0 } }) {
+                    // What the axis now means, in the terms the chip was tapped for: without this
+                    // the lines have simply moved and every crossing looks like a new fact.
+                    Text(
+                        "Logarithmische Achse: Alle Reihen auf einer Skala, gleiche Steigung " +
+                            "bedeutet gleiche prozentuale Veränderung. Einheiten stehen in der Legende.",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
 
             SeriesPicker(
@@ -144,6 +158,24 @@ fun DiaryHistoryScreen(
             )
         }
     }
+}
+
+/**
+ * A chip that is on or off rather than one of a set. The tick is what tells it apart from the range
+ * chips beside it, which look identical when selected but mean "instead of the others".
+ */
+@Composable
+private fun ToggleChip(label: String, selected: Boolean, onToggle: () -> Unit) {
+    FilterChip(
+        selected = selected,
+        onClick = onToggle,
+        label = { Text(label) },
+        leadingIcon = if (selected) {
+            { Icon(Icons.Filled.Check, contentDescription = null) }
+        } else {
+            null
+        },
+    )
 }
 
 @Composable

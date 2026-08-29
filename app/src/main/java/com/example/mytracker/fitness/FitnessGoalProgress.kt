@@ -4,14 +4,6 @@ import com.example.mytracker.core.util.DateUtils
 import com.example.mytracker.core.util.GoalPeriod
 
 /**
- * How far back a Steigerung looks for something to be measured against. Eight weeks or eight months
- * is long enough to carry a holiday, an injury or a deload, and short enough that what it finds is
- * still the same training: comparing October against last February would not be a Steigerung, it
- * would be a different phase of life.
- */
-const val MAX_REFERENCE_PERIODS_BACK = 8
-
-/**
  * The window a period-goal is measured over: from the start of the current week/month up to today.
  * Split out as a pure function of the day so the period arithmetic can be tested without a clock.
  */
@@ -60,72 +52,63 @@ fun previousPeriod(period: GoalPeriod, today: Long): LongRange = periodBefore(pe
 /**
  * One goal's standing in its current period.
  *
- * A Steigerung has two ways of being neither met nor missed, and both have to be sayable:
- * [isPaused] — nothing was trained in this scope at all, so there is nothing to judge and a deload
- * week does not count as a failure — and [hasReference] false, when there is no earlier period to
- * measure against. Reporting either as "0 von 5 kg" would be a red bar for having rested.
+ * There is exactly one way of being neither met nor missed, and it has to be sayable: [hasReference]
+ * false, when there is no earlier period to measure a Steigerung against. Everything else is judged
+ * — a period without training is a period the goal was not reached in, not a state of its own.
  */
 data class FitnessGoalProgress(
     val value: Double,
     val target: Double,
     val isPercent: Boolean = false,
-    val isPaused: Boolean = false,
     val hasReference: Boolean = true,
-    /** 1 = the period right before; more when empty ones were skipped. 0 for a goal that has no reference. */
-    val referencePeriodsBack: Int = 0,
+    /** True for a Steigerung — a difference against the period before, which carries a sign. */
+    val isIncrease: Boolean = false,
 ) {
-    val isMet: Boolean get() = !isPaused && hasReference && target > 0 && value >= target
+    val isMet: Boolean get() = hasReference && target > 0 && value >= target
 
     val fraction: Float
-        get() = if (isPaused || !hasReference || target <= 0) 0f else (value / target).toFloat().coerceIn(0f, 1f)
+        get() = if (!hasReference || target <= 0) 0f else (value / target).toFloat().coerceIn(0f, 1f)
 }
 
 /**
- * The gain and the reference behind it, resolved over possibly several periods back — the one rule
- * every Steigerung follows, in one place, whatever the scope's queries happen to be.
+ * The gain over the period right before this one — the one rule every Steigerung follows, in one
+ * place, whatever the scope's queries happen to be.
  *
- * [trainedIn] decides whether a period counts, not the value: a bodyweight week carries no volume at
- * all, and reading that zero as "not trained" would put Klimmzüge on the same footing as a week on
- * the sofa. Untrained periods are skipped rather than counted as zero — a deload week is not a
- * collapse in volume, and treating it as one both breaks the run of met weeks and hands the week
- * after it a gain it did not earn.
+ * [previousTrained] decides whether there is a comparison at all, and it is the set count and not
+ * the value that answers it: a bodyweight week carries no volume, and reading that zero as "not
+ * trained" would put Klimmzüge on the same footing as a week on the sofa. A period that was not
+ * trained is never skipped over in favour of an older one — a Steigerung is measured against the
+ * period immediately before it or against nothing.
+ *
+ * [currentValue] is simply what this period holds, zero included: no training means no gain, which
+ * is a missed goal like any other.
  */
-suspend fun increaseAgainstLastTrainedPeriod(
+fun increaseAgainstPreviousPeriod(
     currentValue: Double,
-    currentTrained: Boolean,
+    previousTrained: Boolean,
+    previousValue: Double,
     target: Double,
     isPercent: Boolean,
-    maxPeriodsBack: Int = MAX_REFERENCE_PERIODS_BACK,
-    trainedIn: suspend (Int) -> Boolean,
-    valueIn: suspend (Int) -> Double,
 ): FitnessGoalProgress {
-    if (!currentTrained) {
+    // A reference of zero has no percentage: "unendlich viel mehr als nichts" is not a number anyone
+    // trains towards, so the goal reads as having no comparison rather than as met.
+    if (!previousTrained || (isPercent && previousValue <= 0.0)) {
         return FitnessGoalProgress(
             value = 0.0,
             target = target,
             isPercent = isPercent,
-            isPaused = true,
             hasReference = false,
         )
     }
-    for (back in 1..maxPeriodsBack) {
-        if (!trainedIn(back)) continue
-        val reference = valueIn(back)
-        // A reference of zero has no percentage: "unendlich viel mehr als nichts" is not a number
-        // anyone trains towards, so the goal reads as having no comparison rather than as met.
-        if (isPercent && reference <= 0.0) break
-        return FitnessGoalProgress(
-            value = if (isPercent) (currentValue - reference) / reference * 100.0 else currentValue - reference,
-            target = target,
-            isPercent = isPercent,
-            referencePeriodsBack = back,
-        )
-    }
     return FitnessGoalProgress(
-        value = 0.0,
+        value = if (isPercent) {
+            (currentValue - previousValue) / previousValue * 100.0
+        } else {
+            currentValue - previousValue
+        },
         target = target,
         isPercent = isPercent,
-        hasReference = false,
+        isIncrease = true,
     )
 }
 
@@ -136,19 +119,18 @@ const val STREAK_PERIODS = 8
  * How a goal has been going over the periods that are already finished — the current one is left
  * out, since a half-finished week is neither met nor missed.
  *
- * Pauses are neutral in both directions: they are not counted as missed ([considered] excludes
- * them) and they do not break [currentRun]. A goal that reset its run every time someone took a
- * deload week would punish exactly the weeks a training plan is supposed to contain.
+ * [currentRun] is a run in the strict sense: only periods that were actually met, one after the
+ * other. Anything else ends it — a missed period, a period without training, a period there was
+ * nothing to compare against. A streak that survived the gaps in between would not be a streak.
  */
 data class FitnessGoalStreak(
     val met: Int,
-    /** Periods that were actually judged — trained, with something to measure against. */
+    /** Periods that could be judged at all — the ones with something to measure against. */
     val considered: Int,
-    val paused: Int,
     /** Met periods in a row, counted back from the most recent finished one. */
     val currentRun: Int,
 ) {
-    val hasHistory: Boolean get() = considered > 0 || paused > 0
+    val hasHistory: Boolean get() = considered > 0
 }
 
 /**
@@ -162,26 +144,23 @@ suspend fun goalStreak(
 ): FitnessGoalStreak {
     var met = 0
     var considered = 0
-    var paused = 0
     var run = 0
     var runOpen = true
     for (back in 1..periods) {
         val progress = progressForPeriodsBack(back)
-        when {
-            progress.isPaused -> paused++
-            !progress.hasReference -> Unit // Nothing to judge it against; neither met nor missed.
-            progress.isMet -> {
-                met++
-                considered++
-                if (runOpen) run++
-            }
-            else -> {
-                considered++
-                runOpen = false
-            }
+        // A period with nothing to compare against cannot fail at beating it, so it stays out of
+        // "x von y erreicht" — but it is not a met period either, so the run stops there.
+        if (progress.hasReference) {
+            considered++
+            if (progress.isMet) met++
+        }
+        if (progress.isMet) {
+            if (runOpen) run++
+        } else {
+            runOpen = false
         }
     }
-    return FitnessGoalStreak(met = met, considered = considered, paused = paused, currentRun = run)
+    return FitnessGoalStreak(met = met, considered = considered, currentRun = run)
 }
 
 /**

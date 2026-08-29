@@ -172,7 +172,7 @@ class DayGoalRowsTest {
     }
 
     @Test
-    fun fitnessRows_sayWhenAnIncreaseGoalIsOnlyPaused() {
+    fun fitnessRows_sayWhenAnIncreaseGoalHasNothingToCompareAgainst() {
         val goal = FitnessGoal(
             id = "goal-3",
             metric = FitnessGoalMetric.STRENGTH_VOLUME_INCREASE,
@@ -188,7 +188,6 @@ class DayGoalRowsTest {
                 "goal-3" to FitnessGoalProgress(
                     value = 0.0,
                     target = 300.0,
-                    isPaused = true,
                     hasReference = false,
                 ),
             ),
@@ -197,9 +196,10 @@ class DayGoalRowsTest {
             today = LocalDate.parse("2026-08-19").toEpochDay(),
         ).single()
 
-        // A deload week is not a failure, and "0 von 300 kg" would be a red bar for having rested.
+        // Nothing was trained the week before, so there is no Steigerung to report — and "0 von
+        // 300 kg" would read as a failure at something that was never measurable.
         assertEquals("Steigerung Gesamtvolumen · Bankdrücken · Wöchentlich", row.label)
-        assertTrue(row.valueText.startsWith("Pausiert"))
+        assertTrue(row.valueText.startsWith("Kein Vergleichszeitraum"))
         assertFalse(row.isMet)
         assertEquals(0f, row.fraction)
     }

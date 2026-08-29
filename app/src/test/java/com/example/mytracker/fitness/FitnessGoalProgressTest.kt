@@ -146,67 +146,62 @@ class FitnessGoalProgressTest {
     }
 
     @Test
-    fun anUntrainedPeriodIsPausedRatherThanFailed() = runBlocking {
-        val progress = increaseAgainstLastTrainedPeriod(
+    fun anUntrainedPeriodCountsAsMissed() {
+        val progress = increaseAgainstPreviousPeriod(
             currentValue = 0.0,
-            currentTrained = false,
+            previousTrained = true,
+            previousValue = 1000.0,
             target = 300.0,
             isPercent = false,
-            trainedIn = { true },
-            valueIn = { 1000.0 },
         )
 
-        // A deload week is not a collapse in volume, and a red bar for having rested is exactly the
-        // signal that makes people stop trusting the goal.
-        assertTrue(progress.isPaused)
+        // A week without training is a week the Steigerung did not happen in — the whole volume of
+        // the week before is what it is short by.
+        assertEquals(-1000.0, progress.value, 0.0001)
         assertFalse(progress.isMet)
         assertEquals(0f, progress.fraction, 0.0001f)
     }
 
     @Test
-    fun emptyPeriodsAreSkippedWhenLookingForSomethingToBeat() = runBlocking {
-        // Trained this week and three weeks ago; the two weeks between were a break.
-        val progress = increaseAgainstLastTrainedPeriod(
+    fun anEmptyPeriodBeforeLeavesNothingToBeat() {
+        val progress = increaseAgainstPreviousPeriod(
             currentValue = 1400.0,
-            currentTrained = true,
+            previousTrained = false,
+            previousValue = 0.0,
             target = 200.0,
             isPercent = false,
-            trainedIn = { back -> back == 3 },
-            valueIn = { 1000.0 },
         )
 
-        // Counting the empty weeks as zero volume would hand this week a gain of 1400 kg it did not
-        // earn, and tick the goal off for coming back from a holiday.
+        // Reaching further back for a week that was trained would hand this week a gain over a
+        // holiday, and counting the empty week as zero volume would tick the goal off outright.
+        assertFalse(progress.hasReference)
+        assertFalse(progress.isMet)
+        assertEquals(0.0, progress.value, 0.0001)
+    }
+
+    @Test
+    fun theGainIsMeasuredAgainstThePeriodRightBefore() {
+        val progress = increaseAgainstPreviousPeriod(
+            currentValue = 1400.0,
+            previousTrained = true,
+            previousValue = 1000.0,
+            target = 200.0,
+            isPercent = false,
+        )
+
         assertEquals(400.0, progress.value, 0.0001)
-        assertEquals(3, progress.referencePeriodsBack)
+        assertTrue(progress.isIncrease)
         assertTrue(progress.isMet)
     }
 
     @Test
-    fun nothingToCompareAgainstIsSaidRatherThanCountedAsZero() = runBlocking {
-        val progress = increaseAgainstLastTrainedPeriod(
-            currentValue = 1400.0,
-            currentTrained = true,
-            target = 200.0,
-            isPercent = false,
-            trainedIn = { false },
-            valueIn = { 0.0 },
-        )
-
-        assertFalse(progress.hasReference)
-        assertFalse(progress.isMet)
-        assertFalse(progress.isPaused)
-    }
-
-    @Test
-    fun percentIsMeasuredAgainstTheReferencePeriod() = runBlocking {
-        val progress = increaseAgainstLastTrainedPeriod(
+    fun percentIsMeasuredAgainstTheReferencePeriod() {
+        val progress = increaseAgainstPreviousPeriod(
             currentValue = 1100.0,
-            currentTrained = true,
+            previousTrained = true,
+            previousValue = 1000.0,
             target = 5.0,
             isPercent = true,
-            trainedIn = { it == 1 },
-            valueIn = { 1000.0 },
         )
 
         // +2,5 kg is a different demand on Kreuzheben than on Seitheben; a percentage scales with
@@ -217,15 +212,14 @@ class FitnessGoalProgressTest {
     }
 
     @Test
-    fun aReferenceOfZeroHasNoPercentage() = runBlocking {
-        val progress = increaseAgainstLastTrainedPeriod(
+    fun aReferenceOfZeroHasNoPercentage() {
+        val progress = increaseAgainstPreviousPeriod(
             currentValue = 1100.0,
-            currentTrained = true,
+            // A bodyweight-only week: trained, but no volume at all to be a percentage of.
+            previousTrained = true,
+            previousValue = 0.0,
             target = 5.0,
             isPercent = true,
-            // A bodyweight-only week: trained, but no volume at all to be a percentage of.
-            trainedIn = { true },
-            valueIn = { 0.0 },
         )
 
         assertFalse(progress.hasReference)
@@ -291,32 +285,32 @@ class FitnessGoalProgressTest {
     }
 
     /** Shorthand for the three answers a period can give. */
-    private fun met(target: Double = 5.0) = FitnessGoalProgress(value = target, target = target, referencePeriodsBack = 1)
-    private fun missed(target: Double = 5.0) = FitnessGoalProgress(value = 0.0, target = target, referencePeriodsBack = 1)
-    private fun paused(target: Double = 5.0) =
-        FitnessGoalProgress(value = 0.0, target = target, isPaused = true, hasReference = false)
+    private fun met(target: Double = 5.0) = FitnessGoalProgress(value = target, target = target, isIncrease = true)
+    private fun missed(target: Double = 5.0) = FitnessGoalProgress(value = 0.0, target = target, isIncrease = true)
+    private fun noReference(target: Double = 5.0) =
+        FitnessGoalProgress(value = 0.0, target = target, hasReference = false)
 
     @Test
     fun aStreakCountsOnlyTheFinishedPeriodsItCouldJudge() = runBlocking {
-        val results = listOf(met(), met(), missed(), met(), paused(), met(), met(), missed())
+        val results = listOf(met(), met(), missed(), met(), noReference(), met(), met(), missed())
 
         val streak = goalStreak(periods = 8) { back -> results[back - 1] }
 
-        // Seven judged, one paused — and the paused week is not counted as missed.
+        // Seven judged: the week without a comparison cannot fail at beating one, so it is neither
+        // met nor missed.
         assertEquals(5, streak.met)
         assertEquals(7, streak.considered)
-        assertEquals(1, streak.paused)
     }
 
     @Test
-    fun aPauseDoesNotBreakTheRun() = runBlocking {
-        // Newest first: met, met, paused, met — the pause sits inside the run.
-        val results = listOf(met(), met(), paused(), met(), missed())
+    fun aGapBreaksTheRun() = runBlocking {
+        // Newest first: met, met, then a week there was nothing to judge — the run stops there.
+        val results = listOf(met(), met(), noReference(), met(), missed())
 
         val streak = goalStreak(periods = 5) { back -> results[back - 1] }
 
-        // Resetting the run for a deload week would punish exactly the weeks a plan is meant to have.
-        assertEquals(3, streak.currentRun)
+        // Only what happened am Stück counts: two, not the three the older met week would add.
+        assertEquals(2, streak.currentRun)
     }
 
     @Test
@@ -331,29 +325,28 @@ class FitnessGoalProgressTest {
     }
 
     @Test
-    fun periodsWithNothingToCompareAgainstAreLeftOutEntirely() = runBlocking {
-        val noReference = FitnessGoalProgress(value = 0.0, target = 5.0, hasReference = false)
+    fun periodsWithNothingToCompareAgainstAreLeftOutOfTheCount() = runBlocking {
+        val streak = goalStreak(periods = 3) { noReference() }
 
-        val streak = goalStreak(periods = 3) { noReference }
-
-        // Neither met nor missed: a period that had nothing to beat cannot fail at beating it.
+        // Neither met nor missed: a period that had nothing to beat cannot fail at beating it — but
+        // it is not a period the goal was reached in either, so there is no run.
         assertEquals(0, streak.met)
         assertEquals(0, streak.considered)
-        assertEquals(0, streak.paused)
+        assertEquals(0, streak.currentRun)
         assertFalse(streak.hasHistory)
     }
 
     @Test
     fun aStreakSaysNothingUntilThereAreTwoPeriodsToLookBackOver() {
-        assertNull(FitnessGoalStreak(met = 1, considered = 1, paused = 0, currentRun = 1).summaryText(GoalPeriod.WEEKLY))
+        assertNull(FitnessGoalStreak(met = 1, considered = 1, currentRun = 1).summaryText(GoalPeriod.WEEKLY))
         assertEquals(
-            "6 von 8 Wochen erreicht · 3 in Folge · 1 pausiert",
-            FitnessGoalStreak(met = 6, considered = 8, paused = 1, currentRun = 3).summaryText(GoalPeriod.WEEKLY),
+            "6 von 8 Wochen erreicht · 3 in Folge",
+            FitnessGoalStreak(met = 6, considered = 8, currentRun = 3).summaryText(GoalPeriod.WEEKLY),
         )
         // A run of one is just "the last one" and claims nothing worth a clause of its own.
         assertEquals(
             "2 von 4 Monaten erreicht",
-            FitnessGoalStreak(met = 2, considered = 4, paused = 0, currentRun = 1).summaryText(GoalPeriod.MONTHLY),
+            FitnessGoalStreak(met = 2, considered = 4, currentRun = 1).summaryText(GoalPeriod.MONTHLY),
         )
     }
 }

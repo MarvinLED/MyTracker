@@ -131,13 +131,15 @@ class FitnessGoalProgressQueriesTest {
     }
 
     @Test
-    fun maxWeightIncrease_isPausedInAWeekWithoutTraining() = runBlocking {
+    fun maxWeightIncrease_isMissedInAWeekWithoutTraining() = runBlocking {
         logSession(lastWednesday, weightKg = 80.0, reps = 5, sets = 3)
 
         val progress = repository.getProgress(goal(FitnessGoalMetric.STRENGTH_MAX_WEIGHT_INCREASE, 5.0), today)
 
-        // A week off is a pause, not a lost kilo — and not a red bar either.
-        assertTrue(progress.isPaused)
+        // A week off gained nothing: "±0 von +5 kg" and not reached — there is something to beat,
+        // it just was not beaten.
+        assertEquals(0.0, progress.value, 0.0001)
+        assertTrue(progress.hasReference)
         assertFalse(progress.isMet)
         assertEquals(0f, progress.fraction, 0.0001f)
     }
@@ -162,7 +164,7 @@ class FitnessGoalProgressQueriesTest {
         val progress = repository.getProgress(goal(FitnessGoalMetric.STRENGTH_VOLUME_INCREASE, 300.0), today)
 
         assertEquals(400.0, progress.value, 0.0001)
-        assertEquals(1, progress.referencePeriodsBack)
+        assertTrue(progress.isIncrease)
         assertTrue(progress.isMet)
     }
 
@@ -207,17 +209,18 @@ class FitnessGoalProgressQueriesTest {
     }
 
     @Test
-    fun volumeIncrease_skipsTheWeeksThatWereNotTrained() = runBlocking {
+    fun volumeIncrease_hasNoReferenceWhenTheWeekBeforeWasEmpty() = runBlocking {
         // Trained three weeks ago and again this week; the two weeks between were a break.
         logSession(LocalDate.parse("2026-07-29").toEpochDay(), weightKg = 80.0, reps = 5, sets = 3)
         logSession(thisMonday, weightKg = 80.0, reps = 5, sets = 4)
 
         val progress = repository.getProgress(goal(FitnessGoalMetric.STRENGTH_VOLUME_INCREASE, 300.0), today)
 
-        // Against the last week actually trained (1200 kg), not against the empty week before this
-        // one — which would hand this week a gain of its whole volume for coming back from a break.
-        assertEquals(400.0, progress.value, 0.0001)
-        assertEquals(3, progress.referencePeriodsBack)
+        // A Steigerung is measured against the week right before or against nothing: reaching past
+        // the break for a week from a month ago would compare two different phases of training.
+        assertFalse(progress.hasReference)
+        assertEquals(0.0, progress.value, 0.0001)
+        assertFalse(progress.isMet)
     }
 
     @Test
@@ -227,10 +230,10 @@ class FitnessGoalProgressQueriesTest {
 
         val progress = repository.getProgress(goal(FitnessGoalMetric.STRENGTH_VOLUME_INCREASE, 300.0), today)
 
-        // Pause detection reads the set count, not the volume: a Klimmzug-Woche is training, and
-        // skipping it would compare against a week further back that was never meant to be the
-        // reference.
-        assertEquals(1, progress.referencePeriodsBack)
+        // Whether the week before counts is read from the set count, not the volume: a
+        // Klimmzug-Woche is training, and calling it untrained would leave the goal without any
+        // comparison at all.
+        assertTrue(progress.hasReference)
         assertEquals(1200.0, progress.value, 0.0001)
     }
 
@@ -366,8 +369,8 @@ class FitnessGoalProgressQueriesTest {
     }
 
     @Test
-    fun streak_countsTheFinishedWeeksAndLeavesAPauseOutOfTheJudgement() = runBlocking {
-        // Four weeks: two with a gain over the week before, one week off, and a starting week.
+    fun streak_isBrokenByTheWeekWithoutTraining() = runBlocking {
+        // Four weeks: a starting week, one with a gain over it, one week off, and the week back.
         logSession(LocalDate.parse("2026-07-22").toEpochDay(), weightKg = 80.0, reps = 5, sets = 3) // 1200 kg
         logSession(LocalDate.parse("2026-07-29").toEpochDay(), weightKg = 80.0, reps = 5, sets = 5) // 2000 kg
         // Week of 2026-08-03: nothing at all.
@@ -379,13 +382,33 @@ class FitnessGoalProgressQueriesTest {
             periods = 4,
         )
 
-        // Two weeks gained 800 kg over the week they are measured against; the empty week is a pause
-        // and the first trained week had nothing to beat, so neither counts as missed.
-        assertEquals(2, streak.met)
+        // Only the week of 2026-07-27 gained anything over the week before it. The empty week is a
+        // missed one, the week back after it had nothing to be measured against, and the first
+        // trained week had nothing to beat.
+        assertEquals(1, streak.met)
         assertEquals(2, streak.considered)
-        assertEquals(1, streak.paused)
-        // And the pause did not break the run.
-        assertEquals(2, streak.currentRun)
+        // Nothing am Stück: the most recent finished week is not a met one, so there is no run.
+        assertEquals(0, streak.currentRun)
+    }
+
+    @Test
+    fun streak_countsTheMetWeeksThatFollowEachOther() = runBlocking {
+        // Four weeks straight, each one 800 kg above the last.
+        logSession(LocalDate.parse("2026-07-22").toEpochDay(), weightKg = 80.0, reps = 5, sets = 3) // 1200 kg
+        logSession(LocalDate.parse("2026-07-29").toEpochDay(), weightKg = 80.0, reps = 5, sets = 5) // 2000 kg
+        logSession(LocalDate.parse("2026-08-05").toEpochDay(), weightKg = 80.0, reps = 5, sets = 7) // 2800 kg
+        logSession(LocalDate.parse("2026-08-12").toEpochDay(), weightKg = 80.0, reps = 5, sets = 9) // 3600 kg
+
+        val streak = repository.getStreak(
+            goal(FitnessGoalMetric.STRENGTH_VOLUME_INCREASE, 500.0),
+            today = today,
+            periods = 4,
+        )
+
+        // Three weeks gained over the week before them; the first trained week had nothing to beat.
+        assertEquals(3, streak.met)
+        assertEquals(3, streak.considered)
+        assertEquals(3, streak.currentRun)
     }
 
     @Test

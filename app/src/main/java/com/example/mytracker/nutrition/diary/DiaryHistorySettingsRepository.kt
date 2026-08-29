@@ -40,6 +40,12 @@ data class DiaryHistorySettings(
      * default of the two.
      */
     val showToday: Boolean = true,
+    /**
+     * Whether the y axis is logarithmic. Off by default: read literally, a linear axis is what most
+     * people expect of a chart, and the log one answers a narrower question — how the *changes*
+     * compare — that is worth asking for.
+     */
+    val logScale: Boolean = false,
 ) {
     companion object {
         /** Calories against their target: the one pairing the Tagebuch already leads with. */
@@ -56,6 +62,7 @@ class DiaryHistorySettingsRepository @Inject constructor(
         val CHART_RANGE = stringPreferencesKey("chart_range")
         val PICKER_EXPANDED = booleanPreferencesKey("series_picker_expanded")
         val SHOW_TODAY = booleanPreferencesKey("show_today")
+        val LOG_SCALE = booleanPreferencesKey("log_scale")
     }
 
     val settings: Flow<DiaryHistorySettings> = context.diaryHistorySettingsDataStore.data.map { prefs ->
@@ -71,6 +78,7 @@ class DiaryHistorySettingsRepository @Inject constructor(
             } ?: ChartRange.MONTH,
             seriesPickerExpanded = prefs[Keys.PICKER_EXPANDED] ?: true,
             showToday = prefs[Keys.SHOW_TODAY] ?: true,
+            logScale = prefs[Keys.LOG_SCALE] ?: false,
         )
     }
 
@@ -96,5 +104,9 @@ class DiaryHistorySettingsRepository @Inject constructor(
 
     suspend fun setShowToday(show: Boolean) {
         context.diaryHistorySettingsDataStore.edit { it[Keys.SHOW_TODAY] = show }
+    }
+
+    suspend fun setLogScale(logarithmic: Boolean) {
+        context.diaryHistorySettingsDataStore.edit { it[Keys.LOG_SCALE] = logarithmic }
     }
 }
