@@ -29,11 +29,6 @@ data class DiaryHistoryUiState(
     val granularity: Granularity = Granularity.DAILY,
     /** One nutrient on screen: all lines share a scale with finely labelled steps. */
     val sharedScale: Boolean = false,
-    /**
-     * A logarithmic y axis, so equal distances are equal percentages and lines of very different
-     * size can be read against each other. Off unless asked for — see [DiaryHistorySettings].
-     */
-    val logScale: Boolean = false,
     /** Whether the running — and therefore only part-logged — day is charted. */
     val showToday: Boolean = true,
 )
@@ -89,7 +84,6 @@ class DiaryHistoryViewModel @Inject constructor(
                     ),
                     granularity = granularity,
                     sharedScale = isSingleNutrientSelection(settings.selectedSeries),
-                    logScale = settings.logScale,
                     showToday = settings.showToday,
                 )
             }
@@ -110,10 +104,6 @@ class DiaryHistoryViewModel @Inject constructor(
 
     fun onShowTodayChange(show: Boolean) {
         viewModelScope.launch { settingsRepository.setShowToday(show) }
-    }
-
-    fun onLogScaleChange(logarithmic: Boolean) {
-        viewModelScope.launch { settingsRepository.setLogScale(logarithmic) }
     }
 
     fun onSeriesPickerExpandedChange(expanded: Boolean) {

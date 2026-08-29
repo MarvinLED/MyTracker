@@ -1,18 +1,10 @@
 package com.example.mytracker.core.metrics
 
-import kotlin.math.abs
-import kotlin.math.floor
-import kotlin.math.log10
-import kotlin.math.pow
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class AxisTicksTest {
-    /** What a step on log paper is a multiple of. */
-    private val RoundMantissas = listOf(1.0, 2.0, 5.0)
-
     @Test
     fun stepsAreRoundNumbers() {
         val ticks = niceAxisTicks(min = 0.0, max = 2340.0)
@@ -77,65 +69,6 @@ class AxisTicksTest {
         val step = ticks.values[1] - ticks.values[0]
         assertEquals(ticks.max + 2 * step, extended.max, 0.0001)
         extended.values.zipWithNext().forEach { (low, high) -> assertEquals(step, high - low, 0.0001) }
-    }
-
-    @Test
-    fun equalRatiosAreEqualDistancesOnALogAxis() {
-        val axis = logAxis(listOf(1.0, 1000.0))!!
-
-        // The whole point of the scale: a tenth more is the same rise wherever it happens, which is
-        // what lets Kalorien and Salz be compared at all.
-        val lowDecade = axis.fractionOf(10.0) - axis.fractionOf(1.0)
-        val highDecade = axis.fractionOf(1000.0) - axis.fractionOf(100.0)
-        assertEquals(lowDecade, highDecade, 1e-6f)
-    }
-
-    @Test
-    fun aLogAxisStepsInRoundNumbersInsideItsBounds() {
-        // Salz in grams beside Kalorien: two and a half orders of magnitude in one chart.
-        val axis = logAxis(listOf(6.0, 2500.0))!!
-
-        assertTrue("bounds must hold the data", axis.min < 6.0 && axis.max > 2500.0)
-        axis.values.forEach { value ->
-            assertTrue("$value outside ${axis.min}..${axis.max}", value >= axis.min && value <= axis.max)
-            val mantissa = value / 10.0.pow(floor(log10(value)))
-            assertTrue("$value is not a round step", RoundMantissas.any { abs(it - mantissa) < 1e-9 })
-        }
-    }
-
-    @Test
-    fun aRangeTooNarrowForDecadesIsStillLabelled() {
-        // Kalorien Soll and Ist alone move inside a single decade, where no power of ten times 1, 2
-        // or 5 falls between them at all. An unlabelled axis would be the worse answer.
-        val axis = logAxis(listOf(2000.0, 2500.0))!!
-
-        assertTrue(axis.values.size >= 2)
-        axis.values.forEach { assertTrue(it >= axis.min && it <= axis.max) }
-    }
-
-    @Test
-    fun manyDecadesKeepAReadableNumberOfSteps() {
-        val axis = logAxis(listOf(0.05, 3000.0))!!
-
-        assertTrue("${axis.values.size} steps", axis.values.size in 2..9)
-    }
-
-    @Test
-    fun nothingAboveZeroHasNoLogAxis() {
-        // log(0) is not a number and no axis can pretend otherwise — the chart falls back to linear.
-        assertNull(logAxis(listOf(0.0, -3.0)))
-        assertNull(logAxis(emptyList()))
-    }
-
-    @Test
-    fun zeroSitsOnTheFloorRatherThanNowhere() {
-        val axis = logAxis(listOf(50.0, 500.0))!!
-
-        // Pinned to the bottom edge: a hole in the line would read as "nothing logged", and the
-        // crosshair still names the real value.
-        assertEquals(0f, axis.fractionOf(0.0), 1e-6f)
-        assertEquals(0f, axis.fractionOf(-10.0), 1e-6f)
-        assertTrue(axis.fractionOf(500.0) > axis.fractionOf(50.0))
     }
 
     @Test
