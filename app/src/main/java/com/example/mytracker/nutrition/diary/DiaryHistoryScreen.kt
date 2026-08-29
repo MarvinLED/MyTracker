@@ -34,7 +34,6 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
@@ -42,11 +41,6 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.mytracker.core.metrics.label
 import com.example.mytracker.core.ui.DatedLineChart
-import com.example.mytracker.core.ui.ScatterChart
-import com.example.mytracker.core.ui.ScatterPoint
-import com.example.mytracker.core.util.DateUtils
-import java.time.format.DateTimeFormatter
-import java.util.Locale
 
 /**
  * How the Tagebuch's numbers moved over time: every selected nutrient's target and intake in one
@@ -100,23 +94,21 @@ fun DiaryHistoryScreen(
                         label = { Text(range.label()) },
                     )
                 }
-                // The two chips carrying a tick when they are on, so they read as switches rather
-                // than as further spans sitting beside Monat, Jahr und Insgesamt.
-                ToggleChip(
-                    label = "Heute",
+                // The one chip carrying a tick when it is on, so it reads as a switch rather than a
+                // fourth span sitting beside Monat, Jahr and Insgesamt.
+                FilterChip(
                     selected = state.showToday,
-                    onToggle = { viewModel.onShowTodayChange(!state.showToday) },
-                )
-                ToggleChip(
-                    label = "Kalorien ↔ Gewicht",
-                    selected = state.weeklyComparison,
-                    onToggle = { viewModel.onWeeklyComparisonChange(!state.weeklyComparison) },
+                    onClick = { viewModel.onShowTodayChange(!state.showToday) },
+                    label = { Text("Heute") },
+                    leadingIcon = if (state.showToday) {
+                        { Icon(Icons.Filled.Check, contentDescription = null) }
+                    } else {
+                        null
+                    },
                 )
             }
 
-            if (state.weeklyComparison) {
-                WeeklyComparison(summary = state.weeklyEnergy)
-            } else if (state.lines.isEmpty()) {
+            if (state.lines.isEmpty()) {
                 Text(
                     "Wähle unten aus, was angezeigt werden soll.",
                     style = MaterialTheme.typography.bodyMedium,
@@ -144,98 +136,14 @@ fun DiaryHistoryScreen(
                 )
             }
 
-            // Hidden while the comparison is up: it configures the lines of the other chart, and a
-            // table of checkboxes that changes nothing on screen reads as a broken control.
-            if (!state.weeklyComparison) {
-                SeriesPicker(
-                    expanded = state.seriesPickerExpanded,
-                    selected = state.selectedSeries,
-                    onExpandedChange = viewModel::onSeriesPickerExpandedChange,
-                    onToggle = viewModel::onSeriesToggle,
-                )
-            }
-        }
-    }
-}
-
-/**
- * Kalorien gegen Gewicht, eine Woche je Punkt.
- *
- * The Verlauf cannot answer whether eating more moved the weight: on one axis the weight (±2 %) is a
- * flat line beside the calories (±30 %), and on scales of their own both fill the panel, so any two
- * series look as though they move together. Dropping the time axis puts the relationship itself on
- * screen — how far right a week sits is what was eaten, how far up is what the weight did.
- *
- * The upright line is the Kalorienziel over the same window, so it can be read against where the
- * cloud actually crosses "Gewicht gehalten".
- */
-@Composable
-private fun WeeklyComparison(summary: WeeklyEnergySummary?) {
-    val weekFormatter = remember { DateTimeFormatter.ofPattern("d. MMM", Locale.GERMAN) }
-    val points = summary?.points.orEmpty()
-
-    ScatterChart(
-        points = points.map { week ->
-            ScatterPoint(
-                x = week.kcalPerDay,
-                y = week.weightChangeKg,
-                label = "Woche ab ${DateUtils.localDateOfEpochDay(week.weekStart).format(weekFormatter)}" +
-                    " · ${week.loggedDays} Tage erfasst",
+            SeriesPicker(
+                expanded = state.seriesPickerExpanded,
+                selected = state.selectedSeries,
+                onExpandedChange = viewModel::onSeriesPickerExpandedChange,
+                onToggle = viewModel::onSeriesToggle,
             )
-        },
-        xAxisLabel = "Ø Kalorien pro Tag",
-        yAxisLabel = "Gewicht pro Woche",
-        xUnit = "kcal/Tag",
-        yUnit = "kg",
-        pointColor = WeightColor,
-        // No line under four weeks: a straight line goes through any three points, and drawn there
-        // it would claim a finding the data cannot carry.
-        fit = summary?.fit?.takeIf { summary.hasEnoughWeeks },
-        goalMarker = summary?.goalKcalPerDay,
-        markerColor = KcalColor,
-    )
-
-    if (summary != null && summary.hasEnoughWeeks) {
-        Text(
-            summary.relationshipText(),
-            style = MaterialTheme.typography.bodyMedium,
-        )
-        listOfNotNull(summary.slopeText(), summary.maintenanceText()).forEach { line ->
-            Text(line, style = MaterialTheme.typography.bodyMedium)
         }
-    } else if (points.isNotEmpty()) {
-        Text(
-            "Zu wenige vollständige Wochen (${points.size}) — wähle Jahr oder Insgesamt.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
     }
-
-    Text(
-        "Ein Punkt ist eine volle Kalenderwoche mit mindestens $MIN_LOGGED_DAYS_PER_WEEK erfassten " +
-            "Tagen, hellere Punkte liegen weiter zurück. Die Gewichtsänderung ist Wochenmittel " +
-            "gegen Wochenmittel — eine einzelne Woche trägt trotzdem Wasser und Salz.",
-        style = MaterialTheme.typography.labelSmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-    )
-}
-
-/**
- * A chip that is on or off rather than one of a set. The tick is what tells it apart from the range
- * chips beside it, which look identical when selected but mean "instead of the others".
- */
-@Composable
-private fun ToggleChip(label: String, selected: Boolean, onToggle: () -> Unit) {
-    FilterChip(
-        selected = selected,
-        onClick = onToggle,
-        label = { Text(label) },
-        leadingIcon = if (selected) {
-            { Icon(Icons.Filled.Check, contentDescription = null) }
-        } else {
-            null
-        },
-    )
 }
 
 @Composable

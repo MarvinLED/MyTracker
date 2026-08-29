@@ -2,7 +2,6 @@ package com.example.mytracker.nutrition.diary
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.mytracker.core.datastore.Nutrient
 import com.example.mytracker.core.datastore.UserPreferencesRepository
 import com.example.mytracker.core.metrics.ChartRange
 import com.example.mytracker.core.metrics.Granularity
@@ -10,7 +9,6 @@ import com.example.mytracker.core.metrics.granularityFor
 import com.example.mytracker.core.ui.ChartLine
 import com.example.mytracker.core.util.DateUtils
 import com.example.mytracker.goals.NutrientGoalChangeDao
-import com.example.mytracker.goals.nutrientGoalTimeline
 import com.example.mytracker.weight.BodyWeightDao
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -31,10 +29,6 @@ data class DiaryHistoryUiState(
     val granularity: Granularity = Granularity.DAILY,
     /** One nutrient on screen: all lines share a scale with finely labelled steps. */
     val sharedScale: Boolean = false,
-    /** The Kalorien-Gewicht comparison in place of the Verlauf — see [weeklyEnergy]. */
-    val weeklyComparison: Boolean = false,
-    /** One dot per complete week, null while the comparison is switched off. */
-    val weeklyEnergy: WeeklyEnergySummary? = null,
     /** Whether the running — and therefore only part-logged — day is charted. */
     val showToday: Boolean = true,
 )
@@ -91,23 +85,6 @@ class DiaryHistoryViewModel @Inject constructor(
                     granularity = granularity,
                     sharedScale = isSingleNutrientSelection(settings.selectedSeries),
                     showToday = settings.showToday,
-                    weeklyComparison = settings.weeklyComparison,
-                    // Only walked when it is on screen: it is a second pass over the same window,
-                    // and the Verlauf is what most visits to this screen are for.
-                    weeklyEnergy = if (settings.weeklyComparison) {
-                        weeklyEnergySummary(
-                            points = weeklyEnergyPoints(range, nutritionTotals, weights),
-                            // The same Soll the Verlauf draws, so "dein Ziel" is the line the other
-                            // view shows and not a second reading of the goal history.
-                            goalTimeline = nutrientGoalTimeline(
-                                range = range,
-                                changes = goalChanges.filter { it.nutrient == Nutrient.KCAL },
-                                currentGoal = prefs.nutrientGoals[Nutrient.KCAL],
-                            ),
-                        )
-                    } else {
-                        null
-                    },
                 )
             }
         }
@@ -127,10 +104,6 @@ class DiaryHistoryViewModel @Inject constructor(
 
     fun onShowTodayChange(show: Boolean) {
         viewModelScope.launch { settingsRepository.setShowToday(show) }
-    }
-
-    fun onWeeklyComparisonChange(comparing: Boolean) {
-        viewModelScope.launch { settingsRepository.setWeeklyComparison(comparing) }
     }
 
     fun onSeriesPickerExpandedChange(expanded: Boolean) {
