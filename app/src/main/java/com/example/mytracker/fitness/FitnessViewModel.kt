@@ -6,6 +6,7 @@ import com.example.mytracker.core.util.DateUtils
 import com.example.mytracker.core.util.GoalPeriod
 import com.example.mytracker.core.util.formatCompact
 import com.example.mytracker.core.util.formatDecimal
+import com.example.mytracker.core.util.formatSigned
 import com.example.mytracker.core.util.label
 import com.example.mytracker.fitness.cardio.CardioRepository
 import com.example.mytracker.fitness.strength.StrengthExerciseRepository
@@ -259,11 +260,4 @@ fun StrengthMaxWeightGoal.toProgressRow(
         fraction = progress.fraction,
         isOnTrack = progress.isOnTrack,
     )
-}
-
-/** "+2,5" / "±0" / "-1" — a gain has to carry its sign to be read as one. */
-fun Double.formatSigned(): String = when {
-    this > 0 -> "+${formatCompact()}"
-    this == 0.0 -> "±0"
-    else -> formatCompact()
 }

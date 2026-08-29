@@ -40,6 +40,11 @@ data class DiaryHistorySettings(
      * default of the two.
      */
     val showToday: Boolean = true,
+    /**
+     * Whether the Kalorien-Gewicht comparison is shown in place of the Verlauf. Off by default: it
+     * answers one specific question, and it needs months of weeks before it has anything to say.
+     */
+    val weeklyComparison: Boolean = false,
 ) {
     companion object {
         /** Calories against their target: the one pairing the Tagebuch already leads with. */
@@ -56,6 +61,7 @@ class DiaryHistorySettingsRepository @Inject constructor(
         val CHART_RANGE = stringPreferencesKey("chart_range")
         val PICKER_EXPANDED = booleanPreferencesKey("series_picker_expanded")
         val SHOW_TODAY = booleanPreferencesKey("show_today")
+        val WEEKLY_COMPARISON = booleanPreferencesKey("weekly_comparison")
     }
 
     val settings: Flow<DiaryHistorySettings> = context.diaryHistorySettingsDataStore.data.map { prefs ->
@@ -71,6 +77,7 @@ class DiaryHistorySettingsRepository @Inject constructor(
             } ?: ChartRange.MONTH,
             seriesPickerExpanded = prefs[Keys.PICKER_EXPANDED] ?: true,
             showToday = prefs[Keys.SHOW_TODAY] ?: true,
+            weeklyComparison = prefs[Keys.WEEKLY_COMPARISON] ?: false,
         )
     }
 
@@ -96,5 +103,9 @@ class DiaryHistorySettingsRepository @Inject constructor(
 
     suspend fun setShowToday(show: Boolean) {
         context.diaryHistorySettingsDataStore.edit { it[Keys.SHOW_TODAY] = show }
+    }
+
+    suspend fun setWeeklyComparison(comparing: Boolean) {
+        context.diaryHistorySettingsDataStore.edit { it[Keys.WEEKLY_COMPARISON] = comparing }
     }
 }

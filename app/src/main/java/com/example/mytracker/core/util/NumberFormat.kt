@@ -18,6 +18,13 @@ fun Double.formatCompact(): String =
         String.format(AppLocale, "%.1f", this)
     }
 
+/** "+2,5" / "±0" / "-1" — a gain has to carry its sign to be read as one. */
+fun Double.formatSigned(): String = when {
+    this > 0 -> "+${formatCompact()}"
+    this == 0.0 -> "±0"
+    else -> formatCompact()
+}
+
 /**
  * Parses a decimal number typed with either ',' or '.' as the decimal separator. **Every** numeric
  * text field goes through this: on a German keyboard the decimal key is a comma, and plain
