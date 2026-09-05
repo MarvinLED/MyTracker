@@ -5,8 +5,8 @@ import kotlinx.serialization.Serializable
 @Serializable
 data object DiaryRoute
 
-@Serializable
-data class DiaryAddEntryRoute(val epochDay: Long, val mealType: MealType)
+// Adding an entry is not a destination of this package any more: the Bibliothek does it, for a day
+// and a meal it is handed — see `LibraryLogRoute` in the library package.
 
 @Serializable
 data class DiaryEditEntryRoute(val entryId: String)

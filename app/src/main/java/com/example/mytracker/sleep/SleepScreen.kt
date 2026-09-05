@@ -49,6 +49,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.mytracker.core.ui.ConfirmDeleteDialog
 import com.example.mytracker.core.ui.TimeOfDayField
 import com.example.mytracker.core.util.DateUtils
 import com.example.mytracker.core.util.formatDuration
@@ -451,35 +452,36 @@ private fun GoalCard(statuses: List<SleepGoalStatus>) {
 @Composable
 private fun HistoryRow(row: SleepHistoryRow, onDelete: () -> Unit) {
     val entry = row.entry
+    var confirmingDelete by remember { mutableStateOf(false) }
+    val dayText = DateUtils.localDateOfEpochDay(entry.epochDay).format(shortDayFormatter)
+    val summary = if (entry.didNotSleep) {
+        "Nicht geschlafen"
+    } else {
+        val start = entry.startMinuteOfDay
+        val end = entry.endMinuteOfDay
+        val duration = entry.durationMinutes
+        if (start != null && end != null && duration != null) {
+            "${formatMinuteOfDay(start)}–${formatMinuteOfDay(end)} · " +
+                formatDuration(duration) +
+                (entry.morningFitness?.let { " · Fitness $it/$MAX_MORNING_FITNESS" } ?: "") +
+                (entry.lastMealMinuteOfDay?.let { " · gegessen ${formatMinuteOfDay(it)}" } ?: "")
+        } else {
+            "Fehlerhafte Eingabe"
+        }
+    }
+
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(modifier = Modifier.weight(1f)) {
+                    Text(dayText, style = MaterialTheme.typography.bodyMedium)
                     Text(
-                        DateUtils.localDateOfEpochDay(entry.epochDay).format(shortDayFormatter),
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
-                    Text(
-                        if (entry.didNotSleep) {
-                            "Nicht geschlafen"
-                        } else {
-                            val start = entry.startMinuteOfDay
-                            val end = entry.endMinuteOfDay
-                            val duration = entry.durationMinutes
-                            if (start != null && end != null && duration != null) {
-                                "${formatMinuteOfDay(start)}–${formatMinuteOfDay(end)} · " +
-                                    formatDuration(duration) +
-                                    (entry.morningFitness?.let { " · Fitness $it/$MAX_MORNING_FITNESS" } ?: "") +
-                                    (entry.lastMealMinuteOfDay?.let { " · gegessen ${formatMinuteOfDay(it)}" } ?: "")
-                            } else {
-                                "Fehlerhafte Eingabe"
-                            }
-                        },
+                        summary,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                IconButton(onClick = onDelete) {
+                IconButton(onClick = { confirmingDelete = true }) {
                     Icon(Icons.Filled.Delete, contentDescription = "Nacht löschen")
                 }
             }
@@ -492,5 +494,15 @@ private fun HistoryRow(row: SleepHistoryRow, onDelete: () -> Unit) {
                 )
             }
         }
+    }
+
+    if (confirmingDelete) {
+        ConfirmDeleteDialog(
+            title = "Nacht löschen?",
+            // The night's own line, so the dialog is plainly about the row that was tapped.
+            text = "$dayText — $summary",
+            onConfirm = onDelete,
+            onDismiss = { confirmingDelete = false },
+        )
     }
 }

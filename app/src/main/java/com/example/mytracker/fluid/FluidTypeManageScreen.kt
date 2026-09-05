@@ -49,6 +49,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.mytracker.core.ui.ColorSwatchPicker
+import com.example.mytracker.core.ui.ConfirmDeleteDialog
 import com.example.mytracker.core.util.formatDecimal
 import com.example.mytracker.core.util.toLocaleDoubleOrNull
 
@@ -63,6 +64,7 @@ fun FluidTypeManageScreen(
     var showAddDialog by remember { mutableStateOf(false) }
     var editTarget by remember { mutableStateOf<FluidType?>(null) }
     var blockedDelete by remember { mutableStateOf<FluidType?>(null) }
+    var pendingDelete by remember { mutableStateOf<FluidType?>(null) }
 
     Scaffold(
         modifier = modifier,
@@ -110,7 +112,7 @@ fun FluidTypeManageScreen(
                                     modifier = Modifier.weight(1f).clickable { editTarget = type },
                                 )
                                 IconButton(onClick = {
-                                    viewModel.deleteIfUnused(type) { blockedDelete = type }
+                                    pendingDelete = type
                                 }) {
                                     Icon(Icons.Filled.Delete, contentDescription = "Löschen")
                                 }
@@ -147,6 +149,17 @@ fun FluidTypeManageScreen(
                 editTarget = null
             },
             onDismiss = { editTarget = null },
+        )
+    }
+
+    pendingDelete?.let { type ->
+        ConfirmDeleteDialog(
+            title = "\"${type.name}\" löschen?",
+            text = "Die Flüssigkeitsart wird entfernt. Ihre Schnellzugriffe gehen mit.",
+            // The in-use guard still runs after the answer: confirming says the user meant
+            // it, not that it is safe.
+            onConfirm = { viewModel.deleteIfUnused(type) { blockedDelete = type } },
+            onDismiss = { pendingDelete = null },
         )
     }
 

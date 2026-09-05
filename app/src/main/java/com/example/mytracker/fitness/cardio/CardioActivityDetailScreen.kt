@@ -39,6 +39,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.mytracker.core.ui.ChartLine
+import com.example.mytracker.core.ui.ConfirmDeleteDialog
 import com.example.mytracker.core.ui.DatedLineChart
 import com.example.mytracker.core.ui.dismissingKeyboard
 import com.example.mytracker.core.util.DateUtils
@@ -61,6 +62,7 @@ fun CardioActivityDetailScreen(
 ) {
     val state by viewModel.uiState.collectAsState()
     var showDatePicker by remember { mutableStateOf(false) }
+    var confirmingDelete by remember { mutableStateOf(false) }
     val palette = fluidPalette()
 
     LaunchedEffect(state.isSaved) {
@@ -80,7 +82,7 @@ fun CardioActivityDetailScreen(
                 },
                 actions = {
                     if (state.editingSessionId != null) {
-                        IconButton(onClick = viewModel::deleteEditedSession) {
+                        IconButton(onClick = { confirmingDelete = true }) {
                             Icon(Icons.Filled.Delete, contentDescription = "Einheit löschen")
                         }
                     }
@@ -225,6 +227,15 @@ fun CardioActivityDetailScreen(
                 }
             }
         }
+    }
+
+    if (confirmingDelete) {
+        ConfirmDeleteDialog(
+            title = "Einheit löschen?",
+            text = "Die bearbeitete ${state.activityTypeName}-Einheit wird entfernt.",
+            onConfirm = viewModel::deleteEditedSession,
+            onDismiss = { confirmingDelete = false },
+        )
     }
 
     if (showDatePicker) {

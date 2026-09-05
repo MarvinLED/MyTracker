@@ -36,6 +36,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.mytracker.core.ui.ConfirmDeleteDialog
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -48,6 +49,7 @@ fun MuscleGroupManageScreen(
     var showAddDialog by remember { mutableStateOf(false) }
     var editTarget by remember { mutableStateOf<MuscleGroup?>(null) }
     var blockedDelete by remember { mutableStateOf<MuscleGroup?>(null) }
+    var pendingDelete by remember { mutableStateOf<MuscleGroup?>(null) }
 
     Scaffold(
         modifier = modifier,
@@ -88,7 +90,7 @@ fun MuscleGroupManageScreen(
                                     modifier = Modifier.weight(1f).clickable { editTarget = group },
                                 )
                                 IconButton(onClick = {
-                                    viewModel.deleteIfUnused(group) { blockedDelete = group }
+                                    pendingDelete = group
                                 }) {
                                     Icon(Icons.Filled.Delete, contentDescription = "Löschen")
                                 }
@@ -121,6 +123,17 @@ fun MuscleGroupManageScreen(
                 editTarget = null
             },
             onDismiss = { editTarget = null },
+        )
+    }
+
+    pendingDelete?.let { group ->
+        ConfirmDeleteDialog(
+            title = "\"${group.name}\" löschen?",
+            text = "Die Muskelgruppe wird entfernt und fällt bei jeder Übung weg, der sie zugeordnet war.",
+            // The in-use guard still runs after the answer: confirming says the user meant
+            // it, not that it is safe.
+            onConfirm = { viewModel.deleteIfUnused(group) { blockedDelete = group } },
+            onDismiss = { pendingDelete = null },
         )
     }
 

@@ -38,6 +38,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.mytracker.core.ui.ConfirmDeleteDialog
 import com.example.mytracker.core.util.formatDecimal
 import com.example.mytracker.core.util.toLocaleDoubleOrNull
 
@@ -52,6 +53,7 @@ fun FluidUnitManageScreen(
     var showAddDialog by remember { mutableStateOf(false) }
     var editTarget by remember { mutableStateOf<FluidUnit?>(null) }
     var blockedDelete by remember { mutableStateOf<FluidUnit?>(null) }
+    var pendingDelete by remember { mutableStateOf<FluidUnit?>(null) }
 
     Scaffold(
         modifier = modifier,
@@ -92,7 +94,7 @@ fun FluidUnitManageScreen(
                                     modifier = Modifier.weight(1f).clickable { editTarget = unit },
                                 )
                                 IconButton(onClick = {
-                                    viewModel.deleteIfUnused(unit) { blockedDelete = unit }
+                                    pendingDelete = unit
                                 }) {
                                     Icon(Icons.Filled.Delete, contentDescription = "Löschen")
                                 }
@@ -127,6 +129,17 @@ fun FluidUnitManageScreen(
                 editTarget = null
             },
             onDismiss = { editTarget = null },
+        )
+    }
+
+    pendingDelete?.let { unit ->
+        ConfirmDeleteDialog(
+            title = "\"${unit.name}\" löschen?",
+            text = "Die Einheit steht danach beim Eintragen nicht mehr zur Auswahl.",
+            // The in-use guard still runs after the answer: confirming says the user meant
+            // it, not that it is safe.
+            onConfirm = { viewModel.deleteIfUnused(unit) { blockedDelete = unit } },
+            onDismiss = { pendingDelete = null },
         )
     }
 

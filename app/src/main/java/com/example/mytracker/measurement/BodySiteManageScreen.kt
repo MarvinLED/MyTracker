@@ -39,6 +39,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.mytracker.core.ui.ConfirmDeleteDialog
 
 /** A site queued for deletion together with how many measurements would go with it. */
 private data class PendingDelete(val site: BodySite, val measurementCount: Int)
@@ -144,28 +145,15 @@ fun BodySiteManageScreen(
     }
 
     pendingDelete?.let { pending ->
-        AlertDialog(
-            onDismissRequest = { pendingDelete = null },
-            title = { Text("\"${pending.site.name}\" löschen?") },
-            text = {
-                Text(
-                    if (pending.measurementCount == 1) {
-                        "Dazu gehört 1 gespeicherte Messung, die mitgelöscht wird."
-                    } else {
-                        "Dazu gehören ${pending.measurementCount} gespeicherte Messungen, " +
-                            "die mitgelöscht werden."
-                    },
-                )
+        ConfirmDeleteDialog(
+            title = "\"${pending.site.name}\" löschen?",
+            text = if (pending.measurementCount == 1) {
+                "Dazu gehört 1 gespeicherte Messung, die mitgelöscht wird."
+            } else {
+                "Dazu gehören ${pending.measurementCount} gespeicherte Messungen, die mitgelöscht werden."
             },
-            confirmButton = {
-                TextButton(onClick = {
-                    viewModel.delete(pending.site)
-                    pendingDelete = null
-                }) { Text("Löschen") }
-            },
-            dismissButton = {
-                TextButton(onClick = { pendingDelete = null }) { Text("Abbrechen") }
-            },
+            onConfirm = { viewModel.delete(pending.site) },
+            onDismiss = { pendingDelete = null },
         )
     }
 }

@@ -27,11 +27,14 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.mytracker.core.ui.ConfirmDeleteDialog
 import com.example.mytracker.core.util.DateUtils
 import com.example.mytracker.core.util.formatCompact
 import com.example.mytracker.fitness.cardio.CardioSession
@@ -132,6 +135,12 @@ fun TrainingHistoryScreen(
 
 @Composable
 private fun CardioTrainingRow(session: CardioSession, onClick: () -> Unit, onDelete: () -> Unit) {
+    var confirmingDelete by remember { mutableStateOf(false) }
+    val distancePart = session.distanceKm?.let { " · ${it.formatCompact()} km" }.orEmpty()
+    val caloriesPart = session.caloriesBurned?.let { " · ${it.formatCompact()} kcal" }.orEmpty()
+    val heartRatePart = session.avgHeartRateBpm?.let { " · ⌀ $it bpm" }.orEmpty()
+    val summary = "${session.durationMinutes.formatCompact()} min$distancePart$caloriesPart$heartRatePart"
+
     Card(modifier = Modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(12.dp),
@@ -144,15 +153,21 @@ private fun CardioTrainingRow(session: CardioSession, onClick: () -> Unit, onDel
             )
             Column(modifier = Modifier.weight(1f).clickable(onClick = onClick)) {
                 Text(session.activityTypeName)
-                val distancePart = session.distanceKm?.let { " · ${it.formatCompact()} km" }.orEmpty()
-                val caloriesPart = session.caloriesBurned?.let { " · ${it.formatCompact()} kcal" }.orEmpty()
-                val heartRatePart = session.avgHeartRateBpm?.let { " · ⌀ $it bpm" }.orEmpty()
-                Text("${session.durationMinutes.formatCompact()} min$distancePart$caloriesPart$heartRatePart")
+                Text(summary)
             }
-            IconButton(onClick = onDelete) {
+            IconButton(onClick = { confirmingDelete = true }) {
                 Icon(Icons.Filled.Delete, contentDescription = "Löschen")
             }
         }
+    }
+
+    if (confirmingDelete) {
+        ConfirmDeleteDialog(
+            title = "\"${session.activityTypeName}\" löschen?",
+            text = summary,
+            onConfirm = onDelete,
+            onDismiss = { confirmingDelete = false },
+        )
     }
 }
 
@@ -163,6 +178,10 @@ private fun StrengthTrainingRow(
     onClick: () -> Unit,
     onDelete: () -> Unit,
 ) {
+    var confirmingDelete by remember { mutableStateOf(false) }
+    // Shares formatSetSummary with the detail page so the two can't drift apart.
+    val summary = formatSetSummary(sets.sortedBy { it.setIndex }.map { it.toDraft() })
+
     Card(modifier = Modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(12.dp),
@@ -171,12 +190,22 @@ private fun StrengthTrainingRow(
             Icon(Icons.Filled.Category, contentDescription = null, modifier = Modifier.padding(end = 12.dp))
             Column(modifier = Modifier.weight(1f).clickable(onClick = onClick)) {
                 Text(entry.exerciseName)
-                // Shares formatSetSummary with the detail page so the two can't drift apart.
-                Text(formatSetSummary(sets.sortedBy { it.setIndex }.map { it.toDraft() }))
+                Text(summary)
             }
-            IconButton(onClick = onDelete) {
+            IconButton(onClick = { confirmingDelete = true }) {
                 Icon(Icons.Filled.Delete, contentDescription = "Löschen")
             }
         }
+    }
+
+    if (confirmingDelete) {
+        ConfirmDeleteDialog(
+            title = "\"${entry.exerciseName}\" löschen?",
+            // The sets go with the entry via the CASCADE on strength_sets — that is the whole
+            // record of the session, so it is named rather than counted.
+            text = "Mit dem Eintrag gehen seine Sätze: $summary",
+            onConfirm = onDelete,
+            onDismiss = { confirmingDelete = false },
+        )
     }
 }

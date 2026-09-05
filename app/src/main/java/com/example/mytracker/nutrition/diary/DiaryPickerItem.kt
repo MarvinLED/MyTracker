@@ -42,7 +42,7 @@ fun List<DiaryPickerItem>.filteredForPicker(
     when (mode) {
         DiaryPickerMode.FOOD -> result = result.filterIsInstance<DiaryPickerItem.Food>()
         DiaryPickerMode.RECIPE -> result = result.filterIsInstance<DiaryPickerItem.Recipe>()
-        DiaryPickerMode.ALL, DiaryPickerMode.QUICK -> Unit
+        DiaryPickerMode.ALL -> Unit
     }
 
     if (tagId != null) {

@@ -44,6 +44,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.mytracker.core.ui.ConfirmDeleteDialog
 import com.example.mytracker.core.util.DayStreak
 import com.example.mytracker.core.util.GoalPeriod
 import com.example.mytracker.core.util.formatCompact
@@ -64,6 +65,7 @@ fun HabitScreen(
     var renameTarget by remember { mutableStateOf<Habit?>(null) }
     var valueTarget by remember { mutableStateOf<Habit?>(null) }
     var goalsTarget by remember { mutableStateOf<Habit?>(null) }
+    var pendingDelete by remember { mutableStateOf<Habit?>(null) }
 
     Scaffold(
         modifier = modifier,
@@ -154,7 +156,7 @@ fun HabitScreen(
                                         Icon(Icons.Filled.Flag, contentDescription = "Ziele")
                                     }
                                 }
-                                IconButton(onClick = { viewModel.deleteHabit(habit) }) {
+                                IconButton(onClick = { pendingDelete = habit }) {
                                     Icon(Icons.Filled.Delete, contentDescription = "Löschen")
                                 }
                             }
@@ -163,6 +165,17 @@ fun HabitScreen(
                 }
             }
         }
+    }
+
+    pendingDelete?.let { habit ->
+        ConfirmDeleteDialog(
+            title = "\"${habit.name}\" löschen?",
+            // Its goals go with it (CASCADE on habit_goals), and the streak it was building is
+            // the thing people are actually about to lose.
+            text = "Die Gewohnheit verschwindet samt ihren Zielen und ihrer Serie aus der Übersicht.",
+            onConfirm = { viewModel.deleteHabit(habit) },
+            onDismiss = { pendingDelete = null },
+        )
     }
 
     if (showAddDialog) {

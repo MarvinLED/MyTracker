@@ -131,7 +131,7 @@ fun GoalsScreen(
  * The category filter as one chip that opens a menu. Single selection: "Alle" shows every
  * section again, any other entry replaces what was picked.
  *
- * Same shape as the Tagebuch's tag filter (`TagFilterDropdown` in `DiaryAddEntryScreen`): a plain
+ * Same shape as the Bibliothek's tag filter (`TagFilterButton` in `LibraryFilterButtons`): a plain
  * [DropdownMenu] anchored on the chip rather than an `ExposedDropdownMenuBox`, which would want a
  * text field as its anchor.
  */

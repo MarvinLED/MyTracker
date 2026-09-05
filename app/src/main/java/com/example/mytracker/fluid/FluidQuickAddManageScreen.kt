@@ -49,6 +49,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.mytracker.core.ui.ConfirmDeleteDialog
 import com.example.mytracker.core.util.formatDecimal
 import com.example.mytracker.core.util.toLocaleDoubleOrNull
 
@@ -68,6 +69,7 @@ fun FluidQuickAddManageScreen(
     val types by viewModel.types.collectAsState()
     var showAddDialog by remember { mutableStateOf(false) }
     var editTarget by remember { mutableStateOf<FluidQuickAdd?>(null) }
+    var pendingDelete by remember { mutableStateOf<FluidQuickAddItem?>(null) }
     val items = fluidQuickAddItems(quickAdds, types)
 
     Scaffold(
@@ -125,7 +127,7 @@ fun FluidQuickAddManageScreen(
                                         "${item.quickAdd.amountMl.formatDecimal(3)} ml",
                                     modifier = Modifier.weight(1f).clickable { editTarget = item.quickAdd },
                                 )
-                                IconButton(onClick = { viewModel.delete(item.quickAdd) }) {
+                                IconButton(onClick = { pendingDelete = item }) {
                                     Icon(Icons.Filled.Delete, contentDescription = "Löschen")
                                 }
                             }
@@ -134,6 +136,15 @@ fun FluidQuickAddManageScreen(
                 }
             }
         }
+    }
+
+    pendingDelete?.let { item ->
+        ConfirmDeleteDialog(
+            title = "Schnellzugriff löschen?",
+            text = "${item.typeName} · ${item.quickAdd.amountMl.formatDecimal(3)} ml",
+            onConfirm = { viewModel.delete(item.quickAdd) },
+            onDismiss = { pendingDelete = null },
+        )
     }
 
     if (showAddDialog) {

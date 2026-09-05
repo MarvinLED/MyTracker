@@ -42,6 +42,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.mytracker.core.datastore.WeightUnit
 import com.example.mytracker.core.ui.ChartLine
+import com.example.mytracker.core.ui.ConfirmDeleteDialog
 import com.example.mytracker.core.ui.DatedLineChart
 import com.example.mytracker.core.util.DateUtils
 import com.example.mytracker.core.util.formatDecimal
@@ -61,6 +62,7 @@ fun WeightScreen(
     val uiState by viewModel.uiState.collectAsState()
     val dateFormatter = remember { DateTimeFormatter.ofPattern("EEEE, d. MMMM", Locale.GERMAN) }
     var inputText by remember { mutableStateOf("") }
+    var pendingDelete by remember { mutableStateOf<WeightHistoryRow?>(null) }
 
     LaunchedEffect(uiState.editingEpochDay, uiState.editingDisplayValue) {
         inputText = uiState.editingDisplayValue?.formatDecimal(1).orEmpty()
@@ -188,7 +190,7 @@ fun WeightScreen(
                                     style = MaterialTheme.typography.bodySmall,
                                 )
                             }
-                            IconButton(onClick = { viewModel.delete(row.entry) }) {
+                            IconButton(onClick = { pendingDelete = row }) {
                                 Icon(Icons.Filled.Delete, contentDescription = "Löschen")
                             }
                         }
@@ -196,5 +198,17 @@ fun WeightScreen(
                 }
             }
         }
+    }
+
+    pendingDelete?.let { row ->
+        ConfirmDeleteDialog(
+            title = "Gewichtseintrag löschen?",
+            // Day and value together: on a list of near-identical numbers, either alone would leave
+            // the user guessing which row they hit.
+            text = "${DateUtils.localDateOfEpochDay(row.entry.epochDay).format(dateFormatter)} — " +
+                "${row.displayValue.formatDecimal(1)} $unitLabel",
+            onConfirm = { viewModel.delete(row.entry) },
+            onDismiss = { pendingDelete = null },
+        )
     }
 }

@@ -1,38 +1,36 @@
 package com.example.mytracker.nutrition.diary
 
+/**
+ * Which kind of item a list is asking for. The Bibliothek's tabs pick this — one mode per tab — so
+ * there is no cycling between them any more.
+ */
 enum class DiaryPickerMode {
-    ALL, FOOD, RECIPE, QUICK,
+    ALL, FOOD, RECIPE,
 }
 
 fun DiaryPickerMode.label(): String = when (this) {
     DiaryPickerMode.ALL -> "Alle"
     DiaryPickerMode.FOOD -> "Lebensmittel"
     DiaryPickerMode.RECIPE -> "Rezept"
-    DiaryPickerMode.QUICK -> "Schnell hinzufügen"
 }
 
-/**
- * The states the combined list button cycles through, in tap order. [DiaryPickerMode.QUICK] is
- * deliberately not one of them: Schnelleintrag lists nothing and keeps its own button.
- */
-val diaryPickerListModes = listOf(DiaryPickerMode.ALL, DiaryPickerMode.FOOD, DiaryPickerMode.RECIPE)
-
-/** One tap further along the cycle. Anything outside it starts the cycle from the beginning. */
-fun DiaryPickerMode.nextListMode(): DiaryPickerMode {
-    val index = diaryPickerListModes.indexOf(this)
-    if (index == -1) return diaryPickerListModes.first()
-    return diaryPickerListModes[(index + 1) % diaryPickerListModes.size]
-}
-
-/** The order the picker list is in. Declaration order is chip order on the screen. */
+/** The order a list is in. Declaration order is the order the sort button cycles through. */
 enum class DiaryPickerSort {
     LAST_EATEN, MOST_EATEN, NAME,
 }
 
 fun DiaryPickerSort.label(): String = when (this) {
-    // Short labels: three chips share one row with the tag filter, and "Zuletzt gegessen" ate the
-    // width the third chip now needs.
-    DiaryPickerSort.LAST_EATEN -> "Zuletzt"
-    DiaryPickerSort.MOST_EATEN -> "Am meisten"
+    DiaryPickerSort.LAST_EATEN -> "Zuletzt gegessen"
+    DiaryPickerSort.MOST_EATEN -> "Am meisten gegessen"
     DiaryPickerSort.NAME -> "Name"
+}
+
+/**
+ * One tap further along the sort button's cycle, wrapping round to the first. The button shows no
+ * word of its own, so this has to stay in the enum's declaration order — that order is what the
+ * dropdown behind the same button lists, and the two must agree.
+ */
+fun DiaryPickerSort.next(): DiaryPickerSort {
+    val all = DiaryPickerSort.entries
+    return all[(all.indexOf(this) + 1) % all.size]
 }

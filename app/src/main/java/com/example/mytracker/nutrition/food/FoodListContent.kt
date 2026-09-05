@@ -12,127 +12,125 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.PostAdd
-import androidx.compose.material3.AlertDialog
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.Card
-import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.mytracker.core.ui.ConfirmDeleteDialog
+import com.example.mytracker.core.ui.rememberTopPinnedListState
 import com.example.mytracker.core.util.formatCompact
+import com.example.mytracker.nutrition.diary.DiaryPickerItem
 
+/**
+ * The Lebensmittel tab of the Bibliothek.
+ *
+ * Tapping the row itself logs the food — that is what one comes here to do most of the time. The two
+ * buttons are the rarer jobs: correcting the food, and getting rid of it.
+ */
 @Composable
 fun FoodListContent(
-    onAddFood: () -> Unit,
+    items: List<DiaryPickerItem.Food>,
+    /** The library order behind every tag colour — see [displayColor]. */
+    tagOrder: List<String>,
+    onLogFood: (FoodItem) -> Unit,
     onEditFood: (String) -> Unit,
-    /** Opens the "ins Tagebuch" dialog for this food — see LibraryQuickLogViewModel. */
-    onLogToDiary: (FoodItem) -> Unit,
+    onDeleteFood: (FoodItem) -> Unit,
+    /** Whatever makes this a new list — sort, tag filter, query. See [rememberTopPinnedListState]. */
+    listResetKey: Any?,
     modifier: Modifier = Modifier,
-    viewModel: FoodListViewModel = hiltViewModel(),
 ) {
-    val foods by viewModel.foods.collectAsState()
-    val query by viewModel.query.collectAsState()
-    val tagsByFoodId by viewModel.tagsByFoodId.collectAsState()
-    var blockedDeleteFood by remember { mutableStateOf<FoodItem?>(null) }
+    val listState = rememberTopPinnedListState(items, listResetKey)
+    var pendingDelete by remember { mutableStateOf<FoodItem?>(null) }
 
-    Column(modifier = modifier.fillMaxSize()) {
-        // "+" beside the search field rather than as a FAB in the bottom corner: with the keyboard
-        // open for the search, a bottom-corner button is behind it and has to be dismissed first.
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(16.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            OutlinedTextField(
-                value = query,
-                onValueChange = viewModel::onQueryChange,
-                label = { Text("Suche (Name oder Marke)") },
-                singleLine = true,
-                modifier = Modifier.weight(1f),
-            )
-            FilledIconButton(onClick = onAddFood) {
-                Icon(Icons.Filled.Add, contentDescription = "Lebensmittel hinzufügen")
-            }
+    if (items.isEmpty()) {
+        Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Text("Keine Lebensmittel gefunden.")
         }
-        if (foods.isEmpty()) {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("Noch keine Lebensmittel angelegt.")
-            }
-        } else {
-            LazyColumn(
-                contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                items(foods, key = { it.id }) { food ->
-                    Card(modifier = Modifier.fillMaxWidth()) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(12.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Column(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .clickable { onEditFood(food.id) },
+        return
+    }
+
+    LazyColumn(
+        state = listState,
+        modifier = modifier.fillMaxSize(),
+        contentPadding = PaddingValues(16.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        items(items, key = { it.food.id }) { item ->
+            val food = item.food
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clickable { onLogFood(food) },
+                    ) {
+                        Text(food.name)
+                        // A food without a weight states its figure per portion: "/ 100 g"
+                        // would be a comparison value it does not have.
+                        val unit = food.portionUnitName
+                            ?: if (food.baseUnit == BaseUnit.G) "100 g" else "100 ml"
+                        val brandSuffix = food.brand?.takeIf { it.isNotBlank() }?.let { " · $it" }.orEmpty()
+                        Text("${food.kcalPer100.formatCompact()} kcal / $unit$brandSuffix")
+                        food.formatPrice()?.let { price ->
+                            Text(
+                                price,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        // Names *and* dots: this is where the user learns which colour belongs to
+                        // which tag before meeting the dots alone in the Tagebuch.
+                        if (item.tags.isNotEmpty()) {
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                verticalAlignment = Alignment.CenterVertically,
                             ) {
-                                Text(food.name)
-                                // A food without a weight states its figure per portion: "/ 100 g"
-                                // would be a comparison value it does not have.
-                                val unit = food.portionUnitName
-                                    ?: if (food.baseUnit == BaseUnit.G) "100 g" else "100 ml"
-                                val brandSuffix = food.brand?.let { " · $it" }.orEmpty()
-                                Text("${food.kcalPer100.formatCompact()} kcal / $unit$brandSuffix")
-                                food.formatPrice()?.let { price ->
-                                    Text(
-                                        price,
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
-                                }
-                                val tags = tagsByFoodId[food.id].orEmpty()
-                                if (tags.isNotEmpty()) {
-                                    Text(
-                                        tags.joinToString(" · ") { it.name },
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
-                                }
-                            }
-                            IconButton(onClick = { onLogToDiary(food) }) {
-                                Icon(Icons.Filled.PostAdd, contentDescription = "Ins Tagebuch")
-                            }
-                            IconButton(onClick = {
-                                viewModel.deleteIfUnused(food) { blockedDeleteFood = food }
-                            }) {
-                                Icon(Icons.Filled.Delete, contentDescription = "Löschen")
+                                TagDots(tags = item.tags, tagOrder = tagOrder)
+                                Text(
+                                    item.tags.joinToString(" · ") { it.name },
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
                             }
                         }
+                    }
+                    IconButton(onClick = { onEditFood(food.id) }) {
+                        Icon(Icons.Filled.Edit, contentDescription = "Bearbeiten")
+                    }
+                    IconButton(onClick = { pendingDelete = food }) {
+                        Icon(Icons.Filled.Delete, contentDescription = "Löschen")
                     }
                 }
             }
         }
     }
 
-    blockedDeleteFood?.let { food ->
-        AlertDialog(
-            onDismissRequest = { blockedDeleteFood = null },
-            confirmButton = { TextButton(onClick = { blockedDeleteFood = null }) { Text("OK") } },
-            title = { Text("Kann nicht gelöscht werden") },
-            text = { Text("\"${food.name}\" wird in mindestens einem Rezept verwendet.") },
+    pendingDelete?.let { food ->
+        ConfirmDeleteDialog(
+            title = "\"${food.name}\" löschen?",
+            // Worth saying, because it is the fear that makes people hesitate: the diary snapshots
+            // its own values (see DiaryEntry), so past meals are not touched by this.
+            text = "Das Lebensmittel verschwindet aus der Bibliothek. " +
+                "Bereits eingetragene Mahlzeiten behalten ihre Werte.",
+            onConfirm = { onDeleteFood(food) },
+            onDismiss = { pendingDelete = null },
         )
     }
 }

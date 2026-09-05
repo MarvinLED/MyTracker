@@ -58,6 +58,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.mytracker.core.ui.ConfirmDeleteDialog
 import com.example.mytracker.core.metrics.ChartRange
 import com.example.mytracker.core.metrics.label
 import com.example.mytracker.core.ui.ChartLine
@@ -193,21 +194,13 @@ fun MeasurementScreen(
     }
 
     deleteTarget?.let { row ->
-        AlertDialog(
-            onDismissRequest = { deleteTarget = null },
-            confirmButton = {
-                TextButton(onClick = {
-                    viewModel.deleteDay(row.epochDay)
-                    deleteTarget = null
-                }) { Text("Löschen") }
-            },
-            dismissButton = { TextButton(onClick = { deleteTarget = null }) { Text("Abbrechen") } },
-            title = { Text("Eintrag löschen?") },
-            text = {
-                // Named rather than counted: "3 Werte" does not tell you whether the one you meant
-                // to keep is among them.
-                Text("${row.dateText} — ${row.summary} werden gelöscht.")
-            },
+        ConfirmDeleteDialog(
+            title = "Eintrag löschen?",
+            // Named rather than counted: "3 Werte" does not tell you whether the one you meant to
+            // keep is among them.
+            text = "${row.dateText} — ${row.summary} werden gelöscht.",
+            onConfirm = { viewModel.deleteDay(row.epochDay) },
+            onDismiss = { deleteTarget = null },
         )
     }
 

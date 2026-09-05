@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.toRoute
 import androidx.compose.ui.Modifier
 import com.example.mytracker.achievements.AchievementsRoute
 import com.example.mytracker.achievements.AchievementsScreen
@@ -48,8 +49,6 @@ import com.example.mytracker.measurement.BodySiteManageRoute
 import com.example.mytracker.measurement.BodySiteManageScreen
 import com.example.mytracker.measurement.MeasurementRoute
 import com.example.mytracker.measurement.MeasurementScreen
-import com.example.mytracker.nutrition.diary.DiaryAddEntryRoute
-import com.example.mytracker.nutrition.diary.DiaryAddEntryScreen
 import com.example.mytracker.nutrition.diary.DiaryEditEntryRoute
 import com.example.mytracker.nutrition.diary.DiaryEditEntryScreen
 import com.example.mytracker.nutrition.diary.DiaryHistoryRoute
@@ -58,6 +57,7 @@ import com.example.mytracker.nutrition.diary.DiaryRoute
 import com.example.mytracker.nutrition.diary.DiaryScreen
 import com.example.mytracker.nutrition.food.FoodEditRoute
 import com.example.mytracker.nutrition.food.FoodEditScreen
+import com.example.mytracker.nutrition.library.LibraryLogRoute
 import com.example.mytracker.nutrition.library.LibraryRoute
 import com.example.mytracker.nutrition.library.LibraryScreen
 import com.example.mytracker.nutrition.recipe.RecipeEditRoute
@@ -84,8 +84,10 @@ fun AppNavHost(
     ) {
         composable<DiaryRoute> {
             DiaryScreen(
+                // Adding lands in the Bibliothek, carrying this day and meal — the same screen the
+                // drawer opens, only with somewhere to write to.
                 onAddEntry = { epochDay, mealType ->
-                    navController.navigate(DiaryAddEntryRoute(epochDay, mealType))
+                    navController.navigate(LibraryLogRoute(epochDay, mealType))
                 },
                 onEditEntry = { entryId -> navController.navigate(DiaryEditEntryRoute(entryId)) },
                 onOpenHistory = { navController.navigate(DiaryHistoryRoute) },
@@ -148,13 +150,6 @@ fun AppNavHost(
         composable<BodySiteManageRoute> { entry ->
             BodySiteManageScreen(onBack = { navController.popBackStackOnce(entry) })
         }
-        composable<DiaryAddEntryRoute> { entry ->
-            DiaryAddEntryScreen(
-                onDone = { navController.popBackStackOnce(entry) },
-                onCreateFood = { navController.navigate(FoodEditRoute()) },
-                onCreateRecipe = { navController.navigate(RecipeEditRoute()) },
-            )
-        }
         composable<DiaryEditEntryRoute> { entry ->
             DiaryEditEntryScreen(onDone = { navController.popBackStackOnce(entry) })
         }
@@ -165,6 +160,21 @@ fun AppNavHost(
                 onAddRecipe = { navController.navigate(RecipeEditRoute()) },
                 onEditRecipe = { recipeId -> navController.navigate(RecipeEditRoute(recipeId = recipeId)) },
                 onOpenDrawer = onOpenDrawer,
+            )
+        }
+        // The same screen, reached from a meal's "+": a detail destination that Zurück returns from,
+        // and the only difference is the day and meal it writes to.
+        composable<LibraryLogRoute> { entry ->
+            val route: LibraryLogRoute = entry.toRoute()
+            LibraryScreen(
+                onAddFood = { navController.navigate(FoodEditRoute()) },
+                onEditFood = { foodId -> navController.navigate(FoodEditRoute(foodId = foodId)) },
+                onAddRecipe = { navController.navigate(RecipeEditRoute()) },
+                onEditRecipe = { recipeId -> navController.navigate(RecipeEditRoute(recipeId = recipeId)) },
+                onOpenDrawer = onOpenDrawer,
+                epochDay = route.epochDay,
+                mealType = route.mealType,
+                onBack = { navController.popBackStackOnce(entry) },
             )
         }
         composable<FoodEditRoute> { entry ->

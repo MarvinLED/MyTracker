@@ -58,6 +58,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.mytracker.core.metrics.ChartRange
 import com.example.mytracker.core.metrics.label
 import com.example.mytracker.core.ui.ChartLine
+import com.example.mytracker.core.ui.ConfirmDeleteDialog
 import com.example.mytracker.core.ui.DatedLineChart
 import com.example.mytracker.core.util.DateUtils
 import com.example.mytracker.fluid.fluidPalette
@@ -516,6 +517,7 @@ private fun ChartCard(
 private fun HistoryCard(rows: List<BloodPressureHistoryRow>, onDelete: (BloodPressureEntry) -> Unit) {
     if (rows.isEmpty()) return
     val dateFormatter = remember { DateTimeFormatter.ofPattern("EEE, d. MMM", Locale.GERMAN) }
+    var pendingDelete by remember { mutableStateOf<BloodPressureHistoryRow?>(null) }
 
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(
@@ -551,11 +553,21 @@ private fun HistoryCard(rows: List<BloodPressureHistoryRow>, onDelete: (BloodPre
                             Text(comment, style = MaterialTheme.typography.bodySmall)
                         }
                     }
-                    IconButton(onClick = { onDelete(row.entry) }) {
+                    IconButton(onClick = { pendingDelete = row }) {
                         Icon(Icons.Filled.Delete, contentDescription = "Löschen")
                     }
                 }
             }
         }
+    }
+
+    pendingDelete?.let { row ->
+        ConfirmDeleteDialog(
+            title = "Messung löschen?",
+            text = "${DateUtils.localDateOfEpochDay(row.entry.epochDay).format(dateFormatter)} · " +
+                "${row.entry.timeOfDay.label()} — ${row.values}",
+            onConfirm = { onDelete(row.entry) },
+            onDismiss = { pendingDelete = null },
+        )
     }
 }

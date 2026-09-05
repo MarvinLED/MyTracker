@@ -52,6 +52,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.mytracker.core.ui.ConfirmDeleteDialog
 import com.example.mytracker.core.util.DateUtils
 import com.example.mytracker.core.util.formatDecimal
 import com.example.mytracker.core.util.toLocaleDoubleOrNull
@@ -251,6 +252,7 @@ private fun FluidTypeGroupCard(
             group.entries.forEach { entry ->
                 FluidEntryRow(
                     entry = entry,
+                    typeName = group.name,
                     isEditing = editingEntryId == entry.id,
                     onStartEdit = { onStartEdit(entry) },
                     onCancelEdit = onCancelEdit,
@@ -272,12 +274,25 @@ private fun FluidTypeGroupCard(
 @Composable
 private fun FluidEntryRow(
     entry: FluidEntry,
+    /** Only for the confirmation — the row itself sits under the type's own heading. */
+    typeName: String,
     isEditing: Boolean,
     onStartEdit: () -> Unit,
     onCancelEdit: () -> Unit,
     onSaveEdit: (Double) -> Unit,
     onDelete: () -> Unit,
 ) {
+    var confirmingDelete by remember(entry.id) { mutableStateOf(false) }
+
+    if (confirmingDelete) {
+        ConfirmDeleteDialog(
+            title = "Eintrag löschen?",
+            text = "$typeName · ${entry.amountMl.formatDecimal(3)} ml",
+            onConfirm = onDelete,
+            onDismiss = { confirmingDelete = false },
+        )
+    }
+
     if (entry.sourceDiaryEntryId != null) {
         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Text("${entry.amountMl.formatDecimal(3)} ml", modifier = Modifier.weight(1f))
@@ -325,7 +340,7 @@ private fun FluidEntryRow(
                 modifier = Modifier.size(20.dp),
             )
         }
-        IconButton(onClick = onDelete) {
+        IconButton(onClick = { confirmingDelete = true }) {
             Icon(
                 Icons.Filled.Delete,
                 contentDescription = "Eintrag löschen",

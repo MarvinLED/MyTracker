@@ -51,6 +51,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.mytracker.core.ui.ConfirmDeleteDialog
 import com.example.mytracker.ui.theme.AppDomain
 import com.example.mytracker.ui.theme.topAppBarColors
 import java.io.BufferedReader
@@ -95,6 +96,8 @@ fun BackupScreen(
             }
         }
     }
+
+    var pendingFileDelete by remember { mutableStateOf<BackupFile?>(null) }
 
     val openTreeLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocumentTree(),
@@ -166,12 +169,23 @@ fun BackupScreen(
                                 viewModel.readBackupFile(file.uri)
                             }
                         },
-                        onDelete = { viewModel.deleteFile(file) },
+                        onDelete = { pendingFileDelete = file },
                     )
                 }
             }
             item { StatusLine(status = state.status) }
         }
+    }
+
+    pendingFileDelete?.let { file ->
+        ConfirmDeleteDialog(
+            title = "Sicherung löschen?",
+            // A backup is the last copy of everything else this app can delete, so this one says
+            // plainly that there is no way back.
+            text = "\"${file.name}\" wird endgültig aus dem Sicherungsordner entfernt.",
+            onConfirm = { viewModel.deleteFile(file) },
+            onDismiss = { pendingFileDelete = null },
+        )
     }
 
     state.pendingImport?.let { pending ->

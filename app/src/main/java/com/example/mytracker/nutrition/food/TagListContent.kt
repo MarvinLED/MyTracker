@@ -38,6 +38,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.mytracker.core.ui.ColorSwatchPicker
+import com.example.mytracker.core.ui.ConfirmDeleteDialog
 
 /**
  * The Tags library, third tab of the Bibliothek. Tags are still created as a by-product of typing a
@@ -150,24 +151,14 @@ fun TagListContent(
     }
 
     deleting?.let { (tag, count) ->
-        AlertDialog(
-            onDismissRequest = { deleting = null },
-            title = { Text("\"${tag.name}\" löschen?") },
+        ConfirmDeleteDialog(
+            title = "\"${tag.name}\" löschen?",
             // The Lebensmittel themselves stay; only the label comes off them. Saying which is which
             // is what makes this answerable.
-            text = {
-                Text(
-                    "Der Tag ist an $count ${if (count == 1) "Lebensmittel" else "Lebensmitteln"} vergeben. " +
-                        "Die Lebensmittel bleiben erhalten, verlieren aber diesen Tag.",
-                )
-            },
-            confirmButton = {
-                TextButton(onClick = {
-                    viewModel.delete(tag)
-                    deleting = null
-                }) { Text("Löschen") }
-            },
-            dismissButton = { TextButton(onClick = { deleting = null }) { Text("Abbrechen") } },
+            text = "Der Tag ist an $count ${if (count == 1) "Lebensmittel" else "Lebensmitteln"} vergeben. " +
+                "Die Lebensmittel bleiben erhalten, verlieren aber diesen Tag.",
+            onConfirm = { viewModel.delete(tag) },
+            onDismiss = { deleting = null },
         )
     }
 }

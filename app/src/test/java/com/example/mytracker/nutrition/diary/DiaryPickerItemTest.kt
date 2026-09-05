@@ -339,9 +339,11 @@ class DiaryPickerItemTest {
     }
 
     @Test
-    fun sortLabels_areTheShortOnes() {
-        assertEquals("Zuletzt", DiaryPickerSort.LAST_EATEN.label())
-        assertEquals("Am meisten", DiaryPickerSort.MOST_EATEN.label())
+    fun sortLabels_sayTheWholeThing() {
+        // No longer squeezed onto a chip: these are read out as "Sortierung: …" and listed in the
+        // sort button's menu, and both places have room for the full wording.
+        assertEquals("Zuletzt gegessen", DiaryPickerSort.LAST_EATEN.label())
+        assertEquals("Am meisten gegessen", DiaryPickerSort.MOST_EATEN.label())
         assertEquals("Name", DiaryPickerSort.NAME.label())
     }
 }

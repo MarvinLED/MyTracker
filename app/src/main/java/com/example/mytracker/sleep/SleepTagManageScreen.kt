@@ -34,6 +34,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.mytracker.core.ui.ConfirmDeleteDialog
 import com.example.mytracker.ui.theme.AppDomain
 import com.example.mytracker.ui.theme.topAppBarColors
 
@@ -129,19 +130,14 @@ fun SleepTagManageScreen(
     }
 
     deleting?.let { (tag, count) ->
-        AlertDialog(
-            onDismissRequest = { deleting = null },
-            title = { Text("\"${tag.name}\" löschen?") },
+        ConfirmDeleteDialog(
+            title = "\"${tag.name}\" löschen?",
             // The nights themselves stay; only the label comes off them. Saying which is which is
             // what makes this answerable.
-            text = { Text("Der Tag ist an $count ${if (count == 1) "Nacht" else "Nächten"} vergeben. Die Nächte bleiben erhalten, verlieren aber diesen Tag.") },
-            confirmButton = {
-                TextButton(onClick = {
-                    viewModel.delete(tag)
-                    deleting = null
-                }) { Text("Löschen") }
-            },
-            dismissButton = { TextButton(onClick = { deleting = null }) { Text("Abbrechen") } },
+            text = "Der Tag ist an $count ${if (count == 1) "Nacht" else "Nächten"} vergeben. " +
+                "Die Nächte bleiben erhalten, verlieren aber diesen Tag.",
+            onConfirm = { viewModel.delete(tag) },
+            onDismiss = { deleting = null },
         )
     }
 }

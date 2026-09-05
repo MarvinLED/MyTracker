@@ -56,6 +56,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.mytracker.core.ui.ConfirmDeleteDialog
 import com.example.mytracker.core.util.DateUtils
 import com.example.mytracker.core.util.formatCompact
 import com.example.mytracker.fluid.FluidQuickAddArea
@@ -447,6 +448,30 @@ private fun DiaryEntryRow(
     onEdit: () -> Unit,
     onDelete: () -> Unit,
 ) {
+    var confirmingDelete by remember { mutableStateOf(false) }
+
+    // A Schnelleintrag has no meaningful quantity — its "1 Schnelleintrag" would just be noise.
+    val details = if (entry.sourceType == DiarySourceType.QUICK) {
+        "${entry.quantityUnit} · ${entry.kcal.formatCompact()} kcal"
+    } else {
+        val amount = if (portionUnitName == null) {
+            formatAmount(
+                amountBaseUnits = entry.quantity,
+                unitName = entry.unitName,
+                unitCount = entry.unitCount,
+                baseUnitLabel = entry.quantityUnit,
+            )
+        } else {
+            formatPortionAmount(
+                amountBaseUnits = entry.quantity,
+                unitName = entry.unitName,
+                unitCount = entry.unitCount,
+                portionUnitName = portionUnitName,
+            )
+        }
+        "$amount · ${entry.kcal.formatCompact()} kcal"
+    }
+
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
@@ -463,27 +488,6 @@ private fun DiaryEntryRow(
                 TagDots(tags = tags, tagOrder = tagOrder)
                 Text(entry.sourceName, style = MaterialTheme.typography.bodyMedium)
             }
-            // A Schnelleintrag has no meaningful quantity — its "1 Schnelleintrag" would just be noise.
-            val details = if (entry.sourceType == DiarySourceType.QUICK) {
-                "${entry.quantityUnit} · ${entry.kcal.formatCompact()} kcal"
-            } else {
-                val amount = if (portionUnitName == null) {
-                    formatAmount(
-                        amountBaseUnits = entry.quantity,
-                        unitName = entry.unitName,
-                        unitCount = entry.unitCount,
-                        baseUnitLabel = entry.quantityUnit,
-                    )
-                } else {
-                    formatPortionAmount(
-                        amountBaseUnits = entry.quantity,
-                        unitName = entry.unitName,
-                        unitCount = entry.unitCount,
-                        portionUnitName = portionUnitName,
-                    )
-                }
-                "$amount · ${entry.kcal.formatCompact()} kcal"
-            }
             Text(
                 details,
                 style = MaterialTheme.typography.bodySmall,
@@ -493,8 +497,18 @@ private fun DiaryEntryRow(
         IconButton(onClick = onEdit) {
             Icon(Icons.Filled.Edit, contentDescription = "Bearbeiten")
         }
-        IconButton(onClick = onDelete) {
+        IconButton(onClick = { confirmingDelete = true }) {
             Icon(Icons.Filled.Delete, contentDescription = "Löschen")
         }
+    }
+
+    if (confirmingDelete) {
+        ConfirmDeleteDialog(
+            title = "\"${entry.sourceName}\" löschen?",
+            // The same line the row shows, so the dialog is plainly about the row that was tapped.
+            text = details,
+            onConfirm = onDelete,
+            onDismiss = { confirmingDelete = false },
+        )
     }
 }

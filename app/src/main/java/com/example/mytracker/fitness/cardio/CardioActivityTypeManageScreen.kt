@@ -36,6 +36,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.mytracker.core.ui.ConfirmDeleteDialog
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -48,6 +49,7 @@ fun CardioActivityTypeManageScreen(
     var showAddDialog by remember { mutableStateOf(false) }
     var editTarget by remember { mutableStateOf<CardioActivityType?>(null) }
     var blockedDelete by remember { mutableStateOf<CardioActivityType?>(null) }
+    var pendingDelete by remember { mutableStateOf<CardioActivityType?>(null) }
 
     Scaffold(
         modifier = modifier,
@@ -88,7 +90,7 @@ fun CardioActivityTypeManageScreen(
                                     modifier = Modifier.weight(1f).clickable { editTarget = type },
                                 )
                                 IconButton(onClick = {
-                                    viewModel.deleteIfUnused(type) { blockedDelete = type }
+                                    pendingDelete = type
                                 }) {
                                     Icon(Icons.Filled.Delete, contentDescription = "Löschen")
                                 }
@@ -121,6 +123,17 @@ fun CardioActivityTypeManageScreen(
                 editTarget = null
             },
             onDismiss = { editTarget = null },
+        )
+    }
+
+    pendingDelete?.let { type ->
+        ConfirmDeleteDialog(
+            title = "\"${type.name}\" löschen?",
+            text = "Die Aktivitätsart wird entfernt.",
+            // The in-use guard still runs after the answer: confirming says the user meant
+            // it, not that it is safe.
+            onConfirm = { viewModel.deleteIfUnused(type) { blockedDelete = type } },
+            onDismiss = { pendingDelete = null },
         )
     }
 

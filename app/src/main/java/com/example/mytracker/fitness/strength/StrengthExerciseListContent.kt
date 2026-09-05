@@ -31,6 +31,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.mytracker.core.ui.ConfirmDeleteDialog
 
 @Composable
 fun StrengthExerciseListContent(
@@ -41,6 +42,7 @@ fun StrengthExerciseListContent(
 ) {
     val exercises by viewModel.exercises.collectAsState()
     var blockedDeleteExercise by remember { mutableStateOf<StrengthExercise?>(null) }
+    var pendingDelete by remember { mutableStateOf<StrengthExercise?>(null) }
 
     Box(modifier = modifier.fillMaxSize()) {
         if (exercises.isEmpty()) {
@@ -72,7 +74,7 @@ fun StrengthExerciseListContent(
                                 Text(subtitle)
                             }
                             IconButton(onClick = {
-                                viewModel.deleteIfUnused(exercise) { blockedDeleteExercise = exercise }
+                                pendingDelete = exercise
                             }) {
                                 Icon(Icons.Filled.Delete, contentDescription = "Löschen")
                             }
@@ -87,6 +89,17 @@ fun StrengthExerciseListContent(
         ) {
             Icon(Icons.Filled.Add, contentDescription = "Übung hinzufügen")
         }
+    }
+
+    pendingDelete?.let { exercise ->
+        ConfirmDeleteDialog(
+            title = "\"${exercise.name}\" löschen?",
+            text = "Die Übung verschwindet aus der Bibliothek.",
+            // The in-use guard still runs after the answer: confirming says the user meant it,
+            // not that it is safe.
+            onConfirm = { viewModel.deleteIfUnused(exercise) { blockedDeleteExercise = exercise } },
+            onDismiss = { pendingDelete = null },
+        )
     }
 
     blockedDeleteExercise?.let { exercise ->

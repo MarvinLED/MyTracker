@@ -36,6 +36,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.mytracker.core.ui.ConfirmDeleteDialog
 import com.example.mytracker.ui.theme.AppDomain
 import com.example.mytracker.ui.theme.statusColor
 import com.example.mytracker.ui.theme.topAppBarColors
@@ -173,6 +174,7 @@ private fun TaskRow(
     // has nothing to check off yet, so its box is inert rather than misleading.
     val checkable = status.isOpen || status.completedToday
     val done = !status.isOpen && status.completedToday
+    var confirmingDelete by remember { mutableStateOf(false) }
 
     Card(modifier = Modifier.fillMaxWidth()) {
         Row(
@@ -207,9 +209,20 @@ private fun TaskRow(
                     },
                 )
             }
-            IconButton(onClick = onDelete) {
+            IconButton(onClick = { confirmingDelete = true }) {
                 Icon(Icons.Filled.Delete, contentDescription = "Aufgabe löschen")
             }
         }
+    }
+
+    if (confirmingDelete) {
+        ConfirmDeleteDialog(
+            title = "\"${status.task.name}\" löschen?",
+            // The completions go with the task via the CASCADE on task_completions — that is a
+            // record of work already done, so it is worth naming before it goes.
+            text = "Die Aufgabe und alles, was daran schon abgehakt wurde, werden entfernt.",
+            onConfirm = onDelete,
+            onDismiss = { confirmingDelete = false },
+        )
     }
 }
