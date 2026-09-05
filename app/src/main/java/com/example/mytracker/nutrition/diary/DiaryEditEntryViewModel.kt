@@ -37,12 +37,14 @@ data class DayIngredientRow(
     val selectedUnitId: String? = null,
     val fluidTypeId: String? = null,
     val fluidMlPer100: Double? = null,
+    /** Non-null for a food without a weight; see [FoodItem.portionUnitName]. */
+    val portionUnitName: String? = null,
 ) {
     val selectedUnit: FoodUnit?
         get() = units.firstOrNull { it.id == selectedUnitId }
 
     val amountBaseUnits: Double?
-        get() = amountInBaseUnits(amountText, selectedUnit)
+        get() = amountInBaseUnits(amountText, selectedUnit, portionUnitName)
 
     val fluidMl: Double
         get() = fluidMlOf(fluidTypeId, fluidMlPer100, amountBaseUnits ?: 0.0)
@@ -76,7 +78,7 @@ data class DiaryEditEntryState(
 
     /** The entry's amount in base units (or servings for a recipe), whichever way it was typed. */
     val quantityBaseUnits: Double?
-        get() = amountInBaseUnits(quantityText, selectedUnit)
+        get() = amountInBaseUnits(quantityText, selectedUnit, sourceFood?.portionUnitName)
 
     val isValid: Boolean
         get() = entry != null &&
@@ -132,7 +134,8 @@ class DiaryEditEntryViewModel @Inject constructor(
                 },
                 sourceFood = sourceFood,
                 entryUnits = entryUnits,
-                selectedUnitId = entryUnit?.id,
+                selectedUnitId = entryUnit?.id
+                    ?: sourceFood?.portionUnitName?.let { name -> entryUnits.firstOrNull { it.name == name }?.id },
                 mealType = entry.mealType,
                 ingredients = diaryRepository.getRecipeIngredientsInEffect(entry).map { item ->
                     val units = foodRepository.getUnits(item.food.id)
@@ -196,8 +199,16 @@ class DiaryEditEntryViewModel @Inject constructor(
         viewModelScope.launch {
             val units = foodRepository.getUnits(food.id)
             if (units.isNotEmpty()) {
+                val portionUnitId = food.portionUnitName
+                    ?.let { name -> units.firstOrNull { it.name == name }?.id }
                 updateIngredients(
-                    _state.value.ingredients.map { if (it.foodId == food.id) it.copy(units = units) else it },
+                    _state.value.ingredients.map {
+                        if (it.foodId == food.id) {
+                            it.copy(units = units, selectedUnitId = it.selectedUnitId ?: portionUnitId)
+                        } else {
+                            it
+                        }
+                    },
                 )
             }
         }
@@ -272,7 +283,9 @@ private fun FoodItem.toDayIngredientRow(
         amountBaseUnits?.formatDecimal(3).orEmpty()
     },
     units = units,
-    selectedUnitId = unit?.id,
+    // A food without a weight has one unit and no chips to pick it with, so it is picked here.
+    selectedUnitId = unit?.id ?: portionUnitName?.let { name -> units.firstOrNull { it.name == name }?.id },
     fluidTypeId = fluidTypeId,
     fluidMlPer100 = fluidMlPer100,
+    portionUnitName = portionUnitName,
 )

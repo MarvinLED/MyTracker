@@ -19,6 +19,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -34,6 +35,8 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -112,85 +115,111 @@ fun FoodEditScreen(
             OutlinedTextField(
                 value = state.kcalPer100,
                 onValueChange = viewModel::onKcalChange,
-                label = { Text("kcal pro 100 g", fontWeight = FontWeight.Bold) },
+                label = { Text("kcal pro ${state.valueBasisLabel}", fontWeight = FontWeight.Bold) },
+                // Only while the values are entered for a weighed portion: it shows what they are
+                // about to be converted into, before saving rather than after.
+                supportingText = state.kcalPer100Hint?.let { hint -> { Text(hint) } },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 modifier = Modifier.fillMaxWidth(),
             )
             OutlinedTextField(
                 value = state.fatPer100,
                 onValueChange = viewModel::onFatChange,
-                label = { Text("Fett (g) pro 100 g", fontWeight = FontWeight.Bold) },
+                label = { Text("Fett (g) pro ${state.valueBasisLabel}", fontWeight = FontWeight.Bold) },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 modifier = Modifier.fillMaxWidth(),
             )
             OutlinedTextField(
                 value = state.saturatedFatPer100,
                 onValueChange = viewModel::onSaturatedFatChange,
-                label = { Text("davon gesättigte Fettsäuren (g) pro 100 g") },
+                label = { Text("davon gesättigte Fettsäuren (g) pro ${state.valueBasisLabel}") },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 modifier = Modifier.fillMaxWidth(),
             )
             OutlinedTextField(
                 value = state.carbsPer100,
                 onValueChange = viewModel::onCarbsChange,
-                label = { Text("Kohlenhydrate (g) pro 100 g", fontWeight = FontWeight.Bold) },
+                label = { Text("Kohlenhydrate (g) pro ${state.valueBasisLabel}", fontWeight = FontWeight.Bold) },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 modifier = Modifier.fillMaxWidth(),
             )
             OutlinedTextField(
                 value = state.sugarPer100,
                 onValueChange = viewModel::onSugarChange,
-                label = { Text("davon Zucker (g) pro 100 g") },
+                label = { Text("davon Zucker (g) pro ${state.valueBasisLabel}") },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 modifier = Modifier.fillMaxWidth(),
             )
             OutlinedTextField(
                 value = state.fiberPer100,
                 onValueChange = viewModel::onFiberChange,
-                label = { Text("Ballaststoffe (g) pro 100 g") },
+                label = { Text("Ballaststoffe (g) pro ${state.valueBasisLabel}") },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 modifier = Modifier.fillMaxWidth(),
             )
             OutlinedTextField(
                 value = state.proteinPer100,
                 onValueChange = viewModel::onProteinChange,
-                label = { Text("Protein (g) pro 100 g", fontWeight = FontWeight.Bold) },
+                label = { Text("Protein (g) pro ${state.valueBasisLabel}", fontWeight = FontWeight.Bold) },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 modifier = Modifier.fillMaxWidth(),
             )
             OutlinedTextField(
                 value = state.saltPer100,
                 onValueChange = viewModel::onSaltChange,
-                label = { Text("Salz (g) pro 100 g") },
+                label = { Text("Salz (g) pro ${state.valueBasisLabel}") },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 modifier = Modifier.fillMaxWidth(),
             )
             Text("Einheiten (z.B. \"Scheibe\")", style = MaterialTheme.typography.titleSmall)
             Text(
                 "Beim Eintragen ins Tagebuch oder in ein Rezept kann statt Gramm eine dieser " +
-                    "Einheiten gewählt werden.",
+                    "Einheiten gewählt werden. Steht der Haken bei einer Einheit, gelten die Werte " +
+                    "oben für sie statt für 100 g — mit Gramm-Menge wird umgerechnet, ohne wird " +
+                    "diese Portion zur einzigen Größe des Lebensmittels.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             state.units.forEachIndexed { index, unit ->
+                val isReference = index == state.referenceUnitIndex
+                // Everything except the reference row is dead once the food has no weight: those
+                // rows are gram amounts, and there are no grams left to state them in.
+                val rowEnabled = isReference || !state.isPortionOnly
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
+                    Checkbox(
+                        checked = isReference,
+                        onCheckedChange = { viewModel.onReferenceUnitToggle(index) },
+                        modifier = Modifier.semantics {
+                            contentDescription = "Werte gelten für diese Einheit"
+                        },
+                    )
                     OutlinedTextField(
                         value = unit.name,
                         onValueChange = { viewModel.onUnitNameChange(index, it) },
                         label = { Text("Bezeichnung", maxLines = 1, overflow = TextOverflow.Ellipsis) },
                         singleLine = true,
+                        enabled = rowEnabled,
                         modifier = Modifier.weight(1.2f),
                     )
                     OutlinedTextField(
                         value = unit.amount,
                         onValueChange = { viewModel.onUnitAmountChange(index, it) },
-                        label = { Text("Menge in g", maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                        label = {
+                            Text(
+                                // The blank is the whole point on the reference row, so the label
+                                // says so instead of asking for a number that may not exist.
+                                if (isReference) "Menge in g (optional)" else "Menge in g",
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                         singleLine = true,
+                        enabled = rowEnabled,
                         modifier = Modifier.weight(1f),
                     )
                     IconButton(onClick = { viewModel.removeUnitRow(index) }) {
@@ -198,10 +227,27 @@ fun FoodEditScreen(
                     }
                 }
             }
-            TextButton(onClick = viewModel::addUnitRow) {
-                Icon(Icons.Filled.Add, contentDescription = null)
-                Spacer(Modifier.width(4.dp))
-                Text("Einheit hinzufügen")
+            // Spelled out at the moment it bites, rather than left for the greyed-out save button
+            // to be guessed at.
+            if (state.isPortionOnly) {
+                Text(
+                    if (state.otherUnits.any { it.name.isNotBlank() || it.amount.isNotBlank() }) {
+                        "Ohne Gramm-Menge ist \"${state.valueBasisLabel}\" die einzige Größe dieses " +
+                            "Lebensmittels — die übrigen Einheiten bitte entfernen."
+                    } else {
+                        "Dieses Lebensmittel hat kein Gewicht: es wird nur in " +
+                            "\"${state.valueBasisLabel}\" eingetragen, Gramm entfallen."
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            if (!state.isPortionOnly) {
+                TextButton(onClick = viewModel::addUnitRow) {
+                    Icon(Icons.Filled.Add, contentDescription = null)
+                    Spacer(Modifier.width(4.dp))
+                    Text("Einheit hinzufügen")
+                }
             }
             Text("Preis", style = MaterialTheme.typography.titleSmall)
             OutlinedTextField(
@@ -215,6 +261,9 @@ fun FoodEditScreen(
             PriceBasisPicker(
                 unitNames = state.priceUnitOptions.map { it.name },
                 selectedUnitName = state.priceUnitName,
+                // A food without a weight has no per-100-g price to compare against, so the chip
+                // that would claim one is not offered at all.
+                allowPer100 = !state.isPortionOnly,
                 onSelect = viewModel::onPriceUnitChange,
             )
             Text("Flüssigkeit", style = MaterialTheme.typography.titleSmall)
@@ -233,7 +282,7 @@ fun FoodEditScreen(
                 OutlinedTextField(
                     value = state.fluidMlPer100,
                     onValueChange = viewModel::onFluidMlPer100Change,
-                    label = { Text("davon Flüssigkeit (ml) pro 100 g") },
+                    label = { Text("davon Flüssigkeit (ml) pro ${state.valueBasisLabel}") },
                     supportingText = { Text("100 = besteht ganz aus dieser Flüssigkeit") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     modifier = Modifier.fillMaxWidth(),
@@ -294,16 +343,23 @@ fun FoodEditScreen(
  * units the row is a single chip, which still says what the price means.
  */
 @Composable
-private fun PriceBasisPicker(unitNames: List<String>, selectedUnitName: String?, onSelect: (String?) -> Unit) {
+private fun PriceBasisPicker(
+    unitNames: List<String>,
+    selectedUnitName: String?,
+    allowPer100: Boolean,
+    onSelect: (String?) -> Unit,
+) {
     FlowRow(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        FilterChip(
-            selected = selectedUnitName == null,
-            onClick = { onSelect(null) },
-            label = { Text("pro 100 g") },
-        )
+        if (allowPer100) {
+            FilterChip(
+                selected = selectedUnitName == null,
+                onClick = { onSelect(null) },
+                label = { Text("pro 100 g") },
+            )
+        }
         unitNames.forEach { name ->
             FilterChip(
                 selected = selectedUnitName == name,

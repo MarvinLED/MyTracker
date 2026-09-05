@@ -6,6 +6,9 @@ import androidx.room.Query
 import androidx.room.Upsert
 import kotlinx.coroutines.flow.Flow
 
+/** A food that has no weight, and what its one portion is called — see [FoodItem.portionUnitName]. */
+data class FoodPortionName(val id: String, val portionUnitName: String)
+
 @Dao
 interface FoodDao {
     @Query("SELECT * FROM food_items ORDER BY name COLLATE NOCASE")
@@ -49,4 +52,12 @@ interface FoodDao {
     /** Wipes the Lebensmittel for a replacing import; `food_units` and `food_item_tags` cascade with them. */
     @Query("DELETE FROM food_items")
     suspend fun deleteAll()
+
+    /**
+     * Every food that has no weight, keyed by id. Small by nature and needed wherever a logged
+     * amount is *displayed*: the entry itself snapshots "g", so without this a portion would read
+     * back as a number of grams nobody ever weighed.
+     */
+    @Query("SELECT id, portionUnitName FROM food_items WHERE portionUnitName IS NOT NULL")
+    fun observePortionUnitNames(): Flow<List<FoodPortionName>>
 }

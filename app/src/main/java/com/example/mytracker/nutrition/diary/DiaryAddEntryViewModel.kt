@@ -220,18 +220,22 @@ class DiaryAddEntryViewModel @Inject constructor(
             when (item) {
                 is DiaryPickerItem.Food -> {
                     viewModelScope.launch {
+                        val units = foodRepository.getUnits(item.food.id)
+                        // A food without a weight has exactly one amount it can be counted in, and
+                        // no chips to pick it with — so it is picked here, once, for good.
+                        val portionUnit = item.food.portionUnitName
+                            ?.let { name -> units.firstOrNull { it.name == name } }
                         val lastLogged = diaryRepository.getLastLoggedAmount(DiarySourceType.FOOD, item.food.id)
                         if (lastLogged != null) {
                             _amountText.value = lastLogged.unitCount?.let { it.formatDecimal(1) } ?: lastLogged.quantity.formatDecimal(1)
                             _selectedUnitId.value = if (lastLogged.unitName != null) {
-                                val units = foodRepository.getUnits(item.food.id)
                                 units.firstOrNull { it.name == lastLogged.unitName }?.id
                             } else {
-                                null
+                                portionUnit?.id
                             }
                         } else {
-                            _amountText.value = defaultAmountText(null)
-                            _selectedUnitId.value = null
+                            _amountText.value = defaultAmountText(portionUnit, item.food.portionUnitName)
+                            _selectedUnitId.value = portionUnit?.id
                         }
                     }
                 }
@@ -270,7 +274,7 @@ class DiaryAddEntryViewModel @Inject constructor(
 
         when (item) {
             is DiaryPickerItem.Food -> {
-                val amount = amountInBaseUnits(_amountText.value, unit) ?: return
+                val amount = amountInBaseUnits(_amountText.value, unit, item.food.portionUnitName) ?: return
                 viewModelScope.launch {
                     diaryRepository.logFood(
                         epochDay = epochDay,

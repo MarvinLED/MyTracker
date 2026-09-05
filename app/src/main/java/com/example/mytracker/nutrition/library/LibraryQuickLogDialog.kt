@@ -87,6 +87,7 @@ fun LibraryQuickLogDialog(
                         selectedUnitId = selectedUnitId,
                         onUnitSelected = onUnitSelected,
                         baseUnit = target.food.baseUnit,
+                        portionUnitName = target.food.portionUnitName,
                         modifier = Modifier.fillMaxWidth(),
                     )
                     is QuickLogTarget.Recipe -> {

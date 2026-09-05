@@ -90,7 +90,10 @@ fun FoodListContent(
                                     .clickable { onEditFood(food.id) },
                             ) {
                                 Text(food.name)
-                                val unit = if (food.baseUnit == BaseUnit.G) "100 g" else "100 ml"
+                                // A food without a weight states its figure per portion: "/ 100 g"
+                                // would be a comparison value it does not have.
+                                val unit = food.portionUnitName
+                                    ?: if (food.baseUnit == BaseUnit.G) "100 g" else "100 ml"
                                 val brandSuffix = food.brand?.let { " · $it" }.orEmpty()
                                 Text("${food.kcalPer100.formatCompact()} kcal / $unit$brandSuffix")
                                 food.formatPrice()?.let { price ->

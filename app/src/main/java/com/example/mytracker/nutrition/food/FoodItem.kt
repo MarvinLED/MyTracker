@@ -10,7 +10,17 @@ import kotlinx.serialization.Serializable
 enum class BaseUnit { G, ML }
 
 /**
- * A user-created Lebensmittel. Macros are stored per 100 [baseUnit] (100 g or 100 ml).
+ * What one portion of a weightless food counts as internally — see [FoodItem.portionUnitName].
+ *
+ * 100 exactly, so that "per 100 base units" and "per portion" are the same number and every
+ * calculation in the app keeps working without knowing such foods exist.
+ */
+const val PORTION_BASE_UNITS = 100.0
+
+/**
+ * A user-created Lebensmittel. Macros are stored per 100 [baseUnit] (100 g or 100 ml) — unless
+ * [portionUnitName] says the food has no weight at all, in which case they are per one portion of
+ * it; see there.
  *
  * Named servings ("Scheibe", "Stück") are not fields here — a food can have any number of them, see
  * [FoodUnit].
@@ -52,6 +62,17 @@ data class FoodItem(
      * it — the same reason logged entries snapshot the name.
      */
     val priceUnitName: String? = null,
+    /**
+     * Set only for a food that has no usable weight — a bar whose packet states 230 kcal and nothing
+     * about grams. It names the one portion the values above are for ("Riegel"), and its presence is
+     * what tells every screen to stop offering grams: they would be a number nobody knows.
+     *
+     * Such a food carries exactly one [FoodUnit], with `amountBaseUnits = 100.0`. That is what keeps
+     * the rest of the app out of this entirely — one portion *is* 100 base units, so "per 100" and
+     * "per portion" are the same figure, and [com.example.mytracker.nutrition.NutritionMath] needs
+     * to know nothing about any of it.
+     */
+    val portionUnitName: String? = null,
     val createdAt: Instant,
     val updatedAt: Instant,
 )

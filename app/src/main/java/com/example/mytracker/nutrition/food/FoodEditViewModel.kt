@@ -41,6 +41,16 @@ data class FoodEditState(
     val fiberPer100: String = "",
     val saltPer100: String = "",
     val units: List<UnitRow> = emptyList(),
+    /**
+     * Which unit row the values above were entered for; null means the usual "pro 100 g".
+     *
+     * Two quite different things come out of one checkbox, and which one depends solely on whether
+     * that row has a weight. **With** a weight the values are simply converted — "1 Riegel = 45 g,
+     * 230 kcal" becomes 511 kcal/100 g and the food is an ordinary one afterwards. **Without** one
+     * the food has no weight at all, and grams disappear from it for good; see
+     * [FoodItem.portionUnitName].
+     */
+    val referenceUnitIndex: Int? = null,
     /** Blank = no price recorded; see [FoodItem.price]. */
     val price: String = "",
     /** null = the price is for 100 g, otherwise the name of one of [units]; see [FoodItem.priceUnitName]. */
@@ -53,8 +63,57 @@ data class FoodEditState(
     val tagInput: String = "",
     val isSaved: Boolean = false,
 ) {
+    /** The row the entered values belong to, or null while they are plain per-100-g values. */
+    val referenceUnit: UnitRow? get() = referenceUnitIndex?.let { units.getOrNull(it) }
+
+    /**
+     * True once the values belong to a portion whose weight is unknown. From here on the food has no
+     * grams: nothing can be converted, so nothing else may be offered either.
+     */
+    val isPortionOnly: Boolean get() = referenceUnit?.let { it.name.isNotBlank() && it.amount.isBlank() } == true
+
+    /** What the value fields are labelled with — "100 g", or the portion the numbers are for. */
+    val valueBasisLabel: String
+        get() = referenceUnit?.name?.takeIf { it.isNotBlank() } ?: "100 g"
+
+    /** Every row except the reference one — the rows a weightless portion leaves no room for. */
+    val otherUnits: List<UnitRow>
+        get() = units.filterIndexed { index, _ -> index != referenceUnitIndex }
+
+    /**
+     * What the typed values are multiplied by to become the per-100 figures that get stored.
+     *
+     * A weighed portion is converted once, here, and then forgotten: the food is an ordinary one
+     * afterwards, comparable with every other. A weightless one is stored exactly as typed, because
+     * its single portion *is* 100 base units — see [FoodItem.portionUnitName].
+     */
+    val storageFactor: Double
+        get() = when {
+            isPortionOnly -> 1.0
+            else -> referenceGrams?.let { 100.0 / it } ?: 1.0
+        }
+
+    /** The name this food will be stored under, or null when it keeps a weight and needs none. */
+    val savedPortionUnitName: String?
+        get() = referenceUnit?.name?.trim()?.takeIf { isPortionOnly && it.isNotEmpty() }
+
+    /** The reference portion's weight, or null when it has none — the blank that decides everything. */
+    private val referenceGrams: Double?
+        get() = referenceUnit?.amount?.toLocaleDoubleOrNull()?.takeIf { it > 0.0 }
+
+    /**
+     * "≈ 511 kcal / 100 g" while the values are being entered for a weighed portion, so the figure
+     * the food will actually be stored with is visible before saving rather than after.
+     */
+    val kcalPer100Hint: String?
+        get() {
+            referenceGrams ?: return null
+            val kcal = kcalPer100.toLocaleDoubleOrNull() ?: return null
+            return "≈ ${(kcal * storageFactor).formatDecimal(1)} kcal / 100 g"
+        }
+
     /** The units a price can currently be entered for — half-filled rows aren't offered. */
-    val priceUnitOptions: List<UnitRow> get() = units.filter { it.isComplete }
+    val priceUnitOptions: List<UnitRow> get() = units.filter { it.isComplete || it == referenceUnit }
 
     /**
      * "≈ 0,50 € / 100 g" while a price is being typed for a named unit, so the comparison value is
@@ -62,6 +121,10 @@ data class FoodEditState(
      */
     val pricePer100Hint: String?
         get() {
+            // A food without a weight has no 100 g to be a price of. Left to `pricePer100`, the
+            // blank amount would read as "already per 100" and the price would be restated as a
+            // comparison value that cannot exist.
+            if (isPortionOnly) return null
             val basis = priceUnitOptions.firstOrNull { it.name == priceUnitName } ?: return null
             val per100 = pricePer100(price.toLocaleDoubleOrNull(), basis.amount.toLocaleDoubleOrNull())
                 ?: return null
@@ -78,9 +141,24 @@ data class FoodEditState(
             sugarPer100.isBlankOrValidNumber() &&
             fiberPer100.isBlankOrValidNumber() &&
             saltPer100.isBlankOrValidNumber() &&
-            units.all { it.isBlank || it.isComplete } &&
+            otherUnits.all { it.isBlank || it.isComplete } &&
+            isReferenceRowValid &&
+            // A weightless portion is the only thing this food can be measured in, so anything else
+            // standing beside it would be an amount nobody can convert.
+            (!isPortionOnly || otherUnits.all { it.isBlank }) &&
             price.isBlankOrValidNumber() &&
             (fluidTypeId == null || fluidMlPer100.isBlankOrValidNumber())
+
+    /**
+     * The reference row is the one row allowed to have no amount — that blank is what says "no
+     * weight known". It still needs a name, because the name is what the portion is called
+     * everywhere afterwards.
+     */
+    private val isReferenceRowValid: Boolean
+        get() {
+            val row = referenceUnit ?: return referenceUnitIndex == null
+            return row.name.isNotBlank() && (row.amount.isBlank() || row.isComplete)
+        }
 }
 
 /** An untouched row is simply dropped on save; a half-filled one blocks it. */
@@ -117,6 +195,10 @@ class FoodEditViewModel @Inject constructor(
             viewModelScope.launch {
                 foodRepository.getById(foodId)?.let { food ->
                     existing = food
+                    val units = foodRepository.getUnits(food.id)
+                    val portionIndex = food.portionUnitName
+                        ?.let { name -> units.indexOfFirst { it.name == name } }
+                        ?.takeIf { it >= 0 }
                     _state.value = FoodEditState(
                         id = food.id,
                         name = food.name,
@@ -129,9 +211,16 @@ class FoodEditViewModel @Inject constructor(
                         sugarPer100 = food.sugarPer100.toString(),
                         fiberPer100 = food.fiberPer100.toString(),
                         saltPer100 = food.saltPer100.toString(),
-                        units = foodRepository.getUnits(food.id).map {
-                            UnitRow(name = it.name, amount = it.amountBaseUnits.formatDecimal(3))
+                        units = units.mapIndexed { index, unit ->
+                            UnitRow(
+                                name = unit.name,
+                                // The reference portion of a weightless food shows an empty amount
+                                // rather than the 100 it is stored as — that 100 is bookkeeping,
+                                // not something the user ever typed or should be shown.
+                                amount = if (index == portionIndex) "" else unit.amountBaseUnits.formatDecimal(3),
+                            )
                         },
+                        referenceUnitIndex = portionIndex,
                         price = food.price?.formatDecimal(2).orEmpty(),
                         priceUnitName = food.priceUnitName,
                         fluidTypeId = food.fluidTypeId,
@@ -206,11 +295,39 @@ class FoodEditViewModel @Inject constructor(
 
     fun onUnitAmountChange(index: Int, value: String) = updateUnitRow(index) { it.copy(amount = value) }
 
-    fun removeUnitRow(index: Int) {
-        val removed = _state.value.units.getOrNull(index)?.name
+    /**
+     * Marks the row the entered values belong to, or unmarks it when it is already the reference.
+     * Only one row can be it — the values are one set of numbers, and they are for one thing.
+     *
+     * Picking a row also moves the price onto it when the price was "pro 100 g": a food that turns
+     * out to have no weight has no per-100-g price either, and leaving the old basis would keep a
+     * number that no longer refers to anything.
+     */
+    fun onReferenceUnitToggle(index: Int) {
         val current = _state.value
+        val next = if (current.referenceUnitIndex == index) null else index
+        val updated = current.copy(referenceUnitIndex = next)
+        _state.value = if (updated.isPortionOnly) {
+            updated.copy(priceUnitName = updated.referenceUnit?.name)
+        } else {
+            updated
+        }
+    }
+
+    fun removeUnitRow(index: Int) {
+        val current = _state.value
+        val removed = current.units.getOrNull(index)?.name
         _state.value = current.copy(
             units = current.units.filterIndexed { i, _ -> i != index },
+            // An index into a list that just lost a row: the reference is gone with it, or has
+            // shifted down one. Left alone it would silently come to mean a different row.
+            referenceUnitIndex = current.referenceUnitIndex?.let { reference ->
+                when {
+                    reference == index -> null
+                    reference > index -> reference - 1
+                    else -> reference
+                }
+            },
             // The basis is gone, so the price falls back to "pro 100 g" rather than to a unit that
             // no longer exists.
             priceUnitName = if (removed == current.priceUnitName) null else current.priceUnitName,
@@ -238,16 +355,33 @@ class FoodEditViewModel @Inject constructor(
         if (!s.isValid) return
         viewModelScope.launch {
             val brand = s.brand.ifBlank { null }
-            val unitDrafts = s.units.filter { it.isComplete }.map {
-                FoodUnitDraft(name = it.name, amountBaseUnits = it.amount.toLocaleDoubleOrNull() ?: 0.0)
+            val portionUnitName = s.savedPortionUnitName
+            val toPer100 = s.storageFactor
+            fun String.toStoredValue(): Double = toNutrientValue() * toPer100
+
+            val unitDrafts = if (portionUnitName != null) {
+                listOf(FoodUnitDraft(name = portionUnitName, amountBaseUnits = PORTION_BASE_UNITS))
+            } else {
+                s.units.filter { it.isComplete }.map {
+                    FoodUnitDraft(name = it.name, amountBaseUnits = it.amount.toLocaleDoubleOrNull() ?: 0.0)
+                }
             }
-            // A picked type with a blank amount means "besteht ganz aus dieser Flüssigkeit" = 100 ml/100 g.
-            val fluidMlPer100 = s.fluidTypeId?.let { s.fluidMlPer100.toLocaleDoubleOrNull() ?: 100.0 }
+            // A picked type with a blank amount still means "besteht ganz daraus" — 100 ml per 100 g,
+            // or the whole of one portion. A typed amount is converted like every other value, so
+            // "1 Dose = 330 ml" survives being entered against the portion rather than against 100 g.
+            val fluidMlPer100 = s.fluidTypeId?.let {
+                s.fluidMlPer100.toLocaleDoubleOrNull()?.let { ml -> ml * toPer100 } ?: 100.0
+            }
             // A blank or non-positive price is "kein Preis erfasst", not "kostet 0 €". The basis is
             // only kept if it survived the unit edits above — otherwise the price is per 100 g.
             val price = s.price.toLocaleDoubleOrNull()?.takeIf { it > 0.0 }
-            val priceUnitName = s.priceUnitName?.trim()
-                ?.takeIf { name -> unitDrafts.any { it.name.trim() == name } }
+            // A food without a weight has no "pro 100 g" price either, so its price is the
+            // portion's whether or not the basis was ever switched over by hand.
+            val priceUnitName = if (portionUnitName != null) {
+                portionUnitName.takeIf { price != null }
+            } else {
+                s.priceUnitName?.trim()?.takeIf { name -> unitDrafts.any { it.name.trim() == name } }
+            }
             val current = existing
             val savedFoodId: String
             if (current == null) {
@@ -255,18 +389,19 @@ class FoodEditViewModel @Inject constructor(
                     name = s.name,
                     brand = brand,
                     baseUnit = BaseUnit.G,
-                    kcalPer100 = s.kcalPer100.toNutrientValue(),
-                    proteinPer100 = s.proteinPer100.toNutrientValue(),
-                    carbsPer100 = s.carbsPer100.toNutrientValue(),
-                    fatPer100 = s.fatPer100.toNutrientValue(),
-                    saturatedFatPer100 = s.saturatedFatPer100.toNutrientValue(),
-                    sugarPer100 = s.sugarPer100.toNutrientValue(),
-                    fiberPer100 = s.fiberPer100.toNutrientValue(),
-                    saltPer100 = s.saltPer100.toNutrientValue(),
+                    kcalPer100 = s.kcalPer100.toStoredValue(),
+                    proteinPer100 = s.proteinPer100.toStoredValue(),
+                    carbsPer100 = s.carbsPer100.toStoredValue(),
+                    fatPer100 = s.fatPer100.toStoredValue(),
+                    saturatedFatPer100 = s.saturatedFatPer100.toStoredValue(),
+                    sugarPer100 = s.sugarPer100.toStoredValue(),
+                    fiberPer100 = s.fiberPer100.toStoredValue(),
+                    saltPer100 = s.saltPer100.toStoredValue(),
                     fluidTypeId = s.fluidTypeId,
                     fluidMlPer100 = fluidMlPer100,
                     price = price,
                     priceUnitName = priceUnitName,
+                    portionUnitName = portionUnitName,
                 )
                 savedFoodId = created.id
             } else {
@@ -277,18 +412,19 @@ class FoodEditViewModel @Inject constructor(
                         name = s.name,
                         brand = brand,
                         baseUnit = BaseUnit.G,
-                        kcalPer100 = s.kcalPer100.toNutrientValue(),
-                        proteinPer100 = s.proteinPer100.toNutrientValue(),
-                        carbsPer100 = s.carbsPer100.toNutrientValue(),
-                        fatPer100 = s.fatPer100.toNutrientValue(),
-                        saturatedFatPer100 = s.saturatedFatPer100.toNutrientValue(),
-                        sugarPer100 = s.sugarPer100.toNutrientValue(),
-                        fiberPer100 = s.fiberPer100.toNutrientValue(),
-                        saltPer100 = s.saltPer100.toNutrientValue(),
+                        kcalPer100 = s.kcalPer100.toStoredValue(),
+                        proteinPer100 = s.proteinPer100.toStoredValue(),
+                        carbsPer100 = s.carbsPer100.toStoredValue(),
+                        fatPer100 = s.fatPer100.toStoredValue(),
+                        saturatedFatPer100 = s.saturatedFatPer100.toStoredValue(),
+                        sugarPer100 = s.sugarPer100.toStoredValue(),
+                        fiberPer100 = s.fiberPer100.toStoredValue(),
+                        saltPer100 = s.saltPer100.toStoredValue(),
                         fluidTypeId = s.fluidTypeId,
                         fluidMlPer100 = fluidMlPer100,
                         price = price,
                         priceUnitName = priceUnitName,
+                        portionUnitName = portionUnitName,
                     ),
                 )
             }

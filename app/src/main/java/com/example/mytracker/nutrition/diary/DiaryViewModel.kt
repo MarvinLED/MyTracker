@@ -11,6 +11,7 @@ import com.example.mytracker.fluid.FluidQuickAdd
 import com.example.mytracker.fluid.FluidRepository
 import com.example.mytracker.fluid.FluidType
 import com.example.mytracker.nutrition.NutritionTotals
+import com.example.mytracker.nutrition.food.FoodRepository
 import com.example.mytracker.nutrition.food.Tag
 import com.example.mytracker.nutrition.food.TagRepository
 import com.example.mytracker.nutrition.recipe.RecipeRepository
@@ -49,6 +50,11 @@ data class DiaryDayUiState(
     val tagsBySource: Map<Pair<DiarySourceType, String>, List<Tag>> = emptyMap(),
     /** The full library order, which decides each tag's palette slot — see `Tag.displayColor`. */
     val tagOrder: List<String> = emptyList(),
+    /**
+     * The foods that have no weight, keyed by id. An entry snapshots "g" as its unit, so without
+     * this a logged portion would read back as a number of grams that was never weighed.
+     */
+    val portionUnitNameByFoodId: Map<String, String> = emptyMap(),
 ) {
     val totalKcal: Double get() = totals.kcal
 
@@ -64,6 +70,7 @@ class DiaryViewModel @Inject constructor(
     private val mealClipboard: MealClipboard,
     tagRepository: TagRepository,
     recipeRepository: RecipeRepository,
+    foodRepository: FoodRepository,
     userPreferencesRepository: UserPreferencesRepository,
 ) : ViewModel() {
     private val _selectedEpochDay = MutableStateFlow(DateUtils.todayEpochDay())
@@ -90,6 +97,15 @@ class DiaryViewModel @Inject constructor(
             bySource to allTags.map { it.id }
         }
 
+    /**
+     * The tag lookup plus the weightless foods, paired — the state below is already at `combine`'s
+     * five-flow overload, and both of these are about how an entry is *shown* rather than what it is.
+     */
+    private val entryContext = combine(
+        tagContext,
+        foodRepository.observePortionUnitNames(),
+    ) { tags, portionNames -> tags to portionNames }
+
     /** The day's drinks as one flow, so the state below stays inside `combine`'s typed overloads. */
     private val fluidDay: (Long) -> Flow<Pair<List<FluidEntry>, List<FluidType>>> = { epochDay ->
         combine(fluidRepository.observeForDay(epochDay), fluidRepository.observeTypes()) { entries, types ->
@@ -104,8 +120,9 @@ class DiaryViewModel @Inject constructor(
                 diaryRepository.observeDayNutritionTotals(epochDay),
                 userPreferencesRepository.userPreferences,
                 fluidDay(epochDay),
-                tagContext,
-            ) { entries, totals, prefs, fluid, (tagsBySource, tagOrder) ->
+                entryContext,
+            ) { entries, totals, prefs, fluid, (tagContext, portionNames) ->
+                val (tagsBySource, tagOrder) = tagContext
                 val (fluidEntries, fluidTypes) = fluid
                 DiaryDayUiState(
                     epochDay = epochDay,
@@ -117,6 +134,7 @@ class DiaryViewModel @Inject constructor(
                     fluidGoalMl = prefs.dailyWaterGoalMl,
                     tagsBySource = tagsBySource,
                     tagOrder = tagOrder,
+                    portionUnitNameByFoodId = portionNames,
                 )
             }
         }

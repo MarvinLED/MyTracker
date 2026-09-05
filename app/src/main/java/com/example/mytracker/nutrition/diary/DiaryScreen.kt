@@ -64,6 +64,7 @@ import com.example.mytracker.fluid.fluidQuickAddItems
 import com.example.mytracker.nutrition.food.Tag
 import com.example.mytracker.nutrition.food.TagDots
 import com.example.mytracker.nutrition.food.formatAmount
+import com.example.mytracker.nutrition.food.formatPortionAmount
 import com.example.mytracker.ui.theme.DiaryBlue
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
@@ -254,6 +255,7 @@ fun DiaryScreen(
                                     entries = uiState.entriesByMeal[mealType].orEmpty(),
                                     tagsBySource = uiState.tagsBySource,
                                     tagOrder = uiState.tagOrder,
+                                    portionUnitNameByFoodId = uiState.portionUnitNameByFoodId,
                                     canPaste = copiedMeal != null,
                                     onAddEntry = { onAddEntry(uiState.epochDay, mealType) },
                                     onCopyMeal = { viewModel.copyMeal(mealType) },
@@ -361,6 +363,7 @@ private fun MealBlock(
     entries: List<DiaryEntry>,
     tagsBySource: Map<Pair<DiarySourceType, String>, List<Tag>>,
     tagOrder: List<String>,
+    portionUnitNameByFoodId: Map<String, String>,
     canPaste: Boolean,
     onAddEntry: () -> Unit,
     onCopyMeal: () -> Unit,
@@ -425,6 +428,7 @@ private fun MealBlock(
                     entry = entry,
                     tags = tagsBySource[entry.sourceType to entry.sourceId].orEmpty(),
                     tagOrder = tagOrder,
+                    portionUnitName = entry.sourceId?.let { portionUnitNameByFoodId[it] },
                     onEdit = { onEditEntry(entry.id) },
                     onDelete = { onDeleteEntry(entry) },
                 )
@@ -438,6 +442,8 @@ private fun DiaryEntryRow(
     entry: DiaryEntry,
     tags: List<Tag>,
     tagOrder: List<String>,
+    /** Set when the logged food has no weight, so the amount is not dressed up in grams. */
+    portionUnitName: String?,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
 ) {
@@ -461,12 +467,21 @@ private fun DiaryEntryRow(
             val details = if (entry.sourceType == DiarySourceType.QUICK) {
                 "${entry.quantityUnit} · ${entry.kcal.formatCompact()} kcal"
             } else {
-                val amount = formatAmount(
-                    amountBaseUnits = entry.quantity,
-                    unitName = entry.unitName,
-                    unitCount = entry.unitCount,
-                    baseUnitLabel = entry.quantityUnit,
-                )
+                val amount = if (portionUnitName == null) {
+                    formatAmount(
+                        amountBaseUnits = entry.quantity,
+                        unitName = entry.unitName,
+                        unitCount = entry.unitCount,
+                        baseUnitLabel = entry.quantityUnit,
+                    )
+                } else {
+                    formatPortionAmount(
+                        amountBaseUnits = entry.quantity,
+                        unitName = entry.unitName,
+                        unitCount = entry.unitCount,
+                        portionUnitName = portionUnitName,
+                    )
+                }
                 "$amount · ${entry.kcal.formatCompact()} kcal"
             }
             Text(

@@ -114,7 +114,7 @@ import com.example.mytracker.weight.BodyWeightEntry
         NutrientGoalChange::class,
         GameDayPoints::class,
     ],
-    version = 28,
+    version = 29,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)

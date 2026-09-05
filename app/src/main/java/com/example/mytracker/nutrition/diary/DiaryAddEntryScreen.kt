@@ -456,7 +456,10 @@ private fun ItemRow(
                     is DiaryPickerItem.Food -> {
                         buildString {
                             item.food.brand?.takeIf { it.isNotBlank() }?.let { append(it).append(" · ") }
-                            append("${item.food.kcalPer100.formatCompact()} kcal / 100 g")
+                            // A weightless food states its figure per portion; "/ 100 g" would be
+                            // a comparison value it does not have.
+                            append("${item.food.kcalPer100.formatCompact()} kcal / ")
+                            append(item.food.portionUnitName ?: "100 g")
                         }
                     }
                     is DiaryPickerItem.Recipe -> "${item.recipe.perServing.kcal.formatCompact()} kcal / Portion"
@@ -525,6 +528,7 @@ private fun ExpandedItemPanel(
                         selectedUnitId = selectedUnitId,
                         onUnitSelected = onUnitSelected,
                         baseUnit = item.food.baseUnit,
+                        portionUnitName = item.food.portionUnitName,
                         modifier = Modifier.fillMaxWidth(),
                         trailingContent = { AddButton(onConfirm) },
                     )
@@ -554,7 +558,7 @@ private fun ExpandedItemPanel(
             val amount = when (item) {
                 is DiaryPickerItem.Food -> {
                     val unit = units.firstOrNull { it.id == selectedUnitId }
-                    amountInBaseUnits(amountText, unit)
+                    amountInBaseUnits(amountText, unit, item.food.portionUnitName)
                 }
                 is DiaryPickerItem.Recipe -> amountText.toLocaleDoubleOrNull()
             }

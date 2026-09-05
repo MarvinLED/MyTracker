@@ -39,6 +39,24 @@ fun amountInBaseUnits(amountText: String, unit: FoodUnit?): Double? =
     }
 
 /**
+ * The same, but safe for a food that has no weight — see [FoodItem.portionUnitName].
+ *
+ * Without that name a missing unit means "the number is grams", which for such a food would read a
+ * count of portions as a count of grams: a hundredfold error in the logged nutrition, with nothing
+ * on screen to give it away. Takes the name loose rather than a whole [FoodItem] for the same
+ * reason [com.example.mytracker.nutrition.food.fluidMlOf] does — the rows that need it carry the
+ * loose fields, not the food.
+ */
+fun amountInBaseUnits(amountText: String, unit: FoodUnit?, portionUnitName: String?): Double? =
+    amountText.toLocaleDoubleOrNull()?.let { typed ->
+        when {
+            unit != null -> typed * unit.amountBaseUnits
+            portionUnitName != null -> typed * PORTION_BASE_UNITS
+            else -> typed
+        }
+    }
+
+/**
  * How a logged amount reads back: "2 × Scheibe (50 g)" when it was entered by unit, plain
  * "50 g" otherwise. The base-unit amount stays visible either way — it's the number the nutrition
  * was actually computed from.
@@ -47,6 +65,16 @@ fun formatAmount(amountBaseUnits: Double, unitName: String?, unitCount: Double?,
     val base = "${amountBaseUnits.formatDecimal(3)} $baseUnitLabel"
     if (unitName == null || unitCount == null) return base
     return "${unitCount.formatDecimal(3)} × $unitName ($base)"
+}
+
+/**
+ * The same, for a food that has no weight: "2 × Riegel" and nothing in brackets. The gram figure is
+ * bookkeeping there — one portion is stored as 100 base units — and showing it would state a weight
+ * that was never known, the very thing such a food exists to avoid.
+ */
+fun formatPortionAmount(amountBaseUnits: Double, unitName: String?, unitCount: Double?, portionUnitName: String): String {
+    val count = unitCount ?: (amountBaseUnits / PORTION_BASE_UNITS)
+    return "${count.formatDecimal(3)} × ${unitName ?: portionUnitName}"
 }
 
 /**
@@ -72,6 +100,11 @@ fun FoodAmountInput(
     onUnitSelected: (String?) -> Unit,
     baseUnit: BaseUnit,
     modifier: Modifier = Modifier,
+    /**
+     * Non-null for a food that has no weight — see [FoodItem.portionUnitName]. The base-unit chip
+     * then disappears: grams are not a smaller amount of such a food, they are a number nobody has.
+     */
+    portionUnitName: String? = null,
     enabled: Boolean = true,
     focusRequester: FocusRequester? = null,
     fieldModifier: Modifier = Modifier.fillMaxWidth(),
@@ -81,9 +114,12 @@ fun FoodAmountInput(
     val keyboardController = LocalSoftwareKeyboardController.current
     val selectedUnit = units.firstOrNull { it.id == selectedUnitId }
     val baseLabel = baseUnit.label()
+    val isPortionOnly = portionUnitName != null
 
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        if (units.isNotEmpty()) {
+        // One chip and no choice would be a control that cannot be operated; the field's own label
+        // already says which portion is being counted.
+        if (units.isNotEmpty() && !isPortionOnly) {
             // Above the field, not below: focusing the field scrolls it to the bottom of the frame
             // with the keyboard open, and anything underneath would be hidden behind the keyboard.
             // FlowRow, not Row: several unit names in one bounded row would squeeze the last chip
@@ -116,7 +152,11 @@ fun FoodAmountInput(
                 onValueChange = onAmountChange,
                 label = {
                     Text(
-                        if (selectedUnit == null) "Menge ($baseLabel)" else "Anzahl (${selectedUnit.name})",
+                        when {
+                            portionUnitName != null -> "Anzahl ($portionUnitName)"
+                            selectedUnit == null -> "Menge ($baseLabel)"
+                            else -> "Anzahl (${selectedUnit.name})"
+                        },
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
@@ -165,3 +205,7 @@ const val DEFAULT_UNIT_COUNT = "1"
  */
 fun defaultAmountText(unit: FoodUnit?): String =
     if (unit == null) DEFAULT_BASE_AMOUNT else DEFAULT_UNIT_COUNT
+
+/** The same, for a food whose amounts are only ever a count of portions — never 100 of them. */
+fun defaultAmountText(unit: FoodUnit?, portionUnitName: String?): String =
+    if (unit == null && portionUnitName == null) DEFAULT_BASE_AMOUNT else DEFAULT_UNIT_COUNT

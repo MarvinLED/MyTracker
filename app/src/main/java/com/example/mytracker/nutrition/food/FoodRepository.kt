@@ -5,6 +5,7 @@ import java.time.Instant
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 
 /** A unit as edited in the UI, before it has an id — see [FoodRepository.setUnits]. */
 data class FoodUnitDraft(val name: String, val amountBaseUnits: Double)
@@ -17,6 +18,10 @@ class FoodRepository @Inject constructor(
     fun observeAll(): Flow<List<FoodItem>> = foodDao.observeAll()
 
     fun observeUnits(foodId: String): Flow<List<FoodUnit>> = foodUnitDao.observeForFood(foodId)
+
+    /** The weightless foods, keyed by id — see [FoodDao.observePortionUnitNames]. */
+    fun observePortionUnitNames(): Flow<Map<String, String>> =
+        foodDao.observePortionUnitNames().map { rows -> rows.associate { it.id to it.portionUnitName } }
 
     suspend fun getUnits(foodId: String): List<FoodUnit> = foodUnitDao.getForFood(foodId)
 
@@ -58,6 +63,7 @@ class FoodRepository @Inject constructor(
         fluidMlPer100: Double?,
         price: Double?,
         priceUnitName: String?,
+        portionUnitName: String? = null,
     ): FoodItem {
         val now = Instant.now()
         val food = FoodItem(
@@ -73,6 +79,7 @@ class FoodRepository @Inject constructor(
             sugarPer100 = sugarPer100,
             fiberPer100 = fiberPer100,
             saltPer100 = saltPer100,
+            portionUnitName = portionUnitName,
             fluidTypeId = fluidTypeId,
             fluidMlPer100 = fluidMlPer100,
             price = price,

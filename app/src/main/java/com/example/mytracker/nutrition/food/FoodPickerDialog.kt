@@ -64,7 +64,8 @@ fun FoodPickerDialog(
                             ) {
                                 Text(food.brand?.let { "${food.name} ($it)" } ?: food.name)
                                 Text(
-                                    "${food.kcalPer100.formatCompact()} kcal / 100 ${food.baseUnit.label()}",
+                                    "${food.kcalPer100.formatCompact()} kcal / " +
+                                        (food.portionUnitName ?: "100 ${food.baseUnit.label()}"),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )

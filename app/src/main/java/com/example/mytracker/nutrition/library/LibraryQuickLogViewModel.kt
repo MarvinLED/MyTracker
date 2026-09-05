@@ -96,16 +96,22 @@ class LibraryQuickLogViewModel @Inject constructor(
     fun startFood(food: FoodItem) {
         _target.value = QuickLogTarget.Food(food)
         _mealType.value = defaultMealType(LocalTime.now())
-        _amountText.value = defaultAmountText(null)
+        _amountText.value = defaultAmountText(null, food.portionUnitName)
         _selectedUnitId.value = null
         viewModelScope.launch {
+            val units = foodRepository.getUnits(food.id)
+            // A food without a weight offers no chips, so its one portion is selected here — without
+            // it the typed count would be read as grams.
+            val portionUnitId = food.portionUnitName?.let { name -> units.firstOrNull { it.name == name }?.id }
+            if ((_target.value as? QuickLogTarget.Food)?.food?.id != food.id) return@launch
+            _selectedUnitId.value = portionUnitId
             val last = diaryRepository.getLastLoggedAmount(DiarySourceType.FOOD, food.id) ?: return@launch
             // Another target by now means the dialog was closed and reopened while this was loading.
             if ((_target.value as? QuickLogTarget.Food)?.food?.id != food.id) return@launch
             _amountText.value = last.unitCount?.formatDecimal(1) ?: last.quantity.formatDecimal(1)
             _selectedUnitId.value = last.unitName?.let { name ->
-                foodRepository.getUnits(food.id).firstOrNull { it.name == name }?.id
-            }
+                units.firstOrNull { it.name == name }?.id
+            } ?: portionUnitId
         }
     }
 
@@ -141,7 +147,7 @@ class LibraryQuickLogViewModel @Inject constructor(
         when (target) {
             is QuickLogTarget.Food -> {
                 val unit = selectedUnit
-                val amount = amountInBaseUnits(_amountText.value, unit) ?: return
+                val amount = amountInBaseUnits(_amountText.value, unit, target.food.portionUnitName) ?: return
                 viewModelScope.launch {
                     diaryRepository.logFood(
                         epochDay = epochDay,

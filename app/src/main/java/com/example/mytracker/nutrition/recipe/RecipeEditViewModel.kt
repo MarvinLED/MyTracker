@@ -41,13 +41,15 @@ data class IngredientRow(
      */
     val fluidTypeId: String? = null,
     val fluidMlPer100: Double? = null,
+    /** Non-null for an ingredient without a weight; see [FoodItem.portionUnitName]. */
+    val portionUnitName: String? = null,
 ) {
     val selectedUnit: FoodUnit?
         get() = units.firstOrNull { it.id == selectedUnitId }
 
     /** What the row actually contributes, whichever way it was typed. Null while it isn't a number. */
     val amountBaseUnits: Double?
-        get() = amountInBaseUnits(amountText, selectedUnit)
+        get() = amountInBaseUnits(amountText, selectedUnit, portionUnitName)
 
     val fluidMl: Double
         get() = fluidMlOf(fluidTypeId, fluidMlPer100, amountBaseUnits ?: 0.0)
@@ -78,9 +80,12 @@ private fun FoodItem.toIngredientRow(
     baseUnit = baseUnit,
     amountText = amountText,
     units = units,
-    selectedUnitId = selectedUnitId,
+    // A food without a weight has one unit and no chips to pick it with, so it is picked here.
+    selectedUnitId = selectedUnitId
+        ?: portionUnitName?.let { name -> units.firstOrNull { it.name == name }?.id },
     fluidTypeId = fluidTypeId,
     fluidMlPer100 = fluidMlPer100,
+    portionUnitName = portionUnitName,
 )
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -159,7 +164,11 @@ class RecipeEditViewModel @Inject constructor(
         viewModelScope.launch {
             val units = foodRepository.getUnits(food.id)
             if (units.isNotEmpty()) {
-                updateIngredient(food.id) { it.copy(units = units) }
+                val portionUnitId = food.portionUnitName
+                    ?.let { name -> units.firstOrNull { it.name == name }?.id }
+                updateIngredient(food.id) {
+                    it.copy(units = units, selectedUnitId = it.selectedUnitId ?: portionUnitId)
+                }
             }
         }
     }

@@ -42,6 +42,8 @@ data class FoodItemDto(
     val fluidMlPer100: Double? = null,
     val price: Double? = null,
     val priceUnitName: String? = null,
+    /** Null for every food written before per-portion foods existed — i.e. "values are per 100". */
+    val portionUnitName: String? = null,
     val createdAtEpochMillis: Long,
     val updatedAtEpochMillis: Long,
     val tagIds: List<String> = emptyList(),
@@ -97,6 +99,7 @@ private fun FoodItem.toDto(tagIds: List<String>, units: List<FoodUnit>) = FoodIt
     fluidMlPer100 = fluidMlPer100,
     price = price,
     priceUnitName = priceUnitName,
+    portionUnitName = portionUnitName,
     createdAtEpochMillis = createdAt.toEpochMilli(),
     updatedAtEpochMillis = updatedAt.toEpochMilli(),
     tagIds = tagIds,
@@ -120,6 +123,7 @@ private fun FoodItemDto.toEntity() = FoodItem(
     fluidMlPer100 = fluidMlPer100,
     price = price,
     priceUnitName = priceUnitName,
+    portionUnitName = portionUnitName,
     createdAt = Instant.ofEpochMilli(createdAtEpochMillis),
     updatedAt = Instant.ofEpochMilli(updatedAtEpochMillis),
 )

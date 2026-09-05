@@ -43,4 +43,36 @@ class FoodAmountInputTest {
         assertNull(amountInBaseUnits("", null))
         assertNull(amountInBaseUnits("abc", unit(30.0)))
     }
+
+    @Test
+    fun aWeightlessFoodCountsPortionsEvenWithNoUnitPicked() {
+        // The failure this guards against is silent and hundredfold: without the portion name a
+        // typed "2" reads as two grams, and a bar's 230 kcal arrives in the diary as 4,6.
+        assertEquals(200.0, amountInBaseUnits("2", null, "Riegel")!!, 0.0001)
+        assertEquals(100.0, amountInBaseUnits("1", null, "Riegel")!!, 0.0001)
+        assertEquals(50.0, amountInBaseUnits("0,5", null, "Riegel")!!, 0.0001)
+    }
+
+    @Test
+    fun aFoodWithAWeightIsUnaffectedByThePortionAwareOverload() {
+        assertEquals(2.5, amountInBaseUnits("2,5", null, null)!!, 0.0001)
+        assertEquals(75.0, amountInBaseUnits("2,5", unit(30.0), null)!!, 0.0001)
+        // An explicitly picked unit always wins — that is the amount the user chose.
+        assertEquals(75.0, amountInBaseUnits("2,5", unit(30.0), "Riegel")!!, 0.0001)
+    }
+
+    @Test
+    fun aWeightlessFoodStartsAtOnePortionNotAtAHundred() {
+        assertEquals("1", defaultAmountText(null, "Riegel"))
+        assertEquals("100", defaultAmountText(null, null))
+    }
+
+    @Test
+    fun aPortionAmountNamesNoGrams() {
+        // "2 × Riegel (200 g)" would state a weight that was never known — the one thing such a
+        // food exists to avoid.
+        assertEquals("2 × Riegel", formatPortionAmount(200.0, "Riegel", 2.0, "Riegel"))
+        // Even without the snapshotted count, which is what the base amount is there for.
+        assertEquals("3 × Riegel", formatPortionAmount(300.0, null, null, "Riegel"))
+    }
 }

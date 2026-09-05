@@ -13,9 +13,14 @@ import com.example.mytracker.core.util.AppLocale
 /** "2,49 €" — always two decimals, since that is how a price reads. */
 fun formatEuro(value: Double): String = String.format(AppLocale, "%.2f €", value)
 
-/** What a price refers to: "100 g"/"100 ml" for the base unit, else the named unit ("Packung"). */
-fun priceBasisLabel(priceUnitName: String?, baseUnit: BaseUnit): String =
-    priceUnitName ?: "100 ${baseUnit.label()}"
+/**
+ * What a price refers to: "100 g"/"100 ml" for the base unit, else the named unit ("Packung").
+ *
+ * [portionUnitName] is the fallback for a food that has no weight — there is no per-100-g price to
+ * fall back to there, so its portion is what any price of it is a price of.
+ */
+fun priceBasisLabel(priceUnitName: String?, baseUnit: BaseUnit, portionUnitName: String? = null): String =
+    priceUnitName ?: portionUnitName ?: "100 ${baseUnit.label()}"
 
 /**
  * What 100 base units cost, given a [price] for [basisBaseUnits] g/ml — null basis meaning the
@@ -31,4 +36,4 @@ fun pricePer100(price: Double?, basisBaseUnits: Double?): Double? {
 
 /** "2,49 € / Packung" as shown in the Lebensmittel list, or null when the food has no price. */
 fun FoodItem.formatPrice(): String? =
-    price?.let { "${formatEuro(it)} / ${priceBasisLabel(priceUnitName, baseUnit)}" }
+    price?.let { "${formatEuro(it)} / ${priceBasisLabel(priceUnitName, baseUnit, portionUnitName)}" }

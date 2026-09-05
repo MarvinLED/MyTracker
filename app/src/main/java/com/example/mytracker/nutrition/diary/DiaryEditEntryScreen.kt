@@ -155,6 +155,7 @@ fun DiaryEditEntryScreen(
                         selectedUnitId = state.selectedUnitId,
                         onUnitSelected = viewModel::onSelectUnit,
                         baseUnit = food.baseUnit,
+                        portionUnitName = food.portionUnitName,
                         modifier = Modifier.fillMaxWidth(),
                     )
                 } else {
@@ -257,9 +258,12 @@ private fun DayRecipeSection(
                 selectedUnitId = row.selectedUnitId,
                 onUnitSelected = { onUnitSelected(row.foodId, it) },
                 baseUnit = row.baseUnit,
+                portionUnitName = row.portionUnitName,
                 modifier = Modifier.fillMaxWidth(),
             )
-            row.selectedUnit?.let {
+            // Only for a food that actually has grams: "= 200 g" under a portion nobody weighed
+            // would put the invented number straight back on screen.
+            row.selectedUnit?.takeIf { row.portionUnitName == null }?.let {
                 row.amountBaseUnits?.let { grams ->
                     Text(
                         "= ${grams.formatCompact()} ${row.baseUnit.label()}",

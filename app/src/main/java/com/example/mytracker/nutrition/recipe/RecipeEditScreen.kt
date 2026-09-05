@@ -223,8 +223,9 @@ private fun IngredientEditRow(
                 modifier = Modifier.weight(1f, fill = false),
             )
             // "2 × Scheibe" says nothing about how much that is — in grams the number speaks for
-            // itself, so this only appears in unit mode.
-            row.selectedUnit?.let {
+            // itself, so this only appears in unit mode. For a food without a weight there is no
+            // gram figure to give, only the bookkeeping one, which would be an invented weight.
+            row.selectedUnit?.takeIf { row.portionUnitName == null }?.let {
                 row.amountBaseUnits?.let { grams ->
                     Text(
                         "${grams.formatCompact()} ${row.baseUnit.label()}",
@@ -266,6 +267,12 @@ private fun IngredientEditRow(
 @Composable
 private fun UnitPicker(row: IngredientRow, onUnitSelected: (String?) -> Unit) {
     val baseLabel = row.baseUnit.label()
+    // A food without a weight has exactly one amount it can be counted in, so the menu would open
+    // onto a single entry — and grams must not be among the choices at all.
+    row.portionUnitName?.let { portion ->
+        Text(portion, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        return
+    }
     if (row.units.isEmpty()) {
         Text(baseLabel, style = MaterialTheme.typography.bodyMedium)
         return

@@ -960,3 +960,11 @@ object MIGRATION_27_28 : Migration(27, 28) {
         )
     }
 }
+
+object MIGRATION_28_29 : Migration(28, 29) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        // A food whose packet states a per-portion figure and no weight — see FoodItem.portionUnitName.
+        // Null keeps every food written so far exactly what it was: values per 100 g.
+        db.execSQL("ALTER TABLE `food_items` ADD COLUMN `portionUnitName` TEXT")
+    }
+}

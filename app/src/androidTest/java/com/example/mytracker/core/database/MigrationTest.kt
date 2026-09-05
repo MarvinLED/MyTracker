@@ -1076,4 +1076,39 @@ class MigrationTest {
         }
         db.close()
     }
+
+    @Test
+    fun migrate28To29_leavesExistingFoodsPer100AndOpensThePortionColumn() {
+        val v28 = helper.createDatabase(dbName, 28)
+        v28.execSQL(
+            "INSERT INTO food_items (id, name, baseUnit, kcalPer100, proteinPer100, carbsPer100, " +
+                "fatPer100, saturatedFatPer100, sugarPer100, fiberPer100, saltPer100, createdAt, " +
+                "updatedAt) VALUES ('food-1', 'Haferflocken', 'G', 370.0, 13.0, 59.0, 7.0, 1.2, " +
+                "1.0, 10.0, 0.02, 1700000000000, 1700000000000)",
+        )
+        v28.close()
+
+        val db = helper.runMigrationsAndValidate(dbName, 29, true, MIGRATION_28_29)
+
+        // Null is what "die Werte gelten pro 100 g" looks like, so every food written so far keeps
+        // meaning exactly what it meant.
+        db.query("SELECT portionUnitName, kcalPer100 FROM food_items WHERE id = 'food-1'").use { cursor ->
+            cursor.moveToFirst()
+            assertTrue(cursor.isNull(0))
+            assertEquals(370.0, cursor.getDouble(1), 0.001)
+        }
+
+        // And a food that has no weight names the one portion its values are for.
+        db.execSQL(
+            "INSERT INTO food_items (id, name, baseUnit, kcalPer100, proteinPer100, carbsPer100, " +
+                "fatPer100, saturatedFatPer100, sugarPer100, fiberPer100, saltPer100, " +
+                "portionUnitName, createdAt, updatedAt) VALUES ('food-2', 'Proteinriegel', 'G', " +
+                "230.0, 20.0, 22.0, 7.0, 3.0, 1.0, 6.0, 0.3, 'Riegel', 1700000000000, 1700000000000)",
+        )
+        db.query("SELECT portionUnitName FROM food_items WHERE id = 'food-2'").use { cursor ->
+            cursor.moveToFirst()
+            assertEquals("Riegel", cursor.getString(0))
+        }
+        db.close()
+    }
 }
