@@ -37,6 +37,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.mytracker.core.util.DateUtils
+import com.example.mytracker.core.util.formatDecimal
 import com.example.mytracker.ui.theme.cautionColor
 import com.example.mytracker.ui.theme.statusColor
 import java.time.format.DateTimeFormatter
@@ -92,6 +93,10 @@ fun SessionComparisonCard(
                     Icon(Icons.Filled.ChevronRight, contentDescription = "Nächster Tag")
                 }
             }
+
+            // Above the volume verdict, because it outranks it: beating the last session is the
+            // week's business, beating every session there has ever been is the year's.
+            state.topSetRecord?.let { TopSetRecordBanner(it) }
 
             VolumeTargetBanner(volumeTarget(state.currentSession, state.previousSession))
 
@@ -233,6 +238,44 @@ private fun SessionRowItem(
                     TextButton(onClick = { onSelectDay(row.epochDay) }) { Text("Zu diesem Tag") }
                 }
             }
+        }
+    }
+}
+
+/**
+ * The rarest thing this screen has to say, so it gets to say it loudest: this exercise has never
+ * been lifted heavier. Shown only on the day it happened — a record is news once, and a band that
+ * stayed up for weeks would turn into wallpaper.
+ */
+@Composable
+private fun TopSetRecordBanner(record: TopSetRecord) {
+    val accent = statusColor(isMet = true)
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(BannerShape)
+            .background(accent.copy(alpha = 0.18f))
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        // A trophy rather than an icon: this is the one moment on the screen that is allowed to
+        // celebrate. The wording carries it too, so nothing rests on the emoji being rendered.
+        Text("🏆", style = MaterialTheme.typography.titleLarge)
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                "Neuer Rekord: ${record.weightKg.formatDecimal(2)} kg",
+                style = MaterialTheme.typography.titleMedium,
+                color = accent,
+            )
+            Text(
+                record.previousKg
+                    ?.let { "Bestmarke geschlagen — davor ${it.formatDecimal(2)} kg" }
+                    ?: "Deine erste Bestmarke bei dieser Übung",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }

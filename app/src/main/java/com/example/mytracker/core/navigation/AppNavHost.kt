@@ -5,6 +5,8 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.compose.ui.Modifier
+import com.example.mytracker.achievements.AchievementsRoute
+import com.example.mytracker.achievements.AchievementsScreen
 import com.example.mytracker.analyse.AnalyseRoute
 import com.example.mytracker.analyse.AnalyseScreen
 import com.example.mytracker.bloodpressure.BloodPressureRoute
@@ -173,6 +175,9 @@ fun AppNavHost(
         }
         composable<BackupRoute> {
             BackupScreen(onOpenDrawer = onOpenDrawer)
+        }
+        composable<AchievementsRoute> {
+            AchievementsScreen(onOpenDrawer = onOpenDrawer)
         }
         composable<AnalyseRoute> {
             AnalyseScreen(onOpenDrawer = onOpenDrawer)

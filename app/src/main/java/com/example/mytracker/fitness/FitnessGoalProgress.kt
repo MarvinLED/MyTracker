@@ -129,6 +129,13 @@ data class FitnessGoalStreak(
     val considered: Int,
     /** Met periods in a row, counted back from the most recent finished one. */
     val currentRun: Int,
+    /**
+     * The longest run **within the periods that were looked at** — not an all-time record. It is
+     * what makes a broken streak leave something behind instead of vanishing: the run is gone, the
+     * mark it set is not. How far back "within" reaches is the caller's `periods`, which is why
+     * every place that shows this also says how many periods it looked at.
+     */
+    val bestRun: Int = currentRun,
 ) {
     val hasHistory: Boolean get() = considered > 0
 }
@@ -146,6 +153,10 @@ suspend fun goalStreak(
     var considered = 0
     var run = 0
     var runOpen = true
+    // Walking backwards traverses each run from its end rather than its start, which changes nothing
+    // about how long it is — so the longest one can be picked up in the same pass.
+    var currentSpan = 0
+    var bestSpan = 0
     for (back in 1..periods) {
         val progress = progressForPeriodsBack(back)
         // A period with nothing to compare against cannot fail at beating it, so it stays out of
@@ -156,11 +167,14 @@ suspend fun goalStreak(
         }
         if (progress.isMet) {
             if (runOpen) run++
+            currentSpan++
+            if (currentSpan > bestSpan) bestSpan = currentSpan
         } else {
             runOpen = false
+            currentSpan = 0
         }
     }
-    return FitnessGoalStreak(met = met, considered = considered, currentRun = run)
+    return FitnessGoalStreak(met = met, considered = considered, currentRun = run, bestRun = bestSpan)
 }
 
 /**

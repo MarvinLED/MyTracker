@@ -341,12 +341,71 @@ class FitnessGoalProgressTest {
         assertNull(FitnessGoalStreak(met = 1, considered = 1, currentRun = 1).summaryText(GoalPeriod.WEEKLY))
         assertEquals(
             "6 von 8 Wochen erreicht · 3 in Folge",
-            FitnessGoalStreak(met = 6, considered = 8, currentRun = 3).summaryText(GoalPeriod.WEEKLY),
+            FitnessGoalStreak(met = 6, considered = 8, currentRun = 3, bestRun = 3).summaryText(GoalPeriod.WEEKLY),
         )
         // A run of one is just "the last one" and claims nothing worth a clause of its own.
         assertEquals(
             "2 von 4 Monaten erreicht",
-            FitnessGoalStreak(met = 2, considered = 4, currentRun = 1).summaryText(GoalPeriod.MONTHLY),
+            FitnessGoalStreak(met = 2, considered = 4, currentRun = 1, bestRun = 1).summaryText(GoalPeriod.MONTHLY),
         )
+    }
+
+    @Test
+    fun theBestRunIsOnlySaidWhenItBeatsTheRunningOne() {
+        // Repeating "3 in Folge · beste Serie 3" would say the same thing twice.
+        assertEquals(
+            "6 von 8 Wochen erreicht · 3 in Folge",
+            FitnessGoalStreak(met = 6, considered = 8, currentRun = 3, bestRun = 3).summaryText(GoalPeriod.WEEKLY),
+        )
+        assertEquals(
+            "6 von 8 Wochen erreicht · 3 in Folge · beste Serie 5",
+            FitnessGoalStreak(met = 6, considered = 8, currentRun = 3, bestRun = 5).summaryText(GoalPeriod.WEEKLY),
+        )
+        // The mark outlives the run that set it — that is the whole point of keeping it.
+        assertEquals(
+            "5 von 8 Wochen erreicht · beste Serie 4",
+            FitnessGoalStreak(met = 5, considered = 8, currentRun = 0, bestRun = 4).summaryText(GoalPeriod.WEEKLY),
+        )
+    }
+
+    @Test
+    fun theBestRunOutlivesTheGapThatEndedIt() = runBlocking {
+        // Newest first: a missed period, then four met ones.
+        val results = listOf(missed(), met(), met(), met(), met())
+
+        val streak = goalStreak(periods = 5) { back -> results[back - 1] }
+
+        assertEquals(0, streak.currentRun)
+        assertEquals(4, streak.bestRun)
+    }
+
+    @Test
+    fun theBestRunIsTheLongestOfSeveral() = runBlocking {
+        val results = listOf(met(), met(), missed(), met(), met(), met(), missed(), met())
+
+        val streak = goalStreak(periods = 8) { back -> results[back - 1] }
+
+        assertEquals(2, streak.currentRun)
+        assertEquals(3, streak.bestRun)
+    }
+
+    @Test
+    fun aPeriodWithNothingToCompareBreaksTheBestRunToo() = runBlocking {
+        val results = listOf(met(), met(), noReference(), met(), met(), met())
+
+        val streak = goalStreak(periods = 6) { back -> results[back - 1] }
+
+        // Consistent with currentRun: a period that could not be judged is not a period the goal was
+        // reached in, so a run cannot be carried across it.
+        assertEquals(2, streak.currentRun)
+        assertEquals(3, streak.bestRun)
+    }
+
+    @Test
+    fun theRunningStreakCanBeTheBestOne() = runBlocking {
+        val streak = goalStreak(periods = 4) { met() }
+
+        assertEquals(4, streak.currentRun)
+        assertEquals(4, streak.bestRun)
     }
 }

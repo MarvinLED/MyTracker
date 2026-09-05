@@ -4,6 +4,7 @@ import androidx.annotation.StringRes
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Backup
 import androidx.compose.material.icons.filled.Checklist
+import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.Insights
 import androidx.compose.material.icons.filled.Kitchen
@@ -14,6 +15,7 @@ import androidx.compose.material.icons.filled.Straighten
 import androidx.compose.material.icons.filled.Task
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.example.mytracker.R
+import com.example.mytracker.achievements.AchievementsRoute
 import com.example.mytracker.analyse.AnalyseRoute
 import com.example.mytracker.bloodpressure.BloodPressureRoute
 import com.example.mytracker.core.backup.BackupRoute
@@ -43,6 +45,13 @@ enum class DrawerDestination(
         labelRes = R.string.nav_library,
         icon = Icons.Filled.Kitchen,
         domain = AppDomain.LIBRARY,
+    ),
+    ACHIEVEMENTS(
+        route = AchievementsRoute,
+        routeQualifiedName = AchievementsRoute::class.qualifiedName!!,
+        labelRes = R.string.nav_achievements,
+        icon = Icons.Filled.EmojiEvents,
+        domain = AppDomain.ACHIEVEMENTS,
     ),
     ANALYSE(
         route = AnalyseRoute,

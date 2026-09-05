@@ -2,9 +2,12 @@ package com.example.mytracker.goals
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.mytracker.achievements.GameLedgerRepository
+import com.example.mytracker.achievements.attributeLevels
 import com.example.mytracker.core.datastore.UserPreferencesRepository
 import com.example.mytracker.core.util.DateUtils
 import com.example.mytracker.core.util.GoalPeriod
+import com.example.mytracker.core.util.formatCompact
 import com.example.mytracker.fitness.FitnessGoalRepository
 import com.example.mytracker.fitness.strength.StrengthExerciseRepository
 import com.example.mytracker.fluid.FluidRepository
@@ -37,6 +40,7 @@ class DayGoalsViewModel @Inject constructor(
     strengthExerciseRepository: StrengthExerciseRepository,
     sleepRepository: SleepRepository,
     taskRepository: TaskRepository,
+    gameLedgerRepository: GameLedgerRepository,
 ) : ViewModel() {
     // Fixed at construction like the Habits screen: this is "today", and a screen that silently
     // rolled over at midnight would change what it says under the user's hands.
@@ -120,15 +124,42 @@ class DayGoalsViewModel @Inject constructor(
 
     // Past the five-flow `combine` overloads, so this is the vararg one: every section is the same
     // nullable type, and the nulls are the areas with nothing set.
-    val uiState: StateFlow<DayGoalsUiState> = combine(
+    private val sections = combine(
         taskSection,
         nutritionSection,
         fluidSection,
         habitSection,
         fitnessSection,
         sleepSection,
-    ) { sections -> DayGoalsUiState(sections = sections.filterNotNull()) }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), DayGoalsUiState())
+    ) { sections -> sections.filterNotNull() }
+
+    /**
+     * A one-line trailer for the Erfolge screen. It reads the ledger but never settles a day — that
+     * is the Erfolge screen's job, so opening the Tagesziele stays as cheap as it always was.
+     */
+    val uiState: StateFlow<DayGoalsUiState> = combine(
+        sections,
+        gameLedgerRepository.observePoints(),
+    ) { sections, ledger ->
+        val byAttribute = ledger
+            .groupBy { it.attribute }
+            .mapValues { (_, rows) -> rows.associate { it.epochDay to it.points } }
+        val overall = attributeLevels(byAttribute, today, ledger.minOfOrNull { it.epochDay })
+            .sumOf { it.level }
+        DayGoalsUiState(
+            sections = sections,
+            figureSummary = if (ledger.isEmpty()) {
+                null
+            } else {
+                buildString {
+                    // Yesterday, because today is never booked — see [GameLedgerRepository].
+                    val yesterday = ledger.filter { it.epochDay == today - 1 }.sumOf { it.points }
+                    if (yesterday > 0.0) append("Gestern +${yesterday.formatCompact()} Punkte · ")
+                    append("Figur Stufe $overall")
+                }
+            },
+        )
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), DayGoalsUiState())
 }
 
 /** An area with no goal set contributes no heading either. */

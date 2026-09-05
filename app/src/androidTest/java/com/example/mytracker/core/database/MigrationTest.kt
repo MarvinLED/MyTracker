@@ -1019,4 +1019,61 @@ class MigrationTest {
         }
         db.close()
     }
+
+    @Test
+    fun migrate27To28_addsTheEmptyPointsLedgerAndKeepsTheDataBeforeIt() {
+        val v27 = helper.createDatabase(dbName, 27)
+        v27.execSQL(
+            "INSERT INTO habit_check_ins (id, habitId, epochDay, createdAt, value) " +
+                "VALUES ('check-1', 'habit-1', 20000, 1700000000000, NULL)",
+        )
+        v27.close()
+
+        val db = helper.runMigrationsAndValidate(dbName, 28, true, MIGRATION_27_28)
+
+        // The ledger starts empty and is filled by settling finished days — there is nothing to
+        // backfill it from at migration time, and the app books the history on first open instead.
+        db.query("SELECT COUNT(*) FROM game_day_points").use { cursor ->
+            cursor.moveToFirst()
+            assertEquals(0, cursor.getInt(0))
+        }
+        db.query("SELECT COUNT(*) FROM habit_check_ins").use { cursor ->
+            cursor.moveToFirst()
+            assertEquals(1, cursor.getInt(0))
+        }
+        db.close()
+    }
+
+    @Test
+    fun migrate27To28_booksOneRowPerAttributeAndDay() {
+        helper.createDatabase(dbName, 27).close()
+
+        val db = helper.runMigrationsAndValidate(dbName, 28, true, MIGRATION_27_28)
+
+        db.execSQL(
+            "INSERT INTO game_day_points (epochDay, attribute, points, bookedAt) " +
+                "VALUES (20000, 'KRAFT', 25.0, 1700000000000)",
+        )
+        db.execSQL(
+            "INSERT INTO game_day_points (epochDay, attribute, points, bookedAt) " +
+                "VALUES (20000, 'FORM', 0.0, 1700000000000)",
+        )
+        // Same day, same attribute again: the primary key is what stops a day being paid twice.
+        var rejected = false
+        try {
+            db.execSQL(
+                "INSERT INTO game_day_points (epochDay, attribute, points, bookedAt) " +
+                    "VALUES (20000, 'KRAFT', 99.0, 1700000001000)",
+            )
+        } catch (e: android.database.sqlite.SQLiteConstraintException) {
+            rejected = true
+        }
+
+        assertTrue(rejected)
+        db.query("SELECT COUNT(*) FROM game_day_points WHERE epochDay = 20000").use { cursor ->
+            cursor.moveToFirst()
+            assertEquals(2, cursor.getInt(0))
+        }
+        db.close()
+    }
 }

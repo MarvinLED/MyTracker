@@ -13,5 +13,6 @@
     <string name="nav_measurement">Maße</string>
     <string name="nav_blood_pressure">Blutdruck</string>
     <string name="nav_sleep">Schlaf</string>
+    <string name="nav_achievements">Erfolge</string>
     <string name="nav_backup">Backup</string>
 </resources>

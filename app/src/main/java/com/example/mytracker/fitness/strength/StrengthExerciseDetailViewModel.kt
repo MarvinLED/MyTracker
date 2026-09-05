@@ -45,6 +45,8 @@ data class StrengthExerciseDetailUiState(
     val selectedEpochDay: Long = DateUtils.todayEpochDay(),
     val currentSession: SessionStats? = null,
     val previousSession: SessionStats? = null,
+    /** Set only on a day whose top set beat every earlier one — see [topSetRecord]. */
+    val topSetRecord: TopSetRecord? = null,
     /** This session and the ones before it, newest first — see [sessionRows]. */
     val sessionRows: List<SessionRow> = emptyList(),
     /** The steppers' weight: the whole load normally, the *added* weight while [isBodyweight]. */
@@ -206,6 +208,7 @@ class StrengthExerciseDetailViewModel @Inject constructor(
             selectedEpochDay = day,
             currentSession = current,
             previousSession = previous,
+            topSetRecord = topSetRecord(current, sets, day),
             sessionRows = sessionRows(selectedEpochDay = day, current = current, older = older),
             weightKg = stepper.weightKg,
             isBodyweight = stepper.isBodyweight,

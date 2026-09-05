@@ -201,6 +201,11 @@ fun FitnessGoal.toProgressRow(
 /**
  * A streak in words. One period is not a record of anything, so nothing is claimed until there are
  * at least two finished ones to look back over.
+ *
+ * The best run is only worth saying once it is longer than the one running now — otherwise it would
+ * repeat the clause before it. It is deliberately phrased as "beste Serie" rather than "Rekord":
+ * [FitnessGoalStreak.bestRun] reaches exactly as far back as the "von n" this sentence opens with,
+ * and calling a best-of-eight an all-time record would be a claim the number cannot back.
  */
 fun FitnessGoalStreak.summaryText(period: GoalPeriod): String? {
     if (!hasHistory || considered < 2) return null
@@ -212,6 +217,7 @@ fun FitnessGoalStreak.summaryText(period: GoalPeriod): String? {
     return buildString {
         append("$met von $considered $unit erreicht")
         if (currentRun >= 2) append(" · $currentRun in Folge")
+        if (bestRun >= 2 && bestRun > currentRun) append(" · beste Serie $bestRun")
     }
 }
 

@@ -3,6 +3,8 @@ package com.example.mytracker.core.database
 import androidx.room.Database
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
+import com.example.mytracker.achievements.GameDayPoints
+import com.example.mytracker.achievements.GameDayPointsDao
 import com.example.mytracker.bloodpressure.BloodPressureDao
 import com.example.mytracker.bloodpressure.BloodPressureEntry
 import com.example.mytracker.fitness.FitnessGoal
@@ -110,8 +112,9 @@ import com.example.mytracker.weight.BodyWeightEntry
         Task::class,
         TaskCompletion::class,
         NutrientGoalChange::class,
+        GameDayPoints::class,
     ],
-    version = 27,
+    version = 28,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -146,4 +149,5 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun taskDao(): TaskDao
     abstract fun taskCompletionDao(): TaskCompletionDao
     abstract fun nutrientGoalChangeDao(): NutrientGoalChangeDao
+    abstract fun gameDayPointsDao(): GameDayPointsDao
 }

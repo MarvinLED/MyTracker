@@ -39,9 +39,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.mytracker.core.util.DayStreak
 import com.example.mytracker.core.util.GoalPeriod
 import com.example.mytracker.core.util.formatCompact
 import com.example.mytracker.core.util.label
@@ -93,7 +96,7 @@ fun HabitScreen(
                 ) {
                     items(uiState.habits, key = { it.id }) { habit ->
                         val checked = habit.id in uiState.checkedInHabitIds
-                        val streak = uiState.streaksByHabitId[habit.id] ?: 0
+                        val streak = uiState.streaksByHabitId[habit.id] ?: DayStreak(current = 0, best = 0)
                         val value = uiState.valuesByHabitId[habit.id]
                         Card(modifier = Modifier.fillMaxWidth()) {
                             Row(
@@ -114,14 +117,36 @@ fun HabitScreen(
                                 ) {
                                     Text(habit.name)
                                     val subtitle = buildString {
-                                        if (streak > 0) append("🔥 $streak")
+                                        if (streak.current > 0) append("🔥 ${streak.current}")
+                                        // Only once it beats the running one: repeating the same
+                                        // number twice in a row would say nothing. A record of one
+                                        // is not a record either — that is just "einmal geschafft".
+                                        if (streak.best >= 2 && streak.best > streak.current) {
+                                            if (isNotEmpty()) append(" · ")
+                                            append("🏆 ${streak.best}")
+                                        }
                                         if (habit.type != HabitType.YES_NO) {
                                             if (isNotEmpty()) append(" · ")
                                             append(value?.let { it.formatCompact() } ?: "–")
                                         }
                                     }
                                     if (subtitle.isNotEmpty()) {
-                                        Text(subtitle, style = MaterialTheme.typography.bodySmall)
+                                        // The two emoji carry the meaning for the eye but say
+                                        // nothing to a screen reader, so it gets the words instead.
+                                        val spoken = listOfNotNull(
+                                            "Serie ${streak.current} Tage".takeIf { streak.current > 0 },
+                                            "Rekord ${streak.best} Tage"
+                                                .takeIf { streak.best >= 2 && streak.best > streak.current },
+                                        ).joinToString(", ")
+                                        Text(
+                                            subtitle,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            modifier = if (spoken.isEmpty()) {
+                                                Modifier
+                                            } else {
+                                                Modifier.semantics { contentDescription = spoken }
+                                            },
+                                        )
                                     }
                                 }
                                 if (habit.type != HabitType.YES_NO) {

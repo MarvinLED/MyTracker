@@ -1,8 +1,10 @@
 package com.example.mytracker.habit
 
 import com.example.mytracker.core.util.DateUtils
+import com.example.mytracker.core.util.DayStreak
 import com.example.mytracker.core.util.GoalPeriod
 import com.example.mytracker.core.util.IdGenerator
+import com.example.mytracker.core.util.dayStreak
 import java.time.Instant
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -85,24 +87,28 @@ class HabitRepository @Inject constructor(
         }
     }
 
-    suspend fun getCurrentStreak(habit: Habit, today: Long = DateUtils.todayEpochDay()): Int {
-        val byDay = habitCheckInDao.getAllForHabit(habit.id).associateBy { it.epochDay }
+    /**
+     * The habit's current run and its longest ever — see [dayStreak] for how a run is walked. Which
+     * days count at all is decided here, because that depends on the habit's type and on its daily
+     * goal, neither of which the fold needs to know about.
+     */
+    suspend fun getStreak(habit: Habit, today: Long = DateUtils.todayEpochDay()): DayStreak {
         val dailyGoal = habitGoalDao.getForHabitAndPeriod(habit.id, GoalPeriod.DAILY)
-        fun qualifies(day: Long): Boolean {
-            val c = byDay[day] ?: return false
-            return when (habit.type) {
-                HabitType.YES_NO -> true
-                HabitType.COUNT, HabitType.DURATION ->
-                    if (dailyGoal == null) c.value != null else (c.value ?: 0.0) >= dailyGoal.targetValue
+        val qualifyingDays = habitCheckInDao.getAllForHabit(habit.id)
+            .filter { checkIn ->
+                when (habit.type) {
+                    HabitType.YES_NO -> true
+                    HabitType.COUNT, HabitType.DURATION ->
+                        if (dailyGoal == null) {
+                            checkIn.value != null
+                        } else {
+                            (checkIn.value ?: 0.0) >= dailyGoal.targetValue
+                        }
+                }
             }
-        }
-        var streak = 0
-        var day = today
-        while (qualifies(day)) {
-            streak++
-            day--
-        }
-        return streak
+            .map { it.epochDay }
+            .toSet()
+        return dayStreak(qualifyingDays, today)
     }
 
     suspend fun getPeriodProgress(habit: Habit, goal: HabitGoal, today: Long = DateUtils.todayEpochDay()): Double {

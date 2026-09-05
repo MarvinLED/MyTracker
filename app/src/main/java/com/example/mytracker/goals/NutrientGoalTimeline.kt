@@ -32,12 +32,23 @@ fun nutrientGoalTimeline(
     currentGoal: NutrientGoal?,
 ): List<MetricPoint> {
     if (range.endInclusive < range.startInclusive) return emptyList()
-    val oldest = changes.firstOrNull()?.toGoal()
 
     return (range.startInclusive..range.endInclusive).mapNotNull { day ->
-        val goal = changes.lastOrNull { it.effectiveFromEpochDay <= day }?.toGoal()
-            ?: oldest
-            ?: currentGoal
-        goal?.lineTarget?.let { MetricPoint(day, it) }
+        nutrientGoalOn(day, changes, currentGoal)?.lineTarget?.let { MetricPoint(day, it) }
     }
 }
+
+/**
+ * What this nutrient's goal was on one day — the rule [nutrientGoalTimeline] draws its line from,
+ * on its own so that anything judging a past day judges it by the same three cases in the same
+ * order. [changes] must be this nutrient's rows only, oldest first.
+ *
+ * Null means there was nothing to aim at that day, which is not the same as a goal of zero.
+ */
+fun nutrientGoalOn(
+    day: Long,
+    changes: List<NutrientGoalChange>,
+    currentGoal: NutrientGoal?,
+): NutrientGoal? = changes.lastOrNull { it.effectiveFromEpochDay <= day }?.toGoal()
+    ?: changes.firstOrNull()?.toGoal()
+    ?: currentGoal

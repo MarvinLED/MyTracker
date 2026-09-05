@@ -943,3 +943,20 @@ object MIGRATION_26_27 : Migration(26, 27) {
         )
     }
 }
+
+object MIGRATION_27_28 : Migration(27, 28) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        // The points ledger behind the Erfolge-Figur. A day is settled once and then never touched
+        // again, which is why this is a table and not a computation: goal history exists only for
+        // Nährwerte and Fitness, so re-judging a past day could silently move a record that has
+        // already been shown.
+        //
+        // Keyed on (Tag, Attribut) — a booked day writes one row per attribute, zero included, so
+        // "which days are done" is answered by the days present here.
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `game_day_points` (`epochDay` INTEGER NOT NULL, " +
+                "`attribute` TEXT NOT NULL, `points` REAL NOT NULL, `bookedAt` INTEGER NOT NULL, " +
+                "PRIMARY KEY(`epochDay`, `attribute`))",
+        )
+    }
+}

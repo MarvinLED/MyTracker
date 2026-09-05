@@ -101,11 +101,24 @@ fun DayGoalsScreen(
         ) {
             item(key = "summary") {
                 Card(modifier = Modifier.fillMaxWidth()) {
-                    Text(
-                        "${uiState.metCount} von ${uiState.total} Zielen erreicht",
-                        style = MaterialTheme.typography.titleMedium,
+                    Column(
                         modifier = Modifier.padding(16.dp),
-                    )
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        Text(
+                            "${uiState.metCount} von ${uiState.total} Zielen erreicht",
+                            style = MaterialTheme.typography.titleMedium,
+                        )
+                        // What the reached goals turned into. Only once something has actually been
+                        // settled — a line promising points nobody has earned yet is noise.
+                        uiState.figureSummary?.let { summary ->
+                            Text(
+                                "$summary — unter Erfolge",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
                 }
             }
             uiState.sections.forEach { section ->

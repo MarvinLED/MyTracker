@@ -41,7 +41,12 @@ data class DayGoalRow(
 
 data class DayGoalSection(val title: String, val rows: List<DayGoalRow>)
 
-data class DayGoalsUiState(val sections: List<DayGoalSection> = emptyList()) {
+data class DayGoalsUiState(
+    val sections: List<DayGoalSection> = emptyList(),
+    /** "Gestern +34 Punkte · Figur Stufe 18" — the trailer for the Erfolge screen, null until a day
+     * has been settled there. */
+    val figureSummary: String? = null,
+) {
     val total: Int get() = sections.sumOf { it.rows.size }
     val metCount: Int get() = sections.sumOf { section -> section.rows.count { it.isMet } }
     val isEmpty: Boolean get() = total == 0

@@ -3,6 +3,7 @@ package com.example.mytracker.habit
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.mytracker.core.util.DateUtils
+import com.example.mytracker.core.util.DayStreak
 import com.example.mytracker.core.util.GoalPeriod
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -16,7 +17,7 @@ data class HabitUiState(
     val habits: List<Habit> = emptyList(),
     val checkedInHabitIds: Set<String> = emptySet(),
     val valuesByHabitId: Map<String, Double> = emptyMap(),
-    val streaksByHabitId: Map<String, Int> = emptyMap(),
+    val streaksByHabitId: Map<String, DayStreak> = emptyMap(),
     val goalsByHabitId: Map<String, List<HabitGoal>> = emptyMap(),
     val progressByGoalId: Map<String, Double> = emptyMap(),
 )
@@ -33,7 +34,7 @@ class HabitViewModel @Inject constructor(
         habitRepository.observeGoalsByHabitId(),
     ) { habits, checkIns, goalsByHabitId ->
         val habitsById = habits.associateBy { it.id }
-        val streaksByHabitId = habits.associate { it.id to habitRepository.getCurrentStreak(it, today) }
+        val streaksByHabitId = habits.associate { it.id to habitRepository.getStreak(it, today) }
         val progressByGoalId = goalsByHabitId.values.flatten().associate { goal ->
             val habit = habitsById.getValue(goal.habitId)
             goal.id to habitRepository.getPeriodProgress(habit, goal, today)
